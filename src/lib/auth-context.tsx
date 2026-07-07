@@ -1,0 +1,204 @@
+"use client";
+
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+
+import { ChurchMember, AuthSession, MemberStatus } from '@/lib/types';
+
+export type { ChurchMember, AuthSession, MemberStatus };
+
+interface AuthContextType {
+  session: AuthSession | null;
+  members: ChurchMember[];
+  isLoading: boolean;
+  register: (data: Partial<ChurchMember> & { credential?: string }) => Promise<{ success: boolean; error?: string }>;
+  login: (credential: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  getMember: (id: string) => ChurchMember | undefined;
+  getSessionMember: () => ChurchMember | undefined;
+  getPendingRequests: (campusId?: string) => ChurchMember[];
+  approveMember: (id: string, groups: string[]) => Promise<void>;
+  rejectMember: (id: string) => Promise<void>;
+  getApprovedMembers: () => ChurchMember[];
+  getEffectiveGroups: (member: ChurchMember) => string[];
+  refreshMembers: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [members, setMembers] = useState<ChurchMember[]>([]);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [sessionMember, setSessionMember] = useState<ChurchMember | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchSession = async () => {
+    try {
+      // Only fetch session — no longer fetching /api/admin/users here.
+      // Users list is managed by AdminDataContext (scoped to /admin routes).
+      const sessionRes = await fetch('/api/auth/me').catch(() => null);
+
+      if (sessionRes?.ok) {
+        const data = await sessionRes.json();
+        if (data.user) {
+          const formattedMember = {
+            ...data.user,
+            id: data.user._id
+          };
+          setSessionMember(formattedMember);
+          setSession({
+            memberId: data.user._id,
+            email: data.user.email,
+            name: data.user.name || `${data.user.firstName} ${data.user.lastName}`,
+            role: data.user.role || 'member',
+          });
+        } else {
+          setSession(null);
+          setSessionMember(null);
+        }
+      } else {
+        setSession(null);
+        setSessionMember(null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch auth state', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Separate members fetch — only called when explicitly needed (e.g., admin approval flow)
+  const refreshMembers = useCallback(async () => {
+    try {
+      const membersRes = await fetch('/api/admin/users').catch(() => null);
+      if (membersRes?.ok) {
+        const users = await membersRes.json();
+        setMembers(users.map((u: any) => ({ ...u, id: u._id })));
+      }
+    } catch (error) {
+      console.error('Failed to fetch members', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSession();
+    // Members are only loaded lazily when needed (admin routes)
+  }, []);
+
+  const register = useCallback(async (data: Partial<ChurchMember> & { credential?: string }) => {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (!res.ok) return { success: false, error: result.error || 'Failed to register' };
+
+      await fetchSession();
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: 'Network error during registration' };
+    }
+  }, []);
+
+  const login = useCallback(async (credential: string) => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      });
+      const result = await res.json();
+      if (!res.ok) return { success: false, error: result.error || 'Login failed' };
+
+      await fetchSession();
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: 'Network error during login' };
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setSession(null);
+    setSessionMember(null);
+  }, []);
+
+  const getMember = useCallback((id: string) => members.find(m => m.id === id || m._id === id), [members]);
+
+  const getApprovedMembers = useCallback(() => {
+    return members.filter(m => m.status === 'approved');
+  }, [members]);
+
+  const getEffectiveGroups = useCallback((member: ChurchMember): string[] => {
+    const ownGroups = member.groups || [];
+    if (!member.familyMemberId) return ownGroups;
+    const familyMember = members.find(m => m.id === member.familyMemberId);
+    if (!familyMember) return ownGroups;
+    const familyGroups = familyMember.groups || [];
+    return Array.from(new Set([...ownGroups, ...familyGroups]));
+  }, [members]);
+
+  const getSessionMember = useCallback(() => {
+    if (!session) return undefined;
+    return sessionMember || members.find(m => m.id === session.memberId);
+  }, [session, sessionMember, members]);
+
+  const getPendingRequests = useCallback((campusId?: string) => {
+    return members.filter(m =>
+      m.status === 'pending' && (!campusId || m.campusId === campusId)
+    );
+  }, [members]);
+
+  const approveMember = useCallback(async (id: string, groups: string[]) => {
+    try {
+      const qrCode = crypto.randomUUID();
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'approved', groups, qrCode }),
+      });
+      if (res.ok) {
+        const updatedUser = await res.json();
+        setMembers(prev => prev.map(m => m.id === id ? { ...m, ...updatedUser, id: updatedUser._id } : m));
+      }
+    } catch (e) {
+      console.error('Failed to approve member', e);
+    }
+  }, []);
+
+  const rejectMember = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'rejected' }),
+      });
+      if (res.ok) {
+        const updatedUser = await res.json();
+        setMembers(prev => prev.map(m => m.id === id ? { ...m, ...updatedUser, id: updatedUser._id } : m));
+      }
+    } catch (e) {
+      console.error('Failed to reject member', e);
+    }
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{
+      session, members, isLoading,
+      register, login, logout,
+      getMember, getSessionMember,
+      getPendingRequests, approveMember, rejectMember,
+      getApprovedMembers, getEffectiveGroups,
+      refreshMembers,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+}

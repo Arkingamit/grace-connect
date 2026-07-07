@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "165790680689",
+    "project_id": "grace-connect-f815b",
+    "storage_bucket": "grace-connect-f815b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:165790680689:android:8df7326b7039797a1abdd0",
+        "android_client_info": {
+          "package_name": "com.graceconnect.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQZIU3Pi0xV-LhsKSkdKG4aaRJF0SbHog"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

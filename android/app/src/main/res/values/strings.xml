@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Grace Connect</string>
+    <string name="title_activity_main">Grace Connect</string>
+    <string name="package_name">com.graceconnect.app</string>
+    <string name="custom_url_scheme">com.graceconnect.app</string>
+    <string name="server_client_id">1041926673516-hft1e549snh2040b0h6g2t7s06c83697.apps.googleusercontent.com</string>
+</resources>

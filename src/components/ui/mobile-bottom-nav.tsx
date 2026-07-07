@@ -1,0 +1,57 @@
+"use client";
+
+import React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Home, PlayCircle, CalendarHeart, FileText } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+
+type NavItem = {
+    label: string;
+    href: string;
+    icon: React.ComponentType<{ className?: string; strokeWidth?: number | string }>;
+    exact?: boolean;
+};
+
+export function MobileBottomNav() {
+    const pathname = usePathname();
+    const { session } = useAuth();
+
+    const navItems: NavItem[] = [
+        { label: "Home", href: "/", icon: Home, exact: true },
+        { label: "Sermons", href: "/sermons", icon: PlayCircle },
+        { label: "Notes", href: "/broadcasts", icon: FileText },
+        { label: "Events", href: "/events", icon: CalendarHeart },
+    ];
+
+    return (
+        <nav className="fixed inset-x-0 bottom-0 z-50 md:hidden pb-[env(safe-area-inset-bottom)]">
+            <div 
+                className="mx-auto max-w-screen-sm border-t border-[#a59d94]/60 px-2 pt-2 pb-2 shadow-[0_-4px_16px_-2px_rgba(58,45,39,0.12),0_1px_0px_rgba(255,255,255,0.6)_inset] bg-[#FAF7F2]/80 backdrop-blur-md"
+            >
+                <div className="grid grid-cols-4 gap-1">
+                    {navItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = item.exact
+                            ? pathname === item.href
+                            : pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={`flex flex-col items-center justify-center gap-1 rounded-full px-2 py-2 text-[11px] font-medium transition-colors ${isActive
+                                    ? "bg-[#FBE8E8] text-[#8B2323]"
+                                    : "text-[#7A6150] hover:bg-[#E5D5C5] hover:text-[#3A2D27]"
+                                    }`}
+                            >
+                                <Icon strokeWidth={isActive ? 2 : 1.5} className={`h-6 w-6 mb-0.5 ${isActive ? "text-[#8B2323]" : "text-[#7A6150]"}`} />
+                                <span className="leading-none">{item.label}</span>
+                            </Link>
+                        );
+                    })}
+                </div>
+            </div>
+        </nav>
+    );
+}

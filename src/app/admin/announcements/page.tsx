@@ -1,0 +1,887 @@
+"use client";
+
+import React, { useState } from 'react';
+import { useAdminData, canPublishAllCampuses, getGroupsForCampus, getAllowedCampuses, getAllowedGroups, hasGlobalScope, type Announcement } from '@/lib/admin-data-context';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { SchedulePreviewExport } from '@/components/admin/schedule-preview-export';
+import {
+  Megaphone,
+  Pin,
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  Calendar,
+  Heart,
+  Globe,
+  Building2,
+  Users,
+  Repeat,
+  Clock,
+  Download,
+  FileText
+} from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+
+const ANNOUNCEMENT_CATEGORIES = ['Worship', 'Youth', 'Outreach', 'Membership', 'Urgent'];
+
+const categoryColors: Record<string, string> = {
+  Worship: 'bg-primary/10 text-primary',
+  Membership: 'bg-blue-500/10 text-blue-600',
+  Youth: 'bg-emerald-500/10 text-emerald-600',
+  Outreach: 'bg-amber-500/10 text-amber-600',
+  Urgent: 'bg-rose-500/10 text-rose-600',
+};
+
+const emptyForm = {
+  title: '',
+  content: '',
+  isPinned: false,
+  reminderDate: '',
+  reminderTime: '',
+  endDate: '',
+  endTime: '',
+  image: null as string | null,
+  reactions: 0,
+  targetCampuses: ['all'] as string[],
+  targetGroups: ['all'] as string[],
+  excludeCampuses: [] as string[],
+  excludeGroups: [] as string[],
+  isRecurring: false,
+  recurrencePattern: 'weekly' as 'weekly' | 'biweekly' | 'monthly' | 'custom' | 'custom_monthly',
+  recurrenceDay: 'Sunday',
+  recurrenceWeekOfMonth: '1st',
+  recurrenceEndDate: '',
+  recurrenceNote: '',
+  customReminders: [] as { daysBefore: number, hoursBefore: number, minutesBefore: number }[],
+};
+
+export default function AnnouncementsPage() {
+  const { announcements, campuses, groups, groupScopes, users, addAnnouncement, updateAnnouncement, deleteAnnouncement, currentUser } = useAdminData();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [search, setSearch] = useState('');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [showBroadcastList, setShowBroadcastList] = useState(false);
+
+  const isCampusLeader = currentUser.role === 'campus_leader';
+  const isGroupLeader = currentUser.role === 'group_leader';
+
+  const filtered = announcements.filter(a => {
+    const matchesSearch = a.title.toLowerCase().includes(search.toLowerCase()) ||
+      a.content.toLowerCase().includes(search.toLowerCase());
+      
+    if (isGroupLeader) {
+      const aGroups = a.targetGroups ?? ['all'];
+      if (!aGroups.includes('all') && !aGroups.some(g => currentUser.groups.includes(g))) {
+        return false;
+      }
+    }
+    return matchesSearch;
+  });
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm({
+      ...emptyForm,
+      // Campus leaders & group leaders: lock to their campus
+      targetCampuses: (isCampusLeader || isGroupLeader) ? [currentUser.campusId] : ['all'],
+      targetGroups: isGroupLeader ? currentUser.groups : ['all'],
+    });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (announcement: Announcement) => {
+    setEditingId(announcement.id);
+    setForm({
+      title: announcement.title,
+      content: announcement.content,
+      isPinned: announcement.isPinned,
+      reminderDate: announcement.reminderDate || '',
+      reminderTime: announcement.reminderTime || '',
+      image: announcement.image,
+      reactions: announcement.reactions,
+      targetCampuses: announcement.targetCampuses || ['all'],
+      targetGroups: announcement.targetGroups || ['all'],
+      excludeCampuses: announcement.excludeCampuses || [],
+      excludeGroups: announcement.excludeGroups || [],
+      isRecurring: announcement.isRecurring || false,
+      recurrencePattern: announcement.recurrencePattern || 'weekly',
+      recurrenceDay: announcement.recurrenceDay || 'Sunday',
+      recurrenceWeekOfMonth: announcement.recurrenceWeekOfMonth || '1st',
+      recurrenceEndDate: announcement.recurrenceEndDate || '',
+      recurrenceNote: announcement.recurrenceNote || '',
+      customReminders: announcement.customReminders || [],
+      endDate: announcement.endDate || '',
+      endTime: announcement.endTime || '',
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = () => {
+    if (!form.title || !form.content) return;
+    if (editingId !== null) {
+      updateAnnouncement(editingId, form);
+    } else {
+      addAnnouncement(form);
+    }
+    setDialogOpen(false);
+    setForm(emptyForm);
+    setEditingId(null);
+  };
+
+  const handleDelete = (id: string) => {
+    deleteAnnouncement(id);
+    setDeleteConfirmId(null);
+  };
+
+  const handleExportPDF = (broadcastUsers: any[]) => {
+    const doc = new jsPDF();
+    doc.text(`Broadcast Member List`, 14, 15);
+    doc.text(`Target: ${form.title || 'Untitled Announcement'}`, 14, 22);
+
+    const tableData = broadcastUsers.map((u) => [
+      u.name,
+      u.email,
+      u.role,
+      campuses.find((c) => c.id === u.campusId)?.name || 'Unknown',
+      u.groups.join(', ') || 'None',
+    ]);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [['Name', 'Email', 'Role', 'Campus', 'Groups']],
+      body: tableData,
+    });
+
+    doc.save(`broadcast-members-${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast.success('PDF exported successfully');
+  };
+
+  const handleExportExcel = (broadcastUsers: any[]) => {
+    const worksheet = XLSX.utils.json_to_sheet(
+      broadcastUsers.map((u) => ({
+        Name: u.name,
+        Email: u.email,
+        Role: u.role,
+        Campus: campuses.find((c) => c.id === u.campusId)?.name || 'Unknown',
+        Groups: u.groups.join(', ') || 'None',
+      }))
+    );
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Members');
+    XLSX.writeFile(workbook, `broadcast-members-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success('Excel exported successfully');
+  };
+
+  // ── Audience helpers ──
+  // ── Audience helpers ──
+  const campusMode = form.targetCampuses.includes('all') ? 'all' : 'specific';
+  const groupMode = form.targetGroups.includes('all') || (isGroupLeader && form.targetGroups.length === currentUser.groups.length && currentUser.groups.length > 0) ? 'all' : 'specific';
+
+  const setCampusMode = (mode: 'all' | 'specific') => {
+    if (isCampusLeader || isGroupLeader) return; // locked
+    setForm(f => ({
+      ...f,
+      targetCampuses: mode === 'specific' ? [] : ['all'],
+    }));
+  };
+
+  const toggleCampus = (campusId: string) => {
+    if (isCampusLeader || isGroupLeader) return;
+    setForm(f => {
+      const has = f.targetCampuses.includes(campusId);
+      const next = has ? f.targetCampuses.filter(c => c !== campusId) : [...f.targetCampuses.filter(c => c !== 'all'), campusId];
+      return { ...f, targetCampuses: next.length === 0 ? ['all'] : next };
+    });
+  };
+
+  const toggleExcludeCampus = (campusId: string) => {
+    if (isCampusLeader || isGroupLeader) return;
+    setForm(f => {
+      const has = f.excludeCampuses.includes(campusId);
+      const next = has ? f.excludeCampuses.filter(c => c !== campusId) : [...f.excludeCampuses, campusId];
+      return { ...f, excludeCampuses: next };
+    });
+  };
+
+  const setGroupMode = (mode: 'all' | 'specific') => {
+    setForm(f => {
+      let nextTarget = ['all'];
+      if (isGroupLeader) {
+        nextTarget = mode === 'specific' ? [] : currentUser.groups;
+      } else if (mode === 'specific') {
+        nextTarget = [];
+      }
+      return { ...f, targetGroups: nextTarget };
+    });
+  };
+
+  const toggleGroup = (group: string) => {
+    setForm(f => {
+      const has = f.targetGroups.includes(group);
+      const next = has ? f.targetGroups.filter(g => g !== group) : [...f.targetGroups.filter(g => g !== 'all'), group];
+      return { ...f, targetGroups: next.length === 0 ? (isGroupLeader ? currentUser.groups : ['all']) : next };
+    });
+  };
+
+  const toggleExcludeGroup = (group: string) => {
+    setForm(f => {
+      const has = f.excludeGroups.includes(group);
+      const next = has ? f.excludeGroups.filter(g => g !== group) : [...f.excludeGroups, group];
+      return { ...f, excludeGroups: next };
+    });
+  };
+
+  const getAudienceLabel = (a: Announcement) => {
+    const parts: string[] = [];
+    if (a.targetCampuses?.includes('all')) {
+      parts.push('All Campuses');
+    } else if (a.targetCampuses?.length) {
+      parts.push(a.targetCampuses.map(id => campuses.find(c => c.id === id)?.name || id).join(', '));
+    }
+    if (a.targetGroups?.includes('all')) {
+      parts.push('All Groups');
+    } else if (a.targetGroups?.length) {
+      parts.push(a.targetGroups.join(', '));
+    }
+    return parts.join(' · ');
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Announcements</h1>
+          <p className="text-muted-foreground mt-1">Publish and manage church announcements</p>
+        </div>
+        <Button onClick={openCreate} className="gap-2 shrink-0">
+          <Plus className="w-4 h-4" />
+          New Announcement
+        </Button>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Search announcements..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Announcements List */}
+      <div className="space-y-4">
+        {filtered.map((announcement) => (
+          <Card key={announcement.id} className="border-border/50 hover:shadow-md transition-shadow group">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-2 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {announcement.isPinned && (
+                      <Pin className="w-3.5 h-3.5 text-accent fill-current shrink-0" />
+                    )}
+
+                    {announcement.isRecurring && (
+                      <Badge variant="outline" className="text-[9px] gap-1 border-violet-500/30 text-violet-600">
+                        <Repeat className="w-2.5 h-2.5" />
+                        {announcement.recurrencePattern === 'weekly' ? `Every ${announcement.recurrenceDay || 'week'}`
+                          : announcement.recurrencePattern === 'biweekly' ? `Bi-weekly ${announcement.recurrenceDay || ''}`
+                          : announcement.recurrencePattern === 'monthly' ? `Monthly`
+                          : announcement.recurrenceNote || 'Recurring'}
+                      </Badge>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-semibold leading-tight">{announcement.title}</h3>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                    {announcement.reminderDate && announcement.reminderTime && (
+                      <div className="flex items-center gap-1 text-blue-500">
+                        <Calendar className="w-3 h-3" />
+                        <span>Scheduled: {announcement.reminderDate} at {announcement.reminderTime}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1">
+                      <Heart className="w-3 h-3" />
+                      <span>{announcement.reactions}</span>
+                    </div>
+                    {announcement.isRecurring && announcement.nextOccurrence && (
+                      <div className="flex items-center gap-1 text-violet-500">
+                        <Clock className="w-3 h-3" />
+                        <span>Next: {new Date(announcement.nextOccurrence).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                      </div>
+                    )}
+                    {announcement.isRecurring && announcement.lastTriggered && (
+                      <div className="flex items-center gap-1 text-emerald-500">
+                        <span>Last sent: {new Date(announcement.lastTriggered).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                  </div>
+                  {/* Audience Tags */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {announcement.targetCampuses?.includes('all') ? (
+                      <Badge variant="outline" className="text-[9px] gap-1 border-amber-500/30 text-amber-600">
+                        <Globe className="w-2.5 h-2.5" /> All Campuses
+                      </Badge>
+                    ) : (
+                      announcement.targetCampuses?.map(id => (
+                        <Badge key={id} variant="outline" className="text-[9px] gap-1 border-blue-500/30 text-blue-600">
+                          <Building2 className="w-2.5 h-2.5" /> {campuses.find(c => c.id === id)?.name || id}
+                        </Badge>
+                      ))
+                    )}
+                    {announcement.targetGroups?.includes('all') ? (
+                      <Badge variant="outline" className="text-[9px] gap-1 border-emerald-500/30 text-emerald-600">
+                        <Users className="w-2.5 h-2.5" /> All Groups
+                      </Badge>
+                    ) : (
+                      announcement.targetGroups?.map(g => (
+                        <Badge key={g} variant="outline" className="text-[9px] gap-1 border-purple-500/30 text-purple-600">
+                          <Users className="w-2.5 h-2.5" /> {g}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(announcement)}>
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost" size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => setDeleteConfirmId(announcement.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground leading-relaxed">{announcement.content}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="text-center py-16">
+          <Megaphone className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+          <p className="text-muted-foreground">No announcements found</p>
+          <Button onClick={openCreate} variant="outline" className="mt-4 gap-2">
+            <Plus className="w-4 h-4" /> Create your first announcement
+          </Button>
+        </div>
+      )}
+
+      {/* ── Create/Edit Dialog ── */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingId ? 'Edit Announcement' : 'New Announcement'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="a-title">Title *</Label>
+              <Input id="a-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Announcement title" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="a-content">Content *</Label>
+              <Textarea id="a-content" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder="Write the announcement content..." rows={3} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="a-reminder-date">Schedule Date (Optional)</Label>
+                <Input id="a-reminder-date" type="date" value={form.reminderDate} onChange={(e) => setForm({ ...form, reminderDate: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="a-reminder-time">Schedule Time</Label>
+                <Input id="a-reminder-time" type="time" value={form.reminderTime} onChange={(e) => setForm({ ...form, reminderTime: e.target.value })} disabled={!form.reminderDate} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="a-end-date">Expiration Date (Optional)</Label>
+                <Input id="a-end-date" type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="a-end-time">Expiration Time</Label>
+                <Input id="a-end-time" type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} disabled={!form.endDate} />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <Switch id="a-pinned" checked={form.isPinned} onCheckedChange={(checked) => setForm({ ...form, isPinned: checked })} />
+              <Label htmlFor="a-pinned">Pin announcement</Label>
+            </div>
+
+            {/* ── Recurring Section ── */}
+            <div className="border-t border-border/50 pt-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <Switch
+                  id="a-recurring"
+                  checked={form.isRecurring}
+                  onCheckedChange={(checked) => setForm({ ...form, isRecurring: checked })}
+                />
+                <Label htmlFor="a-recurring" className="flex items-center gap-2">
+                  <Repeat className="w-4 h-4 text-violet-500" />
+                  Recurring Announcement
+                </Label>
+              </div>
+
+              {form.isRecurring && (
+                <div className="pl-2 space-y-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="text-xs text-muted-foreground bg-violet-500/10 p-2 rounded-md flex items-center gap-2">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Recurring sequence is based on the Creation Date: <span className="font-semibold text-foreground">{new Date().toISOString().split('T')[0]}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Pattern</Label>
+                      <Select
+                        value={form.recurrencePattern}
+                        onValueChange={(v) => setForm({ ...form, recurrencePattern: v as any })}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Every Week</SelectItem>
+                          <SelectItem value="biweekly">Every 2 Weeks</SelectItem>
+                          <SelectItem value="monthly">Every Month</SelectItem>
+                          <SelectItem value="custom_monthly">Custom Monthly (e.g. 2nd Thursday)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {form.recurrencePattern === 'custom_monthly' && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Week</Label>
+                          <Select value={form.recurrenceWeekOfMonth} onValueChange={(v) => setForm({ ...form, recurrenceWeekOfMonth: v as any })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1st">First</SelectItem>
+                              <SelectItem value="2nd">Second</SelectItem>
+                              <SelectItem value="3rd">Third</SelectItem>
+                              <SelectItem value="4th">Fourth</SelectItem>
+                              <SelectItem value="last">Last</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Day</Label>
+                          <Select value={form.recurrenceDay} onValueChange={(v) => setForm({ ...form, recurrenceDay: v })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(d => (
+                                <SelectItem key={d} value={d}>{d}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+
+                    {(form.recurrencePattern === 'weekly' || form.recurrencePattern === 'biweekly') && (
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Day</Label>
+                        <Select
+                          value={form.recurrenceDay}
+                          onValueChange={(v) => setForm({ ...form, recurrenceDay: v })}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(d => (
+                              <SelectItem key={d} value={d}>{d}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                  {form.recurrencePattern === 'custom' && (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Custom Schedule Note</Label>
+                      <Input
+                        value={form.recurrenceNote}
+                        onChange={(e) => setForm({ ...form, recurrenceNote: e.target.value })}
+                        placeholder="e.g. Every 1st and 3rd Sunday, Last Friday of month"
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Recurring Until (optional)</Label>
+                    <Input
+                      type="date"
+                      value={form.recurrenceEndDate}
+                      onChange={(e) => setForm({ ...form, recurrenceEndDate: e.target.value })}
+                    />
+                    <p className="text-[10px] text-muted-foreground">Leave empty for indefinite recurring</p>
+                  </div>
+
+                  <div className="pt-2">
+                    <SchedulePreviewExport
+                      title={form.title || 'Untitled Announcement'}
+                      startDate={new Date().toISOString().split('T')[0]} // Announcements start when created/published
+                      endDate={form.recurrenceEndDate}
+                      pattern={form.recurrencePattern}
+                      dayOfWeek={form.recurrenceDay}
+                      weekOfMonth={form.recurrenceWeekOfMonth}
+                    />
+                  </div>
+
+                  {/* ── Custom Reminders ── */}
+                  <div className="space-y-3 pt-4 border-t border-border/50">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="flex items-center gap-2">
+                          <Megaphone className="w-4 h-4 text-primary" />
+                          Push Notification Reminders
+                        </Label>
+                        <p className="text-[10px] text-muted-foreground">Automatically push notifications before the scheduled recurring time.</p>
+                      </div>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 text-xs gap-1"
+                        onClick={() => {
+                          setForm(f => ({
+                            ...f, 
+                            customReminders: [...(f.customReminders || []), { daysBefore: 0, hoursBefore: 1, minutesBefore: 0 }]
+                          }));
+                        }}
+                      >
+                        <Plus className="w-3 h-3" /> Add Reminder
+                      </Button>
+                    </div>
+                    
+                    {(form.customReminders || []).map((rem, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-muted/30 p-2 rounded-lg border border-border/50 animate-in fade-in slide-in-from-top-2">
+                        <div className="grid grid-cols-3 gap-2 flex-1">
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground">Days Before</Label>
+                            <Input type="number" min="0" value={rem.daysBefore} onChange={e => {
+                              const newRem = [...form.customReminders];
+                              newRem[i].daysBefore = parseInt(e.target.value) || 0;
+                              setForm({ ...form, customReminders: newRem });
+                            }} className="h-7 text-xs" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground">Hours</Label>
+                            <Input type="number" min="0" max="23" value={rem.hoursBefore} onChange={e => {
+                              const newRem = [...form.customReminders];
+                              newRem[i].hoursBefore = parseInt(e.target.value) || 0;
+                              setForm({ ...form, customReminders: newRem });
+                            }} className="h-7 text-xs" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground">Minutes</Label>
+                            <Input type="number" min="0" max="59" value={rem.minutesBefore} onChange={e => {
+                              const newRem = [...form.customReminders];
+                              newRem[i].minutesBefore = parseInt(e.target.value) || 0;
+                              setForm({ ...form, customReminders: newRem });
+                            }} className="h-7 text-xs" />
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0 mt-4"
+                          onClick={() => {
+                            const newRem = [...form.customReminders];
+                            newRem.splice(i, 1);
+                            setForm({ ...form, customReminders: newRem });
+                          }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Audience Targeting ── */}
+            <div className="border-t border-border/50 pt-4 space-y-4">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                <Megaphone className="w-4 h-4 text-primary" />
+                Audience Targeting
+              </h4>
+
+              {/* Campus Targeting */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Broadcast to Campuses</Label>
+                {isCampusLeader && (
+                  <p className="text-[10px] text-amber-500">
+                    As a Campus Leader, you can only broadcast to your campus: {campuses.find(c => c.id === currentUser.campusId)?.name}
+                  </p>
+                )}
+                {isGroupLeader && (
+                  <p className="text-[10px] text-emerald-500">
+                    As a Group Leader, you can only broadcast to your campus: {campuses.find(c => c.id === currentUser.campusId)?.name}
+                  </p>
+                )}
+                {hasGlobalScope(currentUser.role) && (
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={campusMode === 'all'}
+                        onCheckedChange={() => setCampusMode('all')}
+                        disabled={isCampusLeader || isGroupLeader}
+                      />
+                      All Campuses
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={campusMode === 'specific'}
+                        onCheckedChange={() => setCampusMode('specific')}
+                        disabled={isCampusLeader || isGroupLeader}
+                      />
+                      Specific
+                    </label>
+                  </div>
+                )}
+                {(campusMode !== 'all' || !hasGlobalScope(currentUser.role)) && (
+                  <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
+                    {getAllowedCampuses(currentUser.role, currentUser.campusId, campuses).map(campus => (
+                      <label key={campus.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={form.targetCampuses.includes(campus.id)}
+                          onCheckedChange={() => toggleCampus(campus.id)}
+                        />
+                        {campus.name}
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-2">
+                  <Label className="text-xs text-muted-foreground">Exclude Campuses (Optional)</Label>
+                  <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
+                    {campuses.map(campus => (
+                      <label key={`ex-${campus.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={form.excludeCampuses.includes(campus.id)}
+                          onCheckedChange={() => toggleExcludeCampus(campus.id)}
+                          disabled={(isCampusLeader || isGroupLeader) && campus.id !== currentUser.campusId}
+                        />
+                        {campus.name}
+                        {(isCampusLeader || isGroupLeader) && campus.id !== currentUser.campusId && (
+                          <span className="text-[10px] text-muted-foreground">(restricted)</span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Group Targeting */}
+              <div className="space-y-2 pt-2">
+                <Label className="text-xs text-muted-foreground">Visible to Groups</Label>
+                {isGroupLeader && (
+                  <p className="text-[10px] text-emerald-500">
+                    As a Group Leader, you can only broadcast to your assigned groups.
+                  </p>
+                )}
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox checked={groupMode === 'all'} onCheckedChange={() => setGroupMode('all')} />
+                    All Groups
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox checked={groupMode === 'specific'} onCheckedChange={() => setGroupMode('specific')} />
+                    Specific
+                  </label>
+                </div>
+                {groupMode !== 'all' && (
+                  <div className="grid grid-cols-2 gap-1.5 pl-2 mt-2">
+                    {(() => {
+                      const selectedCampusIds = campusMode === 'all' ? ['global'] : form.targetCampuses;
+                      const visibleGroups = campusMode === 'all'
+                        ? groups
+                        : [...new Set(selectedCampusIds.flatMap(cid => getGroupsForCampus(groupScopes, cid)))];
+                      return getAllowedGroups(currentUser.role, currentUser.groups, groupScopes, currentUser.campusId)
+                        .filter(g => visibleGroups.includes(g))
+                        .map(group => (
+                        <label key={group} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <Checkbox
+                            checked={form.targetGroups.includes(group)}
+                            onCheckedChange={() => toggleGroup(group)}
+                          />
+                          {group}
+                        </label>
+                      ));
+                    })()}
+                  </div>
+                )}
+
+                <div className="pt-2">
+                  <Label className="text-xs text-muted-foreground">Exclude Groups (Optional)</Label>
+                  <div className="grid grid-cols-2 gap-1.5 pl-2 mt-2">
+                    {(() => {
+                      const selectedCampusIds = campusMode === 'all' ? ['global'] : form.targetCampuses;
+                      const visibleGroups = campusMode === 'all'
+                        ? groups
+                        : [...new Set(selectedCampusIds.flatMap(cid => getGroupsForCampus(groupScopes, cid)))];
+                      return visibleGroups.map(group => (
+                        <label key={`ex-${group}`} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <Checkbox
+                            checked={form.excludeGroups.includes(group)}
+                            onCheckedChange={() => toggleExcludeGroup(group)}
+                            disabled={isGroupLeader && !currentUser.groups.includes(group)}
+                          />
+                          {group}
+                        </label>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div className="bg-muted/30 rounded-lg p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-1">Audience Preview</p>
+                <p className="text-xs">
+                  {campusMode === 'all' ? '🌐 All Campuses' : `🏢 ${form.targetCampuses.map(id => campuses.find(c => c.id === id)?.name || id).join(', ') || 'None'}`}
+                  {form.excludeCampuses.length > 0 && ` (excluding: ${form.excludeCampuses.map(id => campuses.find(c => c.id === id)?.name || id).join(', ')})`}
+                  {' · '}
+                  {groupMode === 'all' ? '👥 All Groups' : `👤 ${form.targetGroups.join(', ') || 'None'}`}
+                  {form.excludeGroups.length > 0 && ` (excluding: ${form.excludeGroups.join(', ')})`}
+                </p>
+                {(() => {
+                  const broadcastUsers = users.filter(u => {
+                    if (form.excludeCampuses.includes(u.campusId)) return false;
+                    const tc = form.targetCampuses;
+                    const campusMatch = tc.includes('all') || tc.includes(u.campusId);
+                    if (!campusMatch) return false;
+                    if (u.groups.some(g => form.excludeGroups.includes(g))) return false;
+                    const tg = form.targetGroups;
+                    const groupMatch = tg.includes('all') || tg.some(g => u.groups.includes(g));
+                    return groupMatch;
+                  });
+                  return (
+                    <div className="mt-2 pt-2 border-t border-border/50">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-0">
+                          Broadcast List ({broadcastUsers.length} members)
+                        </p>
+                        {broadcastUsers.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleExportExcel(broadcastUsers);
+                              }}
+                              className="h-6 text-[10px] px-2 gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            >
+                              <Download className="w-3 h-3" /> Excel
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleExportPDF(broadcastUsers);
+                              }}
+                              className="h-6 text-[10px] px-2 gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <FileText className="w-3 h-3" /> PDF
+                            </Button>
+                            <Button 
+                              type="button"
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setShowBroadcastList(!showBroadcastList);
+                              }}
+                              className="h-6 text-[10px] px-2"
+                            >
+                              {showBroadcastList ? 'Hide Members' : 'Show Members'}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      {showBroadcastList && broadcastUsers.length > 0 && (
+                        <div className="mt-2 space-y-1 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                          {broadcastUsers.map(u => (
+                            <div key={u.id} className="flex items-center gap-2 text-xs py-1.5 border-b border-border/30 last:border-0">
+                              <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
+                                {u.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-foreground font-medium leading-none">{u.name}</span>
+                                <span className="text-muted-foreground text-[10px] mt-0.5 leading-none">
+                                  {campuses.find(c => c.id === u.campusId)?.name || 'Unknown Campus'}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!showBroadcastList && broadcastUsers.length === 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          No members will receive this broadcast
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={!form.title || !form.content}>
+              {editingId ? 'Save Changes' : 'Publish'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm Dialog */}
+      <Dialog open={deleteConfirmId !== null} onOpenChange={() => setDeleteConfirmId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Delete Announcement?</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">This action cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
