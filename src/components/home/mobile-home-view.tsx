@@ -194,56 +194,54 @@ function HighlightsCardStack({
     };
   }, [activeIdx, totalCards]);
 
-  // Pointer handlers for drag — with direction lock to allow vertical scrolling
+  // Touch handlers for drag — using touch events so that touch-action: pan-y
+  // lets the browser handle vertical scrolling natively.
   const startY = useRef(0);
   const directionLocked = useRef<'horizontal' | 'vertical' | null>(null);
-  const DIRECTION_THRESHOLD = 8; // px movement before locking direction
+  const DIRECTION_THRESHOLD = 10; // px movement before locking direction
 
-  const onPointerDown = useCallback((e: React.PointerEvent) => {
-    // Don't capture yet — wait to determine drag direction
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
     isDragging.current = false;
     directionLocked.current = null;
-    startX.current = e.clientX;
-    startY.current = e.clientY;
+    startX.current = touch.clientX;
+    startY.current = touch.clientY;
     dragOffset.current = 0;
   }, []);
 
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    // If already locked to vertical, let the browser handle scrolling
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    // If already locked to vertical, do nothing — browser is scrolling
     if (directionLocked.current === 'vertical') return;
 
-    const dx = e.clientX - startX.current;
-    const dy = e.clientY - startY.current;
+    const touch = e.touches[0];
+    const dx = touch.clientX - startX.current;
+    const dy = touch.clientY - startY.current;
 
     // If direction not yet decided, check thresholds
     if (directionLocked.current === null) {
       if (Math.abs(dx) < DIRECTION_THRESHOLD && Math.abs(dy) < DIRECTION_THRESHOLD) {
         return; // not enough movement to decide
       }
-      if (Math.abs(dy) > Math.abs(dx)) {
-        // Vertical gesture — let the browser scroll
+      if (Math.abs(dy) >= Math.abs(dx)) {
+        // Vertical gesture — let the browser scroll normally
         directionLocked.current = 'vertical';
         return;
       }
-      // Horizontal gesture — capture pointer and start our drag
+      // Horizontal gesture — we'll handle this
       directionLocked.current = 'horizontal';
       isDragging.current = true;
-      stackRef.current?.setPointerCapture(e.pointerId);
     }
 
-    // Horizontal drag in progress
+    // Horizontal drag in progress — prevent scroll and update offset
     if (isDragging.current) {
+      e.preventDefault();
       dragOffset.current = dx;
       setRenderTick(t => t + 1);
     }
   }, []);
 
-  const onPointerUp = useCallback((e: React.PointerEvent) => {
-    if (directionLocked.current === 'horizontal' && stackRef.current) {
-      try { stackRef.current.releasePointerCapture(e.pointerId); } catch {}
-    }
+  const onTouchEnd = useCallback(() => {
     directionLocked.current = null;
-
     if (!isDragging.current) return;
     isDragging.current = false;
     const offset = dragOffset.current;
@@ -358,11 +356,10 @@ function HighlightsCardStack({
           style={{ height: STACK_HEIGHT }}
           role="region"
           aria-label="Swipeable highlights carousel"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          onPointerLeave={(e) => { if (isDragging.current) onPointerUp(e); }}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onTouchCancel={onTouchEnd}
         >
           {allCards.map((card, i) => {
             let pos = i - activeIdx;
