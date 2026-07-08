@@ -61,7 +61,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy 3: Stale-while-revalidate for app pages and other assets
+  // Strategy 3: Skip navigation requests (HTML pages) — let them go straight to network.
+  // staleWhileRevalidate fires a background fetch on every page load which floods
+  // the server with repeated GET / requests and can cause re-render cascades.
+  if (request.mode === 'navigate') return;
+
+  // Strategy 4: Stale-while-revalidate for other assets (CSS, JS, images, fonts)
   event.respondWith(staleWhileRevalidate(request));
 });
 

@@ -98,7 +98,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
     { label: 'Worship Videos', href: '/admin/worship', icon: Music, minRole: 'admin' as UserRole },
     { label: 'Prayer Wall', href: '/admin/prayers', icon: Heart, minRole: 'campus_leader' as UserRole, badge: pendingPrayersCount },
     { label: 'Daily Verses', href: '/admin/verses', icon: BookOpen, minRole: 'admin' as UserRole },
-    { label: 'Hero Cards', href: '/admin/hero-cards', icon: FlipHorizontal, minRole: 'admin' as UserRole },
+    { label: 'Highlights Cards', href: '/admin/hero-cards', icon: FlipHorizontal, minRole: 'admin' as UserRole },
     { label: 'Requests', href: '/admin/requests', icon: UserPlus, minRole: 'campus_leader' as UserRole, badge: pendingCount },
     { label: 'Attendance', href: '/admin/attendance', icon: MapPin, minRole: 'campus_leader' as UserRole },
     { label: 'ePass Scanner', href: '/admin/scanner', icon: Camera, minRole: 'group_leader' as UserRole },

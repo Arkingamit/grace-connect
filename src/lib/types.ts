@@ -40,6 +40,7 @@ export interface FormField {
   scaleMax?: number;
   scaleMinLabel?: string;
   scaleMaxLabel?: string;
+  scaleLabels?: Record<number, string>;
 }
 
 export interface EventScheduleDay {

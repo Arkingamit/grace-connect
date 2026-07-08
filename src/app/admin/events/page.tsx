@@ -1491,24 +1491,32 @@ export default function EventsPage() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground w-4">{field.scaleMin || 1}</span>
-                            <Input 
-                              placeholder="Label (optional)" 
-                              className="h-8 text-sm" 
-                              value={field.scaleMinLabel || ''} 
-                              onChange={(e) => updateField(field.id, { scaleMinLabel: e.target.value })} 
-                            />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground w-4">{field.scaleMax || 5}</span>
-                            <Input 
-                              placeholder="Label (optional)" 
-                              className="h-8 text-sm" 
-                              value={field.scaleMaxLabel || ''} 
-                              onChange={(e) => updateField(field.id, { scaleMaxLabel: e.target.value })} 
-                            />
-                          </div>
+                          {Array.from({ length: (field.scaleMax || 5) - (field.scaleMin || 1) + 1 }).map((_, i) => {
+                            const val = (field.scaleMin || 1) + i;
+                            const currentLabel = field.scaleLabels?.[val] || (i === 0 ? field.scaleMinLabel : (i === (field.scaleMax || 5) - (field.scaleMin || 1) ? field.scaleMaxLabel : ''));
+                            
+                            return (
+                              <div key={val} className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground w-4 text-center">{val}</span>
+                                <Input 
+                                  placeholder="Label (optional)" 
+                                  className="h-8 text-sm" 
+                                  value={currentLabel || ''} 
+                                  onChange={(e) => {
+                                    const newScaleLabels = { ...(field.scaleLabels || {}) };
+                                    newScaleLabels[val] = e.target.value;
+                                    
+                                    // For backwards compatibility, still update min/max labels
+                                    const updates: any = { scaleLabels: newScaleLabels };
+                                    if (i === 0) updates.scaleMinLabel = e.target.value;
+                                    if (i === (field.scaleMax || 5) - (field.scaleMin || 1)) updates.scaleMaxLabel = e.target.value;
+                                    
+                                    updateField(field.id, updates);
+                                  }} 
+                                />
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

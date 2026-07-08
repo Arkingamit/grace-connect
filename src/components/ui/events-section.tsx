@@ -403,21 +403,29 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
 
                     {field.type === 'linear_scale' && (
                       <div className="pt-2">
-                        <div className="flex items-center justify-between px-2 mb-2">
-                          <span className="text-xs text-muted-foreground">{field.scaleMinLabel}</span>
-                          <span className="text-xs text-muted-foreground">{field.scaleMaxLabel}</span>
-                        </div>
                         <RadioGroup
                           value={(responses[field.id] as string) || ''}
                           onValueChange={v => handleInputChange(field.id, v)}
-                          className="flex items-center justify-between"
+                          className="flex items-start justify-between w-full"
                         >
                           {Array.from({ length: (field.scaleMax || 5) - (field.scaleMin || 1) + 1 }).map((_, i) => {
-                            const val = String((field.scaleMin || 1) + i);
+                            const numVal = (field.scaleMin || 1) + i;
+                            const val = String(numVal);
+                            const isFirst = i === 0;
+                            const isLast = i === ((field.scaleMax || 5) - (field.scaleMin || 1));
+                            
+                            // Get custom label for this specific step, falling back to min/max labels for legacy data
+                            const stepLabel = field.scaleLabels?.[numVal] || (isFirst ? field.scaleMinLabel : isLast ? field.scaleMaxLabel : null);
+
                             return (
-                              <div key={val} className="flex flex-col items-center gap-2">
-                                <span className="text-xs">{val}</span>
+                              <div key={val} className="flex flex-col items-center gap-2 flex-1 px-1">
+                                <span className="text-xs font-medium">{val}</span>
                                 <RadioGroupItem value={val} id={`${field.id}-${val}`} />
+                                {stepLabel && (
+                                  <span className="text-[10px] text-muted-foreground text-center leading-tight mt-1 break-words w-full">
+                                    {stepLabel}
+                                  </span>
+                                )}
                               </div>
                             );
                           })}

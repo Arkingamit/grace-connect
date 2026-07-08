@@ -194,21 +194,56 @@ function HighlightsCardStack({
     };
   }, [activeIdx, totalCards]);
 
-  // Pointer handlers for drag
+  // Pointer handlers for drag — with direction lock to allow vertical scrolling
+  const startY = useRef(0);
+  const directionLocked = useRef<'horizontal' | 'vertical' | null>(null);
+  const DIRECTION_THRESHOLD = 8; // px movement before locking direction
+
   const onPointerDown = useCallback((e: React.PointerEvent) => {
-    isDragging.current = true;
+    // Don't capture yet — wait to determine drag direction
+    isDragging.current = false;
+    directionLocked.current = null;
     startX.current = e.clientX;
+    startY.current = e.clientY;
     dragOffset.current = 0;
-    stackRef.current?.setPointerCapture(e.pointerId);
   }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDragging.current) return;
-    dragOffset.current = e.clientX - startX.current;
-    setRenderTick(t => t + 1); // trigger re-render for smooth drag
+    // If already locked to vertical, let the browser handle scrolling
+    if (directionLocked.current === 'vertical') return;
+
+    const dx = e.clientX - startX.current;
+    const dy = e.clientY - startY.current;
+
+    // If direction not yet decided, check thresholds
+    if (directionLocked.current === null) {
+      if (Math.abs(dx) < DIRECTION_THRESHOLD && Math.abs(dy) < DIRECTION_THRESHOLD) {
+        return; // not enough movement to decide
+      }
+      if (Math.abs(dy) > Math.abs(dx)) {
+        // Vertical gesture — let the browser scroll
+        directionLocked.current = 'vertical';
+        return;
+      }
+      // Horizontal gesture — capture pointer and start our drag
+      directionLocked.current = 'horizontal';
+      isDragging.current = true;
+      stackRef.current?.setPointerCapture(e.pointerId);
+    }
+
+    // Horizontal drag in progress
+    if (isDragging.current) {
+      dragOffset.current = dx;
+      setRenderTick(t => t + 1);
+    }
   }, []);
 
-  const onPointerUp = useCallback(() => {
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    if (directionLocked.current === 'horizontal' && stackRef.current) {
+      try { stackRef.current.releasePointerCapture(e.pointerId); } catch {}
+    }
+    directionLocked.current = null;
+
     if (!isDragging.current) return;
     isDragging.current = false;
     const offset = dragOffset.current;
@@ -288,10 +323,10 @@ function HighlightsCardStack({
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl py-5 font-semibold text-sm group/btn"
             asChild
           >
-            <Link href={displayLink} onPointerDown={(e) => e.stopPropagation()}>
+            <a href={displayLink} onPointerDown={(e) => e.stopPropagation()}>
               {displayBtn}
               <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
-            </Link>
+            </a>
           </Button>
         </div>
 
@@ -319,7 +354,7 @@ function HighlightsCardStack({
       <section className="relative w-full max-w-[380px] mx-auto">
         <div
           ref={stackRef}
-          className="relative select-none touch-none"
+          className="relative select-none touch-pan-y"
           style={{ height: STACK_HEIGHT }}
           role="region"
           aria-label="Swipeable highlights carousel"
@@ -327,7 +362,7 @@ function HighlightsCardStack({
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
-          onPointerLeave={(e) => { if (isDragging.current) onPointerUp(); }}
+          onPointerLeave={(e) => { if (isDragging.current) onPointerUp(e); }}
         >
           {allCards.map((card, i) => {
             let pos = i - activeIdx;

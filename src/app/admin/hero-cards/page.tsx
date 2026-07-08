@@ -68,10 +68,10 @@ export default function HeroCardsManagementPage() {
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <FlipHorizontal className="w-8 h-8 text-primary" />
-          Hero Cards
+          Highlights Cards
         </h1>
         <p className="text-muted-foreground mt-1">
-          Configure what appears on the back of the Hero card when users interact with it.
+          Configure what appears on the back of the Highlights card when users interact with it.
         </p>
       </div>
 
@@ -79,7 +79,7 @@ export default function HeroCardsManagementPage() {
         <Card className="md:col-span-2 max-w-3xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FlipHorizontal className="w-5 h-5 text-primary" /> Hero Card Flip Side
+              <FlipHorizontal className="w-5 h-5 text-primary" /> Highlights Card Flip Side
             </CardTitle>
             <CardDescription>
               Configure what appears on the back of the Daily Verse card when users hover over it. 

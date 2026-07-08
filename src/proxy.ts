@@ -5,7 +5,7 @@ import { jwtVerify } from 'jose';
 const secretKey = process.env.JWT_SECRET || 'fallback_secret_key_for_dev_only';
 const encodedKey = new TextEncoder().encode(secretKey);
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   if (process.env.NODE_ENV === 'production' && secretKey === 'fallback_secret_key_for_dev_only') {
     throw new Error('FATAL: JWT_SECRET is not set in production environment');
   }

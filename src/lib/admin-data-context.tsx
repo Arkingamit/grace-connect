@@ -305,6 +305,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
           worshipVideosRes,
           liveStreamsRes,
           settingsRes,
+          broadcastsRes,
         ] = await Promise.all([
           fetch('/api/admin/events').catch(() => null),
           fetch('/api/admin/announcements').catch(() => null),
@@ -315,6 +316,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
           fetch('/api/admin/media/worship-videos').catch(() => null),
           fetch('/api/admin/media/livestreams').catch(() => null),
           fetch('/api/system/settings').catch(() => null),
+          fetch('/api/broadcasts').catch(() => null),
         ]);
 
         if (eventsRes?.ok) {
@@ -334,6 +336,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
         if (worshipVideosRes?.ok) setWorshipVideos(rawToMapped(await worshipVideosRes.json()));
         if (liveStreamsRes?.ok) setLiveStreams(rawToMapped(await liveStreamsRes.json()));
         if (settingsRes?.ok) setSystemSettings(await settingsRes.json());
+        if (broadcastsRes?.ok) setBroadcasts(rawToMapped(await broadcastsRes.json()));
       } catch (err) {
         console.error('Failed to fetch public data:', err);
       } finally {
