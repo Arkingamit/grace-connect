@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/api-auth';
+import { requireAdmin, requireAuth } from '@/lib/api-auth';
 import connectToDatabase from '@/lib/db';
 import EventRegistration from '@/models/EventRegistration';
 
@@ -17,13 +17,20 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const admin = await requireAdmin();
-  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const session = await requireAuth();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     await connectToDatabase();
     const body = await req.json();
-    const item = await EventRegistration.create(body);
+
+    // Prevent duplicate registrations
+    const existing = await EventRegistration.findOne({ eventId: body.eventId, userEmail: body.userEmail });
+    if (existing) {
+      return NextResponse.json({ error: 'You are already registered for this event.' }, { status: 400 });
+    }
+
+    const item = await EventRegistration.create({ ...body, registeredAt: new Date() });
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create event registration' }, { status: 500 });

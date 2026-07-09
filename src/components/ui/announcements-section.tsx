@@ -18,10 +18,17 @@ const categoryColors: Record<string, string> = {
 };
 
 export const AnnouncementsSection = ({ preview = false }: { preview?: boolean }) => {
-  const { campuses, groups, getVisibleAnnouncements } = useAdminData();
+  const { announcements, campuses, groups, getVisibleAnnouncements } = useAdminData();
   const { getSessionMember, getEffectiveGroups } = useAuth();
+  
   const [selectedCampus] = useState('all');
   const [selectedGroup] = useState('all');
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   // Merge family member's groups into visibility filter
   const sessionMember = getSessionMember();
@@ -46,14 +53,7 @@ export const AnnouncementsSection = ({ preview = false }: { preview?: boolean })
     <section id="announcements" className="py-10 sm:py-16 bg-muted/30">
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
-          {/* Section Header */}
-          <div className="text-center space-y-5 mb-10">
-            <span className="section-heading">Announcements</span>
-            <h2 className="section-title">Church Announcements</h2>
-            <p className="section-subtitle">
-              Stay connected with what's happening in our community
-            </p>
-          </div>
+          {/* Section Header removed as per request */}
 
           {/* Announcements List */}
           <div className="space-y-4">
@@ -101,16 +101,19 @@ export const AnnouncementsSection = ({ preview = false }: { preview?: boolean })
                 </CardHeader>
                 
                 <CardContent className="pt-0 pb-5">
-                  <p className="text-[#7A6150] text-sm leading-relaxed mb-4 line-clamp-3">
+                  <p className={`text-[#7A6150] text-sm leading-relaxed mb-4 whitespace-pre-wrap ${expandedCards[announcement.id] ? '' : 'line-clamp-3'}`}>
                     {announcement.content}
                   </p>
                   
                   <div className="flex items-center justify-end">
-                    <Link href={`/announcements`}>
-                      <Button variant="outline" size="sm" className="text-xs font-bold h-8 rounded-full border-[#E5D5C5] text-[#7A6150] hover:text-[#8B2323] hover:bg-[#FBE8E8]">
-                        Read More
-                      </Button>
-                    </Link>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={(e) => toggleExpand(announcement.id, e)}
+                      className="text-xs font-bold h-8 rounded-full border-[#E5D5C5] text-[#7A6150] hover:text-[#8B2323] hover:bg-[#FBE8E8]"
+                    >
+                      {expandedCards[announcement.id] ? 'Read Less' : 'Read More'}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

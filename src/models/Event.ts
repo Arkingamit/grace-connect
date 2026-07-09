@@ -50,6 +50,7 @@ export interface IEvent extends Document {
     openMinutesBefore: number;
     closeMinutesAfter: number;
   };
+  allowResponseEdits?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -142,7 +143,8 @@ const EventSchema = new Schema<IEvent>(
       longitude: { type: Number },
       openMinutesBefore: { type: Number, default: 30 },
       closeMinutesAfter: { type: Number, default: 30 },
-    }
+    },
+    allowResponseEdits: { type: Boolean, default: true }
   },
   { timestamps: true }
 );

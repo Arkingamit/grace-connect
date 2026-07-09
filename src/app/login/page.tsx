@@ -47,94 +47,77 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0 bg-background text-foreground">
-      {/* Left Side: Premium Aesthetic Panel */}
-      <div className="relative hidden h-full flex-col bg-muted p-10 text-white dark:border-r lg:flex">
-        {/* Elegant Dark Gradient */}
-        <div className="absolute inset-0 bg-zinc-950 bg-gradient-to-b from-[#8B2323] via-zinc-950 to-zinc-950" />
-        
-        {/* Clean Mesh Grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800d_1px,transparent_1px),linear-gradient(to_bottom,#8080800d_1px,transparent_1px)] bg-[size:24px_24px] opacity-40" />
+    <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9] relative overflow-hidden p-4">
+      {/* Background Pattern */}
+      <div 
+        className="absolute inset-0 z-0 opacity-40 pointer-events-none" 
+        style={{ backgroundImage: 'var(--bg-pattern)', backgroundSize: '100px 100px' }} 
+      />
+      
+      {/* Ambient Blurred Accents */}
+      <div className="absolute top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-[#8B2323]/5 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] left-[-5%] w-[40rem] h-[40rem] bg-[#5C1111]/5 rounded-full blur-[100px] pointer-events-none" />
 
-        {/* Ambient Blurred Accents */}
-        <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-red-800/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl" />
+      <div className="relative z-10 w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-[#E5D5C5]/60 shadow-xl p-8 sm:p-10 flex flex-col items-center relative overflow-hidden">
+          
+          {/* Decorative subtle border inside card */}
+          <div className="absolute inset-2 border border-[#8B2323]/5 rounded-[1.5rem] pointer-events-none" />
 
-        {/* Logo */}
-        <div className="relative z-20 flex items-center gap-2.5 font-medium text-lg font-serif">
-          <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
-            <Church className="w-5 h-5 text-white" />
-          </div>
-          <span className="tracking-wide">Grace Community</span>
-        </div>
-
-        {/* Quote */}
-        <div className="relative z-20 mt-auto">
-          <blockquote className="space-y-2">
-            <p className="text-lg font-serif italic text-white/95 leading-relaxed">
-              &ldquo;A welcoming community where faith grows, hearts connect, and lives are transformed through God&apos;s love.&rdquo;
-            </p>
-            <footer className="text-sm text-white/50 font-sans tracking-wide">
-              — Grace Community Church
-            </footer>
-          </blockquote>
-        </div>
-      </div>
-
-      {/* Right Side: Auth Card Container */}
-      <div className="lg:p-8 flex items-center justify-center min-h-screen bg-transparent">
-        <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px] px-4">
-          <div className="flex flex-col space-y-2 text-center">
-            {/* Mobile-Only Logo */}
-            <div className="lg:hidden flex items-center justify-center gap-2 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Church className="w-5 h-5 text-primary" />
-              </div>
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-            <p className="text-sm text-muted-foreground">
-              Sign in to your account with Google
-            </p>
+          <div className="mb-6 relative z-10 flex items-center justify-center">
+            <img src="/logo.png" alt="Grace Community" className="h-20 w-auto object-contain" />
           </div>
 
-          <div className="grid gap-6">
+          <h1 className="text-3xl font-serif font-bold text-[#1A202C] mb-2 text-center relative z-10">Welcome Back</h1>
+          <p className="text-[#7A6150] text-sm text-center mb-8 relative z-10">
+            Sign in to your account with Google to access Grace Community features.
+          </p>
+
+          <div className="w-full space-y-6 relative z-10">
             {error && (
-              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-xs border border-destructive/20 font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
-                <span>⚠️</span>
+              <div className="p-4 rounded-xl bg-red-50 text-[#8B2323] text-sm border border-red-100 font-medium flex items-center gap-3 animate-in fade-in slide-in-from-top-1">
+                <span className="text-lg">⚠️</span>
                 <span>{error}</span>
               </div>
             )}
 
-            <div className="flex justify-center w-full min-h-[50px] items-center">
+            <div className="flex justify-center w-full min-h-[44px] items-center">
               {!mounted ? (
-                <div className="w-[342px] h-[40px] animate-pulse bg-muted rounded"></div>
+                <div className="w-full h-[44px] animate-pulse bg-[#F3EAE1]/50 rounded-lg"></div>
               ) : (
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={handleGoogleError}
-                  theme="outline"
-                  size="large"
-                  shape="rectangular"
-                  text="signin_with"
-                  width="342"
-                />
+                <div className="w-full flex justify-center [&>div]:!w-full [&>div>div]:!w-full [&_iframe]:!w-full">
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleError}
+                    theme="outline"
+                    size="large"
+                    shape="rectangular"
+                    text="signin_with"
+                    width="100%"
+                  />
+                </div>
               )}
             </div>
+
+            <div className="pt-6 border-t border-[#E5D5C5]/50 flex flex-col gap-4">
+              <p className="text-center text-sm text-[#7A6150]">
+                Don&apos;t have an account?{' '}
+                <Link href="/register" className="font-bold text-[#8B2323] hover:underline underline-offset-4 transition-all">
+                  Register Here
+                </Link>
+              </p>
+
+              <Link href="/" className="inline-flex items-center justify-center gap-1.5 text-sm text-[#7A6150] hover:text-[#1A202C] transition-colors group">
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Back to Home
+              </Link>
+            </div>
           </div>
-
-          <p className="px-8 text-center text-xs text-muted-foreground">
-            Don&apos;t have an account?{' '}
-            <Link href="/register" className="underline underline-offset-4 hover:text-primary transition-colors font-medium">
-              Register Here
-            </Link>
-          </p>
-
-          <p className="text-center text-xs">
-            <Link href="/" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
-            </Link>
-          </p>
         </div>
+        
+        {/* Footer Text */}
+        <p className="text-center text-[#7A6150]/60 text-xs mt-6 font-medium">
+          &copy; {new Date().getFullYear()} Grace Community Church
+        </p>
       </div>
     </div>
   );

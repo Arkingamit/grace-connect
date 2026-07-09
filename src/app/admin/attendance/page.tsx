@@ -8,7 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { MapPin, Plus, Trash2, Users, RefreshCw, Repeat, Calendar, Download, FileSpreadsheet, PieChart, QrCode } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { MapPin, Plus, Trash2, Users, RefreshCw, Repeat, Calendar, Download, FileSpreadsheet, PieChart, QrCode, MessageCircle, Send, CheckCircle2, XCircle, Search } from 'lucide-react';
 import { SchedulePreviewExport } from '@/components/admin/schedule-preview-export';
 import { useAdminData } from '@/lib/admin-data-context';
 import { toast } from 'sonner';
@@ -23,9 +25,17 @@ export default function AdminAttendancePage() {
   const [recordsDialogOpen, setRecordsDialogOpen] = useState(false);
   const [selectedSessionRecords, setSelectedSessionRecords] = useState<any[]>([]);
   const [loadingRecords, setLoadingRecords] = useState(false);
-  
+  const [activeRecordsTab, setActiveRecordsTab] = useState('insights');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [messageText, setMessageText] = useState<{ [key: string]: string }>({});
+  const [sendingMessage, setSendingMessage] = useState<{ [key: string]: boolean }>({});
+  const [updatingStatus, setUpdatingStatus] = useState<{ [key: string]: boolean }>({});
+
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedSessionForQr, setSelectedSessionForQr] = useState<any>(null);
+
+  // Track which session ID we're currently viewing records for
+  const [viewingSessionId, setViewingSessionId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     title: '',
@@ -103,6 +113,7 @@ export default function AdminAttendancePage() {
   const viewRecords = async (sessionId: string) => {
     setRecordsDialogOpen(true);
     setLoadingRecords(true);
+    setViewingSessionId(sessionId);
     try {
       const res = await fetch(`/api/admin/attendance-records?sessionId=${sessionId}`);
       if (res.ok) {
@@ -112,6 +123,64 @@ export default function AdminAttendancePage() {
       toast.error("Failed to load records");
     }
     setLoadingRecords(false);
+  };
+
+  const handleMarkAttendance = async (userId: string, status: string) => {
+    if (!viewingSessionId) return;
+    try {
+      setUpdatingStatus(prev => ({ ...prev, [userId]: true }));
+      const res = await fetch('/api/admin/attendance-records/mark', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: viewingSessionId, userId, status }),
+      });
+      if (res.ok) {
+        toast.success(`Marked as ${status}`);
+        // Refresh records for the selected session to update UI
+        viewRecords(viewingSessionId);
+      } else {
+        throw new Error('Failed to mark');
+      }
+    } catch (e) {
+      toast.error('Error marking attendance');
+    } finally {
+      setUpdatingStatus(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handleSendMessage = async (userId: string) => {
+    if (!viewingSessionId) return;
+    const text = messageText[userId];
+    if (!text) {
+      toast.error('Please enter a message');
+      return;
+    }
+    try {
+      setSendingMessage(prev => ({ ...prev, [userId]: true }));
+      const res = await fetch('/api/admin/attendance-records/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, message: text, sessionId: viewingSessionId }),
+      });
+      if (res.ok) {
+        toast.success('Message sent successfully!');
+        setMessageText(prev => ({ ...prev, [userId]: '' }));
+      } else {
+        throw new Error('Failed to send');
+      }
+    } catch (e) {
+      toast.error('Error sending message');
+    } finally {
+      setSendingMessage(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const openWhatsApp = (whatsapp?: string, name?: string) => {
+    if (!whatsapp) return;
+    const defaultMsg = `Hi ${name || ''}, we missed you today at church!`;
+    const encoded = encodeURIComponent(defaultMsg);
+    const number = whatsapp.replace(/\D/g, '');
+    window.open(`https://wa.me/${number}?text=${encoded}`, '_blank');
   };
 
   const getCurrentLocation = async () => {
@@ -172,7 +241,7 @@ export default function AdminAttendancePage() {
                   <div>
                     <h3 className="font-bold text-lg flex items-center gap-2">
                       {s.title}
-                      {s.recurring && <span className="text-[10px] bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full flex items-center gap-1"><Repeat className="w-3 h-3"/> Recurring</span>}
+                      {s.recurring && <span className="text-[10px] bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full flex items-center gap-1"><Repeat className="w-3 h-3" /> Recurring</span>}
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       {s.recurring ? `Starts ${s.date}` : s.date} • {s.startTime} - {s.endTime}
@@ -183,6 +252,12 @@ export default function AdminAttendancePage() {
               <CardContent className="p-4 space-y-4">
                 <div className="text-sm space-y-2">
                   <div className="flex justify-between">
+                    <span className="text-muted-foreground">Campus:</span>
+                    <span className="font-medium">
+                      {s.campusId === 'all' ? 'All Campuses' : (campuses.find((c: any) => c.id === s.campusId)?.name || s.campusId || 'Main Campus')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Radius:</span>
                     <span className="font-medium">{s.radius} meters</span>
                   </div>
@@ -191,7 +266,7 @@ export default function AdminAttendancePage() {
                     <span className="font-medium truncate max-w-[120px]">{s.latitude.toFixed(4)}, {s.longitude.toFixed(4)}</span>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 sm:flex gap-2 pt-2 border-t">
                   <Button variant="outline" className="w-full sm:flex-1" onClick={() => viewRecords(s._id)}>
                     <Users className="w-4 h-4 sm:mr-2 mr-1 shrink-0" /> <span className="truncate text-xs sm:text-sm">Records</span>
@@ -218,12 +293,12 @@ export default function AdminAttendancePage() {
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 bg-[#FAF7F2]">
             <div className="space-y-2">
               <Label>Session Title</Label>
-              <Input value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="e.g. Sunday Service - Main Campus" />
+              <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Sunday Service - Main Campus" />
             </div>
             {currentUser?.role !== 'campus_leader' && (
               <div className="space-y-2">
                 <Label>Campus</Label>
-                <Select value={form.campusId} onValueChange={(val) => setForm({...form, campusId: val})}>
+                <Select value={form.campusId} onValueChange={(val) => setForm({ ...form, campusId: val })}>
                   <SelectTrigger><SelectValue placeholder="Select a campus" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Campuses</SelectItem>
@@ -235,16 +310,16 @@ export default function AdminAttendancePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{form.recurring ? 'Start Date' : 'Date'}</Label>
-                <Input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+                <Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>Radius (meters)</Label>
-                <Input type="number" min={10} max={300} value={form.radius} onChange={e => setForm({...form, radius: parseInt(e.target.value) || 0})} onBlur={() => setForm({...form, radius: Math.min(300, Math.max(10, form.radius))})} />
+                <Input type="number" min={10} max={300} value={form.radius} onChange={e => setForm({ ...form, radius: parseInt(e.target.value) || 0 })} onBlur={() => setForm({ ...form, radius: Math.min(300, Math.max(10, form.radius)) })} />
               </div>
             </div>
 
             <div className="flex items-center gap-3 py-1">
-              <Switch checked={form.recurring} onCheckedChange={(c) => setForm({...form, recurring: c})} />
+              <Switch checked={form.recurring} onCheckedChange={(c) => setForm({ ...form, recurring: c })} />
               <Label>Recurring Session</Label>
             </div>
 
@@ -257,7 +332,7 @@ export default function AdminAttendancePage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-xs">Pattern</Label>
-                    <Select value={form.recurrencePattern} onValueChange={(v) => setForm({...form, recurrencePattern: v})}>
+                    <Select value={form.recurrencePattern} onValueChange={(v) => setForm({ ...form, recurrencePattern: v })}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="daily">Daily</SelectItem>
@@ -271,7 +346,7 @@ export default function AdminAttendancePage() {
                   {(form.recurrencePattern === 'weekly' || form.recurrencePattern === 'biweekly' || form.recurrencePattern === 'custom_monthly') && (
                     <div className="space-y-2">
                       <Label className="text-xs">Day of Week</Label>
-                      <Select value={form.recurrenceDay} onValueChange={(v) => setForm({...form, recurrenceDay: v})}>
+                      <Select value={form.recurrenceDay} onValueChange={(v) => setForm({ ...form, recurrenceDay: v })}>
                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(d => (
@@ -284,7 +359,7 @@ export default function AdminAttendancePage() {
                   {form.recurrencePattern === 'custom_monthly' && (
                     <div className="space-y-2">
                       <Label className="text-xs">Week of Month</Label>
-                      <Select value={form.recurrenceWeekOfMonth} onValueChange={(v) => setForm({...form, recurrenceWeekOfMonth: v})}>
+                      <Select value={form.recurrenceWeekOfMonth} onValueChange={(v) => setForm({ ...form, recurrenceWeekOfMonth: v })}>
                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="1st">First</SelectItem>
@@ -300,7 +375,7 @@ export default function AdminAttendancePage() {
                 {/* Note removed */}
                 <div className="space-y-2">
                   <Label className="text-xs">Until (Optional)</Label>
-                  <Input type="date" className="h-8 text-xs" value={form.recurrenceEndDate} onChange={e => setForm({...form, recurrenceEndDate: e.target.value})} />
+                  <Input type="date" className="h-8 text-xs" value={form.recurrenceEndDate} onChange={e => setForm({ ...form, recurrenceEndDate: e.target.value })} />
                 </div>
                 <div className="pt-2">
                   <SchedulePreviewExport
@@ -319,14 +394,14 @@ export default function AdminAttendancePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Start Time</Label>
-                <Input type="time" value={form.startTime} onChange={e => setForm({...form, startTime: e.target.value})} />
+                <Input type="time" value={form.startTime} onChange={e => setForm({ ...form, startTime: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>End Time</Label>
-                <Input type="time" value={form.endTime} onChange={e => setForm({...form, endTime: e.target.value})} />
+                <Input type="time" value={form.endTime} onChange={e => setForm({ ...form, endTime: e.target.value })} />
               </div>
             </div>
-            
+
             <div className="p-4 bg-muted/50 rounded-lg space-y-3">
               <div className="flex justify-between items-center">
                 <Label className="font-bold">Location Coordinates</Label>
@@ -337,11 +412,11 @@ export default function AdminAttendancePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs">Latitude</Label>
-                  <Input type="number" step="any" value={form.latitude} onChange={e => setForm({...form, latitude: parseFloat(e.target.value) || 0})} />
+                  <Input type="number" step="any" value={form.latitude} onChange={e => setForm({ ...form, latitude: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs">Longitude</Label>
-                  <Input type="number" step="any" value={form.longitude} onChange={e => setForm({...form, longitude: parseFloat(e.target.value) || 0})} />
+                  <Input type="number" step="any" value={form.longitude} onChange={e => setForm({ ...form, longitude: parseFloat(e.target.value) || 0 })} />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">You can also copy/paste coordinates from Google Maps (Right-click a location to copy).</p>
@@ -354,7 +429,7 @@ export default function AdminAttendancePage() {
                     <Label className="text-sm">Allow Self Check-in</Label>
                     <p className="text-[10px] text-muted-foreground">Members can check in from their app</p>
                   </div>
-                  <Switch checked={form.checkInConfig.selfCheckInEnabled} onCheckedChange={(c) => setForm({...form, checkInConfig: {...form.checkInConfig, selfCheckInEnabled: c}})} />
+                  <Switch checked={form.checkInConfig.selfCheckInEnabled} onCheckedChange={(c) => setForm({ ...form, checkInConfig: { ...form.checkInConfig, selfCheckInEnabled: c } })} />
                 </div>
                 {form.checkInConfig.selfCheckInEnabled && (
                   <div className="flex items-center justify-between pl-4 border-l-2">
@@ -362,7 +437,7 @@ export default function AdminAttendancePage() {
                       <Label className="text-sm">Require GPS for Self Check-in</Label>
                       <p className="text-[10px] text-muted-foreground">User must be within radius</p>
                     </div>
-                    <Switch checked={form.checkInConfig.selfCheckInRequireGps} onCheckedChange={(c) => setForm({...form, checkInConfig: {...form.checkInConfig, selfCheckInRequireGps: c}})} />
+                    <Switch checked={form.checkInConfig.selfCheckInRequireGps} onCheckedChange={(c) => setForm({ ...form, checkInConfig: { ...form.checkInConfig, selfCheckInRequireGps: c } })} />
                   </div>
                 )}
                 <div className="flex items-center justify-between border-t pt-3">
@@ -370,7 +445,7 @@ export default function AdminAttendancePage() {
                     <Label className="text-sm">Allow Scanner</Label>
                     <p className="text-[10px] text-muted-foreground">Leaders can scan member ePasses</p>
                   </div>
-                  <Switch checked={form.checkInConfig.scannerEnabled} onCheckedChange={(c) => setForm({...form, checkInConfig: {...form.checkInConfig, scannerEnabled: c}})} />
+                  <Switch checked={form.checkInConfig.scannerEnabled} onCheckedChange={(c) => setForm({ ...form, checkInConfig: { ...form.checkInConfig, scannerEnabled: c } })} />
                 </div>
                 {form.checkInConfig.scannerEnabled && (
                   <div className="flex items-center justify-between pl-4 border-l-2">
@@ -378,7 +453,7 @@ export default function AdminAttendancePage() {
                       <Label className="text-sm">Verify Leader GPS</Label>
                       <p className="text-[10px] text-muted-foreground">Leader must be in radius when scanning</p>
                     </div>
-                    <Switch checked={form.checkInConfig.scannerRequireGps} onCheckedChange={(c) => setForm({...form, checkInConfig: {...form.checkInConfig, scannerRequireGps: c}})} />
+                    <Switch checked={form.checkInConfig.scannerRequireGps} onCheckedChange={(c) => setForm({ ...form, checkInConfig: { ...form.checkInConfig, scannerRequireGps: c } })} />
                   </div>
                 )}
               </div>
@@ -396,7 +471,7 @@ export default function AdminAttendancePage() {
         <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <PieChart className="w-5 h-5" /> Attendance Report & Insights
+              <PieChart className="w-5 h-5" /> Attendance
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto py-4 space-y-6">
@@ -405,207 +480,297 @@ export default function AdminAttendancePage() {
             ) : selectedSessionRecords.length === 0 ? (
               <p className="text-center text-muted-foreground p-8">No members have checked in yet.</p>
             ) : (
-              <>
-                {/* Insights Dashboard */}
-                {(() => {
-                  const records = selectedSessionRecords;
-                  const total = records.length;
-                  const now = new Date();
+              <Tabs defaultValue="insights" value={activeRecordsTab} onValueChange={setActiveRecordsTab} className="w-full">
+                <TabsList className="mb-4 grid w-full grid-cols-2">
+                  <TabsTrigger value="insights" className="flex items-center gap-2"><PieChart className="w-4 h-4" /> Attendance</TabsTrigger>
+                  <TabsTrigger value="directory" className="flex items-center gap-2"><Users className="w-4 h-4" /> Member's List</TabsTrigger>
+                </TabsList>
 
-                  // Gender breakdown
-                  const males = records.filter((r: any) => r.user.gender === 'male').length;
-                  const females = records.filter((r: any) => r.user.gender === 'female').length;
+                <TabsContent value="insights">
+                  {(() => {
+                    const records = selectedSessionRecords.filter((r: any) => r.status !== 'absent' && r.status !== 'unmarked');
+                    const total = records.length;
+                    const now = new Date();
 
-                  // Marital status
-                  const married = records.filter((r: any) => r.user.maritalStatus === 'married').length;
-                  const single = records.filter((r: any) => r.user.maritalStatus === 'single').length;
+                    // Gender breakdown
+                    const males = records.filter((r: any) => r.user.gender === 'male').length;
+                    const females = records.filter((r: any) => r.user.gender === 'female').length;
 
-                  // Age group calculations
-                  const ageGroups = { 'Under 18': 0, '18-25': 0, '26-35': 0, '36-50': 0, '51-65': 0, '65+': 0, 'Unknown': 0 };
-                  records.forEach((r: any) => {
-                    if (!r.user.birthday) { ageGroups['Unknown']++; return; }
-                    const birth = new Date(r.user.birthday);
-                    const age = Math.floor((now.getTime() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-                    if (age < 18) ageGroups['Under 18']++;
-                    else if (age <= 25) ageGroups['18-25']++;
-                    else if (age <= 35) ageGroups['26-35']++;
-                    else if (age <= 50) ageGroups['36-50']++;
-                    else if (age <= 65) ageGroups['51-65']++;
-                    else ageGroups['65+']++;
-                  });
+                    // Marital status
+                    const married = records.filter((r: any) => r.user.maritalStatus === 'married').length;
+                    const single = records.filter((r: any) => r.user.maritalStatus === 'single').length;
 
-                  // Families (users who share a familyMemberId)
-                  const familyIds = records
-                    .map((r: any) => r.user.familyMemberId)
-                    .filter(Boolean);
-                  const uniqueFamilies = new Set(familyIds.map(String)).size;
+                    // Age group calculations
+                    const ageGroups = { 'Under 18': 0, '18-25': 0, '26-35': 0, '36-50': 0, '51-65': 0, '65+': 0, 'Unknown': 0 };
+                    records.forEach((r: any) => {
+                      if (!r.user.birthday) { ageGroups['Unknown']++; return; }
+                      const birth = new Date(r.user.birthday);
+                      const age = Math.floor((now.getTime() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+                      if (age < 18) ageGroups['Under 18']++;
+                      else if (age <= 25) ageGroups['18-25']++;
+                      else if (age <= 35) ageGroups['26-35']++;
+                      else if (age <= 50) ageGroups['36-50']++;
+                      else if (age <= 65) ageGroups['51-65']++;
+                      else ageGroups['65+']++;
+                    });
 
-                  return (
-                    <div className="space-y-4">
-                      {/* Top stats row */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="bg-[#FAF7F2] border border-[#E5D5C5] rounded-xl p-3 text-center">
-                          <p className="text-2xl font-bold text-[#3A2D27]">{total}</p>
-                          <p className="text-[10px] font-semibold text-[#7A6150] uppercase tracking-wider">Total</p>
-                        </div>
-                        <div className="bg-[#F3EAE1] border border-[#E5D5C5] rounded-xl p-3 text-center">
-                          <p className="text-2xl font-bold text-[#5C4535]">{married}</p>
-                          <p className="text-[10px] font-semibold text-[#7A6150] uppercase tracking-wider">Married</p>
-                        </div>
-                        <div className="bg-[#E5D5C5] border border-[#D5C5B5] rounded-xl p-3 text-center">
-                          <p className="text-2xl font-bold text-[#3A2D27]">{single}</p>
-                          <p className="text-[10px] font-semibold text-[#5C4535] uppercase tracking-wider">Single</p>
-                        </div>
-                        <div className="bg-[#FBE8E8] border border-[#E8D5D5] rounded-xl p-3 text-center">
-                          <p className="text-2xl font-bold text-[#8B2323]">{uniqueFamilies}</p>
-                          <p className="text-[10px] font-semibold text-[#8B2323] uppercase tracking-wider">Families</p>
-                        </div>
-                      </div>
+                    // Families (users who share a familyMemberId)
+                    const familyIds = records
+                      .map((r: any) => r.user.familyMemberId)
+                      .filter(Boolean);
+                    const uniqueFamilies = new Set(familyIds.map(String)).size;
 
-                      {/* Gender + Age breakdown */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Gender */}
-                        <div className="border rounded-xl p-4">
-                          <h4 className="text-xs font-bold text-muted-foreground uppercase mb-3">Gender</h4>
-                          <div className="flex gap-4">
-                            <div className="flex-1">
-                              <div className="flex justify-between text-sm mb-1"><span>Male</span><span className="font-bold">{males}</span></div>
-                              <div className="w-full bg-[#FAF7F2] rounded-full h-2"><div className="bg-[#5C4535] h-2 rounded-full" style={{ width: `${total ? (males/total)*100 : 0}%` }} /></div>
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex justify-between text-sm mb-1"><span>Female</span><span className="font-bold">{females}</span></div>
-                              <div className="w-full bg-[#FAF7F2] rounded-full h-2"><div className="bg-[#8B2323] h-2 rounded-full" style={{ width: `${total ? (females/total)*100 : 0}%` }} /></div>
-                            </div>
+                    return (
+                      <div className="space-y-4">
+                        {/* Top stats row */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="bg-[#FAF7F2] border border-[#E5D5C5] rounded-xl p-3 text-center">
+                            <p className="text-2xl font-bold text-[#3A2D27]">{total}</p>
+                            <p className="text-[10px] font-semibold text-[#7A6150] uppercase tracking-wider">Total Present</p>
+                          </div>
+                          <div className="bg-[#F3EAE1] border border-[#E5D5C5] rounded-xl p-3 text-center">
+                            <p className="text-2xl font-bold text-[#5C4535]">{married}</p>
+                            <p className="text-[10px] font-semibold text-[#7A6150] uppercase tracking-wider">Married</p>
+                          </div>
+                          <div className="bg-[#E5D5C5] border border-[#D5C5B5] rounded-xl p-3 text-center">
+                            <p className="text-2xl font-bold text-[#3A2D27]">{single}</p>
+                            <p className="text-[10px] font-semibold text-[#5C4535] uppercase tracking-wider">Single</p>
+                          </div>
+                          <div className="bg-[#FBE8E8] border border-[#E8D5D5] rounded-xl p-3 text-center">
+                            <p className="text-2xl font-bold text-[#8B2323]">{uniqueFamilies}</p>
+                            <p className="text-[10px] font-semibold text-[#8B2323] uppercase tracking-wider">Families</p>
                           </div>
                         </div>
 
-                        {/* Age Groups */}
-                        <div className="border rounded-xl p-4">
-                          <h4 className="text-xs font-bold text-muted-foreground uppercase mb-3">Age Groups</h4>
-                          <div className="space-y-1.5">
-                            {Object.entries(ageGroups).filter(([, v]) => v > 0).map(([label, count]) => (
-                              <div key={label} className="flex items-center gap-2 text-xs">
-                                <span className="w-16 text-muted-foreground">{label}</span>
-                                <div className="flex-1 bg-[#FAF7F2] rounded-full h-2"><div className="bg-[#7A6150] h-2 rounded-full transition-all" style={{ width: `${total ? (count/total)*100 : 0}%` }} /></div>
-                                <span className="w-6 text-right font-bold">{count}</span>
+                        {/* Gender + Age breakdown */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Gender */}
+                          <div className="border rounded-xl p-4">
+                            <h4 className="text-xs font-bold text-muted-foreground uppercase mb-3">Gender</h4>
+                            <div className="flex gap-4">
+                              <div className="flex-1">
+                                <div className="flex justify-between text-sm mb-1"><span>Male</span><span className="font-bold">{males}</span></div>
+                                <div className="w-full bg-[#FAF7F2] rounded-full h-2"><div className="bg-[#5C4535] h-2 rounded-full" style={{ width: `${total ? (males / total) * 100 : 0}%` }} /></div>
                               </div>
-                            ))}
+                              <div className="flex-1">
+                                <div className="flex justify-between text-sm mb-1"><span>Female</span><span className="font-bold">{females}</span></div>
+                                <div className="w-full bg-[#FAF7F2] rounded-full h-2"><div className="bg-[#8B2323] h-2 rounded-full" style={{ width: `${total ? (females / total) * 100 : 0}%` }} /></div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Age Groups */}
+                          <div className="border rounded-xl p-4">
+                            <h4 className="text-xs font-bold text-muted-foreground uppercase mb-3">Age Groups</h4>
+                            <div className="space-y-1.5">
+                              {Object.entries(ageGroups).filter(([, v]) => v > 0).map(([label, count]) => (
+                                <div key={label} className="flex items-center gap-2 text-xs">
+                                  <span className="w-16 text-muted-foreground">{label}</span>
+                                  <div className="flex-1 bg-[#FAF7F2] rounded-full h-2"><div className="bg-[#7A6150] h-2 rounded-full transition-all" style={{ width: `${total ? (count / total) * 100 : 0}%` }} /></div>
+                                  <span className="w-6 text-right font-bold">{count}</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Export Buttons */}
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <Button variant="outline" className="flex-1" onClick={() => {
-                          // Export to Excel (CSV)
-                          const headers = ['Name', 'Email', 'Gender', 'Age', 'Marital Status', 'Distance (m)', 'Time'];
-                          const rows = records.map((r: any) => {
-                            let age = '';
-                            if (r.user.birthday) {
-                              const birth = new Date(r.user.birthday);
-                              age = String(Math.floor((now.getTime() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000)));
-                            }
-                            return [
-                              r.user.name,
-                              r.user.email,
-                              r.user.gender || '',
-                              age,
-                              r.user.maritalStatus || '',
-                              r.distance,
-                              new Date(r.markedAt).toLocaleString()
-                            ].map(v => `"${v}"`).join(',');
-                          });
-                          const csv = [headers.join(','), ...rows].join('\n');
-                          const blob = new Blob([csv], { type: 'text/csv' });
-                          const a = document.createElement('a');
-                          a.href = URL.createObjectURL(blob);
-                          a.download = `attendance-report-${new Date().toISOString().split('T')[0]}.csv`;
-                          a.click();
-                          toast.success('Excel (CSV) exported!');
-                        }}>
-                          <FileSpreadsheet className="w-4 h-4 mr-2" /> Export Excel
-                        </Button>
-                        <Button variant="outline" className="flex-1" onClick={() => {
-                          // Export to PDF (printable HTML)
-                          const printWin = window.open('', '_blank');
-                          if (!printWin) return;
-                          const rows = records.map((r: any) => {
-                            let age = '';
-                            if (r.user.birthday) {
-                              const birth = new Date(r.user.birthday);
-                              age = String(Math.floor((now.getTime() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000)));
-                            }
-                            return `<tr>
-                              <td style="padding:6px 10px;border-bottom:1px solid #eee">${r.user.name}</td>
-                              <td style="padding:6px 10px;border-bottom:1px solid #eee">${r.user.gender || '-'}</td>
-                              <td style="padding:6px 10px;border-bottom:1px solid #eee">${age || '-'}</td>
-                              <td style="padding:6px 10px;border-bottom:1px solid #eee">${r.user.maritalStatus || '-'}</td>
-                              <td style="padding:6px 10px;border-bottom:1px solid #eee">${r.distance}m</td>
-                              <td style="padding:6px 10px;border-bottom:1px solid #eee">${new Date(r.markedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</td>
-                            </tr>`;
-                          }).join('');
-                          printWin.document.write(`<!DOCTYPE html><html><head><title>Attendance Report</title>
-                            <style>body{font-family:system-ui,sans-serif;padding:30px}h1{font-size:20px;margin-bottom:4px}
-                            .stats{display:flex;gap:16px;margin:16px 0;flex-wrap:wrap}.stat{background:#f3f4f6;border-radius:10px;padding:12px 20px;text-align:center}
-                            .stat b{display:block;font-size:22px}.stat span{font-size:10px;text-transform:uppercase;color:#666}
-                            table{width:100%;border-collapse:collapse;margin-top:16px}th{text-align:left;padding:8px 10px;border-bottom:2px solid #333;font-size:12px;text-transform:uppercase;color:#666}
-                            td{font-size:13px}@media print{.no-print{display:none}}</style></head><body>
-                            <h1>Attendance Report</h1>
-                            <p style="color:#666;font-size:13px">${new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}</p>
-                            <div class="stats">
-                              <div class="stat"><b>${total}</b><span>Total</span></div>
-                              <div class="stat"><b>${males}</b><span>Male</span></div>
-                              <div class="stat"><b>${females}</b><span>Female</span></div>
-                              <div class="stat"><b>${married}</b><span>Married</span></div>
-                              <div class="stat"><b>${single}</b><span>Single</span></div>
-                              <div class="stat"><b>${uniqueFamilies}</b><span>Families</span></div>
-                            </div>
-                            <table><thead><tr><th>Name</th><th>Gender</th><th>Age</th><th>Status</th><th>Distance</th><th>Time</th></tr></thead>
-                            <tbody>${rows}</tbody></table>
-                            <button class="no-print" onclick="window.print()" style="margin-top:20px;padding:10px 24px;background:#8B2323;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold">
-                              Print / Save as PDF
-                            </button>
-                          </body></html>`);
-                          printWin.document.close();
-                          toast.success('PDF report opened!');
-                        }}>
-                          <Download className="w-4 h-4 mr-2" /> Export PDF
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Member List */}
-                <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-muted-foreground uppercase px-2 pt-2">Individual Records</h4>
-                  <div className="flex justify-between text-xs font-bold text-muted-foreground px-2 pb-2 border-b">
-                    <span>MEMBER</span>
-                    <span>DISTANCE / TIME</span>
-                  </div>
-                  {selectedSessionRecords.map(r => (
-                    <div key={r._id} className="flex justify-between items-center p-3 rounded-lg border bg-card">
-                      <div>
-                        <p className="font-bold text-sm">{r.user.name}</p>
-                        <p className="text-xs text-muted-foreground">{r.user.email}</p>
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          {r.user.gender && <span className="text-[10px] bg-[#FAF7F2] text-[#7A6150] border border-[#E5D5C5] px-2 py-0.5 rounded-full capitalize">{r.user.gender}</span>}
-                          {r.user.maritalStatus && <span className="text-[10px] bg-[#F3EAE1] text-[#5C4535] border border-[#E5D5C5] px-2 py-0.5 rounded-full capitalize">{r.user.maritalStatus}</span>}
-                          {r.user.birthday && (() => {
-                            const birth = new Date(r.user.birthday);
-                            const age = Math.floor((new Date().getTime() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-                            return <span className="text-[10px] bg-[#E5D5C5] text-[#3A2D27] border border-[#D5C5B5] px-2 py-0.5 rounded-full">Age {age}</span>;
-                          })()}
+                        {/* Export Buttons */}
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <Button variant="outline" className="flex-1" onClick={() => {
+                            const headers = ['Name', 'Email', 'Gender', 'Age', 'Marital Status', 'Distance (m)', 'Time'];
+                            const rows = records.map((r: any) => {
+                              let age = '';
+                              if (r.user.birthday) {
+                                const birth = new Date(r.user.birthday);
+                                age = String(Math.floor((now.getTime() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000)));
+                              }
+                              return [
+                                r.user.name,
+                                r.user.email,
+                                r.user.gender || '',
+                                age,
+                                r.user.maritalStatus || '',
+                                r.distance,
+                                r.markedAt ? new Date(r.markedAt).toLocaleString() : ''
+                              ].map(v => `"${v}"`).join(',');
+                            });
+                            const csv = [headers.join(','), ...rows].join('\n');
+                            const blob = new Blob([csv], { type: 'text/csv' });
+                            const a = document.createElement('a');
+                            a.href = URL.createObjectURL(blob);
+                            a.download = `attendance-report-${new Date().toISOString().split('T')[0]}.csv`;
+                            a.click();
+                            toast.success('Excel (CSV) exported!');
+                          }}>
+                            <FileSpreadsheet className="w-4 h-4 mr-2" /> Export Excel
+                          </Button>
+                          <Button variant="outline" className="flex-1" onClick={() => {
+                            const printWin = window.open('', '_blank');
+                            if (!printWin) return;
+                            const rows = records.map((r: any) => {
+                              let age = '';
+                              if (r.user.birthday) {
+                                const birth = new Date(r.user.birthday);
+                                age = String(Math.floor((now.getTime() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000)));
+                              }
+                              return `<tr>
+                                <td style="padding:6px 10px;border-bottom:1px solid #eee">${r.user.name}</td>
+                                <td style="padding:6px 10px;border-bottom:1px solid #eee">${r.user.gender || '-'}</td>
+                                <td style="padding:6px 10px;border-bottom:1px solid #eee">${age || '-'}</td>
+                                <td style="padding:6px 10px;border-bottom:1px solid #eee">${r.user.maritalStatus || '-'}</td>
+                                <td style="padding:6px 10px;border-bottom:1px solid #eee">${r.distance}m</td>
+                                <td style="padding:6px 10px;border-bottom:1px solid #eee">${r.markedAt ? new Date(r.markedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</td>
+                              </tr>`;
+                            }).join('');
+                            printWin.document.write(`<!DOCTYPE html><html><head><title>Attendance Report</title>
+                              <style>body{font-family:system-ui,sans-serif;padding:30px}h1{font-size:20px;margin-bottom:4px}
+                              .stats{display:flex;gap:16px;margin:16px 0;flex-wrap:wrap}.stat{background:#f3f4f6;border-radius:10px;padding:12px 20px;text-align:center}
+                              .stat b{display:block;font-size:22px}.stat span{font-size:10px;text-transform:uppercase;color:#666}
+                              table{width:100%;border-collapse:collapse;margin-top:16px}th{text-align:left;padding:8px 10px;border-bottom:2px solid #333;font-size:12px;text-transform:uppercase;color:#666}
+                              td{font-size:13px}@media print{.no-print{display:none}}</style></head><body>
+                              <h1>Attendance Report</h1>
+                              <p style="color:#666;font-size:13px">${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                              <div class="stats">
+                                <div class="stat"><b>${total}</b><span>Total Present</span></div>
+                                <div class="stat"><b>${males}</b><span>Male</span></div>
+                                <div class="stat"><b>${females}</b><span>Female</span></div>
+                                <div class="stat"><b>${married}</b><span>Married</span></div>
+                                <div class="stat"><b>${single}</b><span>Single</span></div>
+                                <div class="stat"><b>${uniqueFamilies}</b><span>Families</span></div>
+                              </div>
+                              <table><thead><tr><th>Name</th><th>Gender</th><th>Age</th><th>Status</th><th>Distance</th><th>Time</th></tr></thead>
+                              <tbody>${rows}</tbody></table>
+                              <button class="no-print" onclick="window.print()" style="margin-top:20px;padding:10px 24px;background:#8B2323;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold">
+                                Print / Save as PDF
+                              </button>
+                            </body></html>`);
+                            printWin.document.close();
+                            toast.success('PDF report opened!');
+                          }}>
+                            <Download className="w-4 h-4 mr-2" /> Export PDF
+                          </Button>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-sm text-[#8B2323]">{r.distance}m away</p>
-                        <p className="text-xs text-muted-foreground">{new Date(r.markedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                    );
+                  })()}
+                </TabsContent>
+
+                <TabsContent value="directory" className="space-y-3">
+                  <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search members by name or email..."
+                      className="pl-9"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+
+                  {(() => {
+                    const renderMember = (r: any) => (
+                      <div key={r.userId} className="flex flex-col gap-3 p-4 rounded-lg border bg-card shadow-sm">
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-3">
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm truncate">{r.user.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{r.user.email}</p>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {r.status === 'present' && <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Present</span>}
+                              {r.status === 'absent' && <span className="text-[10px] bg-rose-100 text-rose-800 border border-rose-200 px-2 py-0.5 rounded-full flex items-center gap-1"><XCircle className="w-3 h-3" /> Absent</span>}
+                              {r.status === 'unmarked' && <span className="text-[10px] bg-slate-100 text-slate-800 border border-slate-200 px-2 py-0.5 rounded-full">Unmarked</span>}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 shrink-0 pt-2 sm:pt-0">
+                            <Button
+                              size="sm"
+                              variant={r.status === 'present' ? 'default' : 'outline'}
+                              className={r.status === 'present' ? 'bg-emerald-600 hover:bg-emerald-700 text-white rounded-full' : 'rounded-full'}
+                              disabled={updatingStatus[r.userId]}
+                              onClick={() => handleMarkAttendance(r.userId, r.status === 'present' ? 'unmarked' : 'present')}
+                            >
+                              {updatingStatus[r.userId] && r.status !== 'present' ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Present'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={r.status === 'absent' ? 'default' : 'outline'}
+                              className={r.status === 'absent' ? 'bg-rose-600 hover:bg-rose-700 text-white rounded-full' : 'rounded-full'}
+                              disabled={updatingStatus[r.userId]}
+                              onClick={() => handleMarkAttendance(r.userId, r.status === 'absent' ? 'unmarked' : 'absent')}
+                            >
+                              {updatingStatus[r.userId] && r.status !== 'absent' ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Absent'}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {(r.status === 'absent' || r.status === 'unmarked') && (
+                          <div className="mt-2 pt-3 border-t">
+                            <div className="flex flex-col gap-2">
+                              <Label className="text-xs text-muted-foreground">Send Message to Member</Label>
+                              <Textarea
+                                placeholder="We missed you at church today!"
+                                className="text-sm min-h-[60px] rounded-xl"
+                                value={messageText[r.userId] !== undefined ? messageText[r.userId] : "We missed you at church today! Hope you are doing well."}
+                                onChange={(e) => setMessageText(prev => ({ ...prev, [r.userId]: e.target.value }))}
+                              />
+                              <div className="flex gap-2 mt-1">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="rounded-full"
+                                  disabled={sendingMessage[r.userId]}
+                                  onClick={() => handleSendMessage(r.userId)}
+                                >
+                                  {sendingMessage[r.userId] ? <RefreshCw className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
+                                  In-App Push
+                                </Button>
+                                {r.user.whatsapp && (
+                                  <Button
+                                    size="sm"
+                                    className="rounded-full hover:opacity-90"
+                                    style={{ backgroundColor: '#25D366', color: 'white' }}
+                                    onClick={() => openWhatsApp(r.user.whatsapp, r.user.firstName || r.user.name)}
+                                  >
+                                    <MessageCircle className="w-4 h-4 mr-1" />
+                                    WhatsApp
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </>
+                    );
+
+                    const filteredBySearch = selectedSessionRecords.filter((r: any) =>
+                      r.user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      r.user.email?.toLowerCase().includes(searchQuery.toLowerCase())
+                    );
+
+                    return (
+                      <Tabs defaultValue="undetected" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2 mb-4">
+                          <TabsTrigger value="undetected">Undetected Members</TabsTrigger>
+                          <TabsTrigger value="all">All Members</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="undetected" className="space-y-3">
+                          {filteredBySearch.filter((r: any) => r.status === 'absent' || r.status === 'unmarked').length === 0 ? (
+                            <p className="text-center text-muted-foreground py-8 text-sm">No undetected members found.</p>
+                          ) : (
+                            filteredBySearch.filter((r: any) => r.status === 'absent' || r.status === 'unmarked').map(renderMember)
+                          )}
+                        </TabsContent>
+                        <TabsContent value="all" className="space-y-3">
+                          {filteredBySearch.length === 0 ? (
+                            <p className="text-center text-muted-foreground py-8 text-sm">No members found.</p>
+                          ) : (
+                            filteredBySearch.map(renderMember)
+                          )}
+                        </TabsContent>
+                      </Tabs>
+                    );
+                  })()}
+                </TabsContent>
+              </Tabs>
             )}
           </div>
         </DialogContent>
@@ -624,11 +789,11 @@ export default function AdminAttendancePage() {
             {selectedSessionForQr && (
               <div className="bg-white p-4 rounded-xl border inline-block">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${typeof window !== 'undefined' ? window.location.origin : ''}/check-in/qr/${selectedSessionForQr._id}`)}&margin=10`} 
-                  alt="Session QR" 
-                  width={300} 
-                  height={300} 
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${typeof window !== 'undefined' ? window.location.origin : ''}/check-in/qr/${selectedSessionForQr._id}`)}&margin=10`}
+                  alt="Session QR"
+                  width={300}
+                  height={300}
                   className="rounded-lg"
                 />
               </div>

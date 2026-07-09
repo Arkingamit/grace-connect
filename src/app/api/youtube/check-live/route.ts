@@ -20,10 +20,45 @@ export async function GET(request: Request) {
   }
 
   try {
-    const isHandle = channelId.startsWith('@');
-    const url = isHandle
-      ? `https://www.youtube.com/${channelId}/live`
-      : `https://www.youtube.com/channel/${channelId}/live`;
+    let url = '';
+    
+    // Clean up the input in case the user pasted a full URL
+    let cleanId = channelId.trim();
+    
+    // If it's a full URL, try to extract the important part
+    if (cleanId.includes('youtube.com/')) {
+      try {
+        const urlObj = new URL(cleanId);
+        // Extracts /@Handle, /channel/UC123, /c/CustomName
+        const pathParts = urlObj.pathname.split('/').filter(Boolean);
+        
+        if (pathParts[0] === 'channel' && pathParts[1]) {
+          cleanId = pathParts[1];
+        } else if (pathParts[0] === 'c' && pathParts[1]) {
+          cleanId = pathParts[1]; // Will be used as /c/name/live
+          url = `https://www.youtube.com/c/${cleanId}/live`;
+        } else if (pathParts[0]?.startsWith('@')) {
+          cleanId = pathParts[0];
+        } else {
+          // Fallback if we can't parse it well
+          cleanId = pathParts[0];
+        }
+      } catch (e) {
+        // Ignore URL parse errors and continue with string manipulation
+      }
+    }
+    
+    // If url is not already constructed
+    if (!url) {
+      if (cleanId.startsWith('@')) {
+        url = `https://www.youtube.com/${cleanId}/live`;
+      } else if (cleanId.startsWith('UC') && cleanId.length > 15) {
+        url = `https://www.youtube.com/channel/${cleanId}/live`;
+      } else {
+        // Fallback: assume it's a handle but they forgot the @
+        url = `https://www.youtube.com/@${cleanId}/live`;
+      }
+    }
 
     const res = await fetch(url, {
       headers: {

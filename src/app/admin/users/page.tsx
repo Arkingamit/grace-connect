@@ -126,12 +126,20 @@ export default function UsersPage() {
     setDialogOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name || !form.email) return;
     if (editingId !== null) {
-      updateUser(editingId, form);
+      const res = await updateUser(editingId, form) as any;
+      if (res && !res.success) {
+        alert(res.error);
+        return;
+      }
     } else {
-      addUser(form);
+      const res = await addUser(form) as any;
+      if (res && !res.success) {
+        alert(res.error);
+        return;
+      }
     }
     setDialogOpen(false);
     setForm(emptyForm);
@@ -151,11 +159,6 @@ export default function UsersPage() {
     }));
   };
 
-  // Stats
-  const roleCounts = users.reduce((acc, u) => {
-    acc[u.role] = (acc[u.role] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
 
   return (
     <div className="space-y-6">
@@ -171,25 +174,6 @@ export default function UsersPage() {
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {(['super_admin', 'admin', 'campus_leader', 'group_leader', 'member'] as UserRole[]).map(role => {
-          const Icon = roleIcons[role];
-          return (
-            <Card key={role} className="border-[#E5D5C5]/60 bg-[#FAF7F2] shadow-sm rounded-2xl">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${roleColors[role]}`}>
-                  <Icon className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-[#1A202C]">{roleCounts[role] || 0}</p>
-                  <p className="text-xs text-[#7A6150] font-medium">{ROLE_LABELS[role]}s</p>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
 
       {/* Search & Filter */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -246,7 +230,7 @@ export default function UsersPage() {
                     )}
                   </div>
                 </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <div className="flex gap-1 shrink-0">
                   {canEdit && (
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-[#7A6150] hover:text-[#3A2D27] hover:bg-[#F3EAE1]" onClick={() => openEdit(user)}>
                       <Pencil className="w-3.5 h-3.5" />

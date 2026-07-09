@@ -19,6 +19,8 @@ export default function AdminLiveStreamsPage() {
   const [selectedCampus, setSelectedCampus] = useState(currentUser.campusId);
   const [formData, setFormData] = useState<Partial<LiveStream>>({});
   const [isSaved, setIsSaved] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<{ isLive?: boolean, videoId?: string, error?: string } | null>(null);
 
   const canManageAll = canPublishAllCampuses(currentUser.role);
 
@@ -60,6 +62,28 @@ export default function AdminLiveStreamsPage() {
     setTimeout(() => setIsSaved(false), 3000);
   };
 
+  const handleCheckNow = async () => {
+    if (!formData.youtubeChannelId) return;
+    setIsChecking(true);
+    setCheckResult(null);
+    try {
+      const res = await fetch(`/api/youtube/check-live?channelId=${encodeURIComponent(formData.youtubeChannelId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCheckResult(data);
+        if (data.isLive && data.videoId) {
+          setFormData(prev => ({ ...prev, isLive: true, videoId: data.videoId }));
+        }
+      } else {
+        setCheckResult({ error: 'Failed to check status' });
+      }
+    } catch (err) {
+      setCheckResult({ error: 'Network error' });
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
   const getEmbedUrl = (videoId: string) => {
     return `https://www.youtube.com/embed/${videoId}?autoplay=0&mute=1`;
   };
@@ -79,7 +103,7 @@ export default function AdminLiveStreamsPage() {
         <div className="lg:col-span-3 space-y-6">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <CardTitle>Stream Settings</CardTitle>
                   <CardDescription>Configure your YouTube live stream parameters.</CardDescription>
@@ -101,7 +125,7 @@ export default function AdminLiveStreamsPage() {
             <CardContent className="space-y-6">
               
               <div className="space-y-4 p-5 bg-muted/30 rounded-xl border border-border/50">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div className="space-y-0.5">
                     <Label className="text-base font-semibold">Broadcast Status</Label>
                     <p className="text-sm text-muted-foreground">Toggle this to make the stream visible to the congregation.</p>
@@ -123,10 +147,10 @@ export default function AdminLiveStreamsPage() {
               </div>
 
               <div className="space-y-4 p-5 bg-muted/30 rounded-xl border border-border/50">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div className="space-y-0.5">
                     <Label className="text-base font-semibold">Automated Stream Checker</Label>
-                    <p className="text-sm text-muted-foreground">Automatically ping YouTube and go live based on a schedule.</p>
+                    <p className="text-sm text-muted-foreground">Automatically ping YouTube on a schedule. Broadcast Status will be set to ON automatically if the channel is live.</p>
                   </div>
                   <Switch 
                     checked={formData.isAutoEnabled || false} 
@@ -138,15 +162,35 @@ export default function AdminLiveStreamsPage() {
                   <div className="grid gap-4 pt-4 border-t border-border/50">
                     <div className="space-y-2">
                       <Label htmlFor="youtubeChannelId">YouTube Channel Handle</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground bg-muted px-3 py-2 rounded-md border text-sm">youtube.com/</span>
-                        <Input 
-                          id="youtubeChannelId" 
-                          placeholder="e.g. @GraceCommunityChurch" 
-                          value={formData.youtubeChannelId || ''}
-                          onChange={(e) => setFormData({ ...formData, youtubeChannelId: e.target.value })}
-                        />
+                      <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                        <div className="flex items-center flex-1">
+                          <span className="text-muted-foreground bg-muted px-3 py-2 rounded-l-md border border-r-0 text-sm whitespace-nowrap">youtube.com/</span>
+                          <Input 
+                            id="youtubeChannelId" 
+                            className="rounded-l-none"
+                            placeholder="e.g. @Grace" 
+                            value={formData.youtubeChannelId || ''}
+                            onChange={(e) => setFormData({ ...formData, youtubeChannelId: e.target.value })}
+                          />
+                        </div>
+                        <Button 
+                          variant="secondary" 
+                          onClick={handleCheckNow} 
+                          disabled={isChecking || !formData.youtubeChannelId}
+                          className="shrink-0"
+                        >
+                          {isChecking ? 'Checking...' : 'Check Now'}
+                        </Button>
                       </div>
+                      {checkResult && (
+                        <div className={`text-sm mt-2 p-3 rounded-md border ${checkResult.error ? 'bg-destructive/10 text-destructive border-destructive/20' : checkResult.isLive ? 'bg-green-500/10 text-green-600 border-green-500/20' : 'bg-muted border-border'}`}>
+                          {checkResult.error ? checkResult.error : (
+                            checkResult.isLive 
+                              ? `Live broadcast found! ID: ${checkResult.videoId}`
+                              : 'No active live broadcast found right now.'
+                          )}
+                        </div>
+                      )}
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">

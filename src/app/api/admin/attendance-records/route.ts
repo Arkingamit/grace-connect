@@ -37,20 +37,43 @@ export async function GET(req: Request) {
 
     const records = await AttendanceRecord.find({ sessionId }).sort({ markedAt: -1 }).lean();
     
-    // Fetch rich user details for each record
-    const userIds = records.map(r => r.userId);
-    const users = await User.find({ _id: { $in: userIds } })
-      .select('name email gender birthday maritalStatus familyMemberId')
+    // Fetch all users in the campus (or all users if campusId === 'all')
+    const userQuery: any = { status: 'approved' };
+    if (attSession.campusId !== 'all') {
+      userQuery.campusId = attSession.campusId;
+    }
+    const allUsers = await User.find(userQuery)
+      .select('name email gender birthday maritalStatus familyMemberId whatsapp')
       .lean();
-    const userMap = users.reduce((acc, u) => {
-      acc[u._id.toString()] = u;
+
+    // Map records by userId
+    const recordMap = records.reduce((acc, r) => {
+      acc[r.userId] = r;
       return acc;
     }, {} as Record<string, any>);
 
-    const enrichedRecords = records.map(r => ({
-      ...r,
-      user: userMap[r.userId] || { name: 'Unknown User', email: '', gender: '', birthday: '', maritalStatus: '' }
+    const enrichedRecords = allUsers.map(u => ({
+      // If there's a record, spread it, otherwise just provide the user data
+      // We set status to 'unmarked' if no record exists
+      ...(recordMap[u._id.toString()] || { 
+        _id: `unmarked_${u._id}`, 
+        sessionId, 
+        userId: u._id.toString(), 
+        status: 'unmarked',
+        distance: 0,
+        markedAt: null,
+      }),
+      user: u
     }));
+
+    // Sort: Present first, then Absent, then Unmarked, then by Name
+    enrichedRecords.sort((a, b) => {
+      const getStatusRank = (s: string) => s === 'present' ? 0 : s === 'absent' ? 1 : 2;
+      const rankA = getStatusRank(a.status || 'present'); // existing records without status are assumed present
+      const rankB = getStatusRank(b.status || 'present');
+      if (rankA !== rankB) return rankA - rankB;
+      return (a.user.name || '').localeCompare(b.user.name || '');
+    });
 
     return NextResponse.json(enrichedRecords);
   } catch (error) {

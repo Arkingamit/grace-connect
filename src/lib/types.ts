@@ -95,6 +95,7 @@ export interface Event {
     openMinutesBefore: number;
     closeMinutesAfter: number;
   };
+  allowResponseEdits?: boolean;
 }
 
 export interface EventRegistration {

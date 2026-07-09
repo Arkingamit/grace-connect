@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Calendar, Clock, MapPin, Users, ArrowRight, Building2, Images, X, Loader2, ExternalLink, Check, ChevronLeft } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, ArrowRight, Building2, Images, X, Loader2, ExternalLink, Check, ChevronLeft, Navigation } from 'lucide-react';
 
 
 
@@ -145,10 +145,19 @@ export function EventPhotoModal({ event, onClose }: { event: Event; onClose: () 
 
 // ─── Event RSVP Modal ───────────────────────────────────────────────────────
 export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () => void }) {
-  const { addEventRegistration, currentUser } = useAdminData();
+  const { addEventRegistration, updateEventRegistration, eventRegistrations, currentUser } = useAdminData();
+  const existingReg = currentUser ? eventRegistrations.find(r => r.eventId === event.id && r.userEmail === currentUser.email) : null;
   const [name, setName] = useState(currentUser?.name || '');
   const [email, setEmail] = useState(currentUser?.email || '');
   const [responses, setResponses] = useState<Record<string, string | string[]>>({});
+
+  useEffect(() => {
+    if (existingReg) {
+      setName(existingReg.userName);
+      setEmail(existingReg.userEmail);
+      if (existingReg.responses) setResponses(existingReg.responses);
+    }
+  }, [existingReg]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -205,16 +214,28 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
     }
 
     setSubmitting(true);
-    // Simulate network delay
-    setTimeout(() => {
-      addEventRegistration({
-        eventId: event.id,
-        userName: name,
-        userEmail: email,
-        responses,
-      });
-      setSubmitted(true);
-      setSubmitting(false);
+    setTimeout(async () => {
+      try {
+        if (existingReg) {
+          await updateEventRegistration(existingReg.id, {
+            userName: name,
+            userEmail: email,
+            responses,
+          });
+        } else {
+          await addEventRegistration({
+            eventId: event.id,
+            userName: name,
+            userEmail: email,
+            responses,
+          });
+        }
+        setSubmitted(true);
+      } catch (err) {
+        // Error toast handled by hook
+      } finally {
+        setSubmitting(false);
+      }
     }, 600);
   };
 
@@ -225,8 +246,12 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
           <div className="w-16 h-16 bg-success/20 text-success rounded-full flex items-center justify-center mx-auto mb-4">
             <Check className="w-8 h-8" />
           </div>
-          <DialogTitle className="text-2xl mb-2">You're Registered!</DialogTitle>
-          <p className="text-muted-foreground mb-6">We've saved your spot for {event.title}. We look forward to seeing you there!</p>
+          <DialogTitle className="text-2xl mb-2">{existingReg ? 'Registration Updated!' : "You're Registered!"}</DialogTitle>
+          <p className="text-muted-foreground mb-6">
+            {existingReg 
+              ? `Your registration for ${event.title} has been updated successfully.`
+              : `We've saved your spot for ${event.title}. We look forward to seeing you there!`}
+          </p>
           <Button onClick={onClose} className="w-full">Close</Button>
         </DialogContent>
       </Dialog>
@@ -245,217 +270,266 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
           <div className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {event.location}</div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 py-2">
-          {/* Basic Info */}
-          <div className="space-y-4">
-            <h4 className="font-semibold text-sm border-b pb-2">Your Information</h4>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Full Name <span className="text-destructive">*</span></Label>
-                <Input required value={name} onChange={e => setName(e.target.value)} placeholder="John Doe" />
-              </div>
-              <div className="space-y-2">
-                <Label>Email <span className="text-destructive">*</span></Label>
-                <Input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="john@example.com" />
+        {existingReg && event.allowResponseEdits === false ? (
+          <div className="space-y-6 py-2">
+            <div className="bg-success/10 text-success p-4 rounded-xl flex items-start gap-3 border border-success/20">
+              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-sm">You are registered for this event</p>
+                <p className="text-xs mt-1">Your responses have been recorded and editing is closed.</p>
               </div>
             </div>
-          </div>
 
-          {/* Dynamic Forms */}
-          {event.formFields && event.formFields.length > 0 && (
-            <div className="space-y-6">
-              <h4 className="font-semibold text-sm border-b pb-2">Event Questions</h4>
-              {event.formFields.map((field) => {
-                const isError = !!fieldErrors[field.id];
-                return (
-                  <div key={field.id} id={`field-container-${field.id}`} className={`p-4 rounded-xl border ${isError ? 'border-destructive bg-destructive/5' : 'border-border/40 bg-muted/20'} space-y-3`}>
-                    <div>
-                      <Label className="text-sm font-medium">
-                        {field.label} {field.required && <span className="text-destructive">*</span>}
-                      </Label>
-                      {field.description && <p className="text-xs text-muted-foreground mt-0.5">{field.description}</p>}
-                    </div>
+            <div className="space-y-4">
+              <h4 className="font-semibold text-sm border-b pb-2">Your Information</h4>
+              <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground text-xs mb-1">Name</p>
+                  <p className="font-medium">{existingReg.userName}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs mb-1">Email</p>
+                  <p className="font-medium">{existingReg.userEmail}</p>
+                </div>
+              </div>
+            </div>
 
-                    {field.type === 'text' && (
-                      <Input
-                        value={(responses[field.id] as string) || ''}
-                        onChange={e => handleInputChange(field.id, e.target.value)}
-                        placeholder="Your answer"
-                        className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
-                      />
-                    )}
-
-                    {field.type === 'textarea' && (
-                      <Textarea
-                        value={(responses[field.id] as string) || ''}
-                        onChange={e => handleInputChange(field.id, e.target.value)}
-                        placeholder="Your answer"
-                        rows={3}
-                        className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
-                      />
-                    )}
-
-                    {field.type === 'date' && (
-                      <Input
-                        type="date"
-                        value={(responses[field.id] as string) || ''}
-                        onChange={e => handleInputChange(field.id, e.target.value)}
-                        className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
-                      />
-                    )}
-
-                    {field.type === 'time' && (
-                      <Input
-                        type="time"
-                        value={(responses[field.id] as string) || ''}
-                        onChange={e => handleInputChange(field.id, e.target.value)}
-                        className={isError ? 'border-destructive focus-visible:ring-destructive w-[150px]' : 'w-[150px]'}
-                      />
-                    )}
-
-                    {field.type === 'number' && (
-                      <Input
-                        type="number"
-                        value={(responses[field.id] as string) || ''}
-                        onChange={e => handleInputChange(field.id, e.target.value)}
-                        className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
-                        placeholder="0"
-                      />
-                    )}
-
-                    {field.type === 'email' && (
-                      <Input
-                        type="email"
-                        value={(responses[field.id] as string) || ''}
-                        onChange={e => handleInputChange(field.id, e.target.value)}
-                        className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
-                        placeholder="email@example.com"
-                      />
-                    )}
-
-                    {field.type === 'phone' && (
-                      <Input
-                        type="tel"
-                        value={(responses[field.id] as string) || ''}
-                        onChange={e => handleInputChange(field.id, e.target.value)}
-                        className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
-                        placeholder="+1 (555) 000-0000"
-                      />
-                    )}
-
-                    {field.type === 'select' && (
-                      <Select
-                        value={(responses[field.id] as string) || ''}
-                        onValueChange={v => handleInputChange(field.id, v)}
-                      >
-                        <SelectTrigger className={isError ? 'border-destructive focus:ring-destructive' : ''}>
-                          <SelectValue placeholder="Select an option" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(field.options || []).map(opt => (
-                            <SelectItem key={opt.id} value={opt.label}>{opt.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-
-                    {field.type === 'radio' && (
-                      <RadioGroup
-                        value={(responses[field.id] as string) || ''}
-                        onValueChange={v => handleInputChange(field.id, v)}
-                        className="space-y-1 mt-2 pl-1"
-                      >
-                        {(field.options || []).map(opt => (
-                          <div key={opt.id} className="flex items-center space-x-2">
-                            <RadioGroupItem value={opt.label} id={`${field.id}-${opt.id}`} />
-                            <Label htmlFor={`${field.id}-${opt.id}`} className="font-normal cursor-pointer text-foreground">{opt.label}</Label>
-                            {opt.label === 'Other' && (responses[field.id] === 'Other' || (responses[field.id] as string)?.startsWith('Other: ')) && (
-                              <Input 
-                                className="h-7 text-sm ml-2" 
-                                placeholder="Please specify..." 
-                                value={(responses[field.id] as string).replace('Other: ', '') === 'Other' ? '' : (responses[field.id] as string).replace('Other: ', '')}
-                                onChange={(e) => handleInputChange(field.id, `Other: ${e.target.value}`)}
-                                autoFocus
-                              />
-                            )}
-                          </div>
-                        ))}
-                      </RadioGroup>
-                    )}
-
-                    {field.type === 'checkbox' && (
-                      <div className="space-y-2 mt-2 pl-1">
-                        {(field.options || []).map(opt => {
-                          const isChecked = ((responses[field.id] as string[]) || []).includes(opt.label);
-                          return (
-                            <div key={opt.id} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`${field.id}-${opt.id}`}
-                                checked={isChecked}
-                                onCheckedChange={(c) => handleCheckboxChange(field.id, opt.label, !!c)}
-                              />
-                              <Label htmlFor={`${field.id}-${opt.id}`} className="font-normal cursor-pointer text-foreground">{opt.label}</Label>
-                            </div>
-                          );
-                        })}
+            {event.formFields && event.formFields.length > 0 && (
+              <div className="space-y-4 mt-6">
+                <h4 className="font-semibold text-sm border-b pb-2">Your Responses</h4>
+                <div className="space-y-3">
+                  {event.formFields.map((field) => {
+                    const answer = existingReg.responses?.[field.id];
+                    const displayValue = Array.isArray(answer) ? answer.join(', ') : (answer || 'No response');
+                    return (
+                      <div key={field.id} className="text-sm p-3 bg-muted/20 rounded-lg border border-border/40">
+                        <p className="text-muted-foreground text-xs mb-1">{field.label}</p>
+                        <p className="font-medium">{displayValue}</p>
                       </div>
-                    )}
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <div className="pt-4 border-t border-border/40">
+              <Button onClick={onClose} className="w-full" variant="outline">Close Window</Button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6 py-2">
+            {/* Basic Info */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-sm border-b pb-2">Your Information</h4>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Full Name <span className="text-destructive">*</span></Label>
+                  <Input required value={name} onChange={e => setName(e.target.value)} placeholder="John Doe" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email <span className="text-destructive">*</span></Label>
+                  <Input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="john@example.com" />
+                </div>
+              </div>
+            </div>
 
-                    {field.type === 'linear_scale' && (
-                      <div className="pt-2">
+            {/* Dynamic Forms */}
+            {event.formFields && event.formFields.length > 0 && (
+              <div className="space-y-6">
+                <h4 className="font-semibold text-sm border-b pb-2">Event Questions</h4>
+                {event.formFields.map((field) => {
+                  const isError = !!fieldErrors[field.id];
+                  return (
+                    <div key={field.id} id={`field-container-${field.id}`} className={`p-4 rounded-xl border ${isError ? 'border-destructive bg-destructive/5' : 'border-border/40 bg-muted/20'} space-y-3`}>
+                      <div>
+                        <Label className="text-sm font-medium">
+                          {field.label} {field.required && <span className="text-destructive">*</span>}
+                        </Label>
+                        {field.description && <p className="text-xs text-muted-foreground mt-0.5">{field.description}</p>}
+                      </div>
+
+                      {field.type === 'text' && (
+                        <Input
+                          value={(responses[field.id] as string) || ''}
+                          onChange={e => handleInputChange(field.id, e.target.value)}
+                          placeholder="Your answer"
+                          className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                        />
+                      )}
+
+                      {field.type === 'textarea' && (
+                        <Textarea
+                          value={(responses[field.id] as string) || ''}
+                          onChange={e => handleInputChange(field.id, e.target.value)}
+                          placeholder="Your answer"
+                          rows={3}
+                          className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                        />
+                      )}
+
+                      {field.type === 'date' && (
+                        <Input
+                          type="date"
+                          value={(responses[field.id] as string) || ''}
+                          onChange={e => handleInputChange(field.id, e.target.value)}
+                          className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                        />
+                      )}
+
+                      {field.type === 'time' && (
+                        <Input
+                          type="time"
+                          value={(responses[field.id] as string) || ''}
+                          onChange={e => handleInputChange(field.id, e.target.value)}
+                          className={isError ? 'border-destructive focus-visible:ring-destructive w-[150px]' : 'w-[150px]'}
+                        />
+                      )}
+
+                      {field.type === 'number' && (
+                        <Input
+                          type="number"
+                          value={(responses[field.id] as string) || ''}
+                          onChange={e => handleInputChange(field.id, e.target.value)}
+                          className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                          placeholder="0"
+                        />
+                      )}
+
+                      {field.type === 'email' && (
+                        <Input
+                          type="email"
+                          value={(responses[field.id] as string) || ''}
+                          onChange={e => handleInputChange(field.id, e.target.value)}
+                          className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                          placeholder="email@example.com"
+                        />
+                      )}
+
+                      {field.type === 'phone' && (
+                        <Input
+                          type="tel"
+                          value={(responses[field.id] as string) || ''}
+                          onChange={e => handleInputChange(field.id, e.target.value)}
+                          className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                          placeholder="+1 (555) 000-0000"
+                        />
+                      )}
+
+                      {field.type === 'select' && (
+                        <Select
+                          value={(responses[field.id] as string) || ''}
+                          onValueChange={v => handleInputChange(field.id, v)}
+                        >
+                          <SelectTrigger className={isError ? 'border-destructive focus:ring-destructive' : ''}>
+                            <SelectValue placeholder="Select an option" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(field.options || []).map(opt => (
+                              <SelectItem key={opt.id} value={opt.label}>{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+
+                      {field.type === 'radio' && (
                         <RadioGroup
                           value={(responses[field.id] as string) || ''}
                           onValueChange={v => handleInputChange(field.id, v)}
-                          className="flex items-start justify-between w-full"
+                          className="space-y-1 mt-2 pl-1"
                         >
-                          {Array.from({ length: (field.scaleMax || 5) - (field.scaleMin || 1) + 1 }).map((_, i) => {
-                            const numVal = (field.scaleMin || 1) + i;
-                            const val = String(numVal);
-                            const isFirst = i === 0;
-                            const isLast = i === ((field.scaleMax || 5) - (field.scaleMin || 1));
-                            
-                            // Get custom label for this specific step, falling back to min/max labels for legacy data
-                            const stepLabel = field.scaleLabels?.[numVal] || (isFirst ? field.scaleMinLabel : isLast ? field.scaleMaxLabel : null);
+                          {(field.options || []).map(opt => (
+                            <div key={opt.id} className="flex items-center space-x-2">
+                              <RadioGroupItem value={opt.label} id={`${field.id}-${opt.id}`} />
+                              <Label htmlFor={`${field.id}-${opt.id}`} className="font-normal cursor-pointer text-foreground">{opt.label}</Label>
+                              {opt.label === 'Other' && (responses[field.id] === 'Other' || (responses[field.id] as string)?.startsWith('Other: ')) && (
+                                <Input 
+                                  className="h-7 text-sm ml-2" 
+                                  placeholder="Please specify..." 
+                                  value={(responses[field.id] as string).replace('Other: ', '') === 'Other' ? '' : (responses[field.id] as string).replace('Other: ', '')}
+                                  onChange={(e) => handleInputChange(field.id, `Other: ${e.target.value}`)}
+                                  autoFocus
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      )}
 
+                      {field.type === 'checkbox' && (
+                        <div className="space-y-2 mt-2 pl-1">
+                          {(field.options || []).map(opt => {
+                            const isChecked = ((responses[field.id] as string[]) || []).includes(opt.label);
                             return (
-                              <div key={val} className="flex flex-col items-center gap-2 flex-1 px-1">
-                                <span className="text-xs font-medium">{val}</span>
-                                <RadioGroupItem value={val} id={`${field.id}-${val}`} />
-                                {stepLabel && (
-                                  <span className="text-[10px] text-muted-foreground text-center leading-tight mt-1 break-words w-full">
-                                    {stepLabel}
-                                  </span>
-                                )}
+                              <div key={opt.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`${field.id}-${opt.id}`}
+                                  checked={isChecked}
+                                  onCheckedChange={(c) => handleCheckboxChange(field.id, opt.label, !!c)}
+                                />
+                                <Label htmlFor={`${field.id}-${opt.id}`} className="font-normal cursor-pointer text-foreground">{opt.label}</Label>
                               </div>
                             );
                           })}
-                        </RadioGroup>
-                      </div>
-                    )}
+                        </div>
+                      )}
 
-                    {isError && (
-                      <div className="flex items-center gap-1.5 text-xs text-destructive mt-2 font-medium">
-                        <X className="w-3.5 h-3.5" />
-                        {fieldErrors[field.id]}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                      {field.type === 'linear_scale' && (
+                        <div className="pt-2">
+                          <RadioGroup
+                            value={(responses[field.id] as string) || ''}
+                            onValueChange={v => handleInputChange(field.id, v)}
+                            className="flex items-start justify-between w-full"
+                          >
+                            {Array.from({ length: (field.scaleMax || 5) - (field.scaleMin || 1) + 1 }).map((_, i) => {
+                              const numVal = (field.scaleMin || 1) + i;
+                              const val = String(numVal);
+                              const isFirst = i === 0;
+                              const isLast = i === ((field.scaleMax || 5) - (field.scaleMin || 1));
+                              
+                              // Get custom label for this specific step, falling back to min/max labels for legacy data
+                              const stepLabel = field.scaleLabels?.[numVal] || (isFirst ? field.scaleMinLabel : isLast ? field.scaleMaxLabel : null);
 
-          {errorMsg && (
-            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
-              {errorMsg}
-            </div>
-          )}
+                              return (
+                                <div key={val} className="flex flex-col items-center gap-2 flex-1 px-1">
+                                  <span className="text-xs font-medium">{val}</span>
+                                  <RadioGroupItem value={val} id={`${field.id}-${val}`} />
+                                  {stepLabel && (
+                                    <span className="text-[10px] text-muted-foreground text-center leading-tight mt-1 break-words w-full">
+                                      {stepLabel}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </RadioGroup>
+                        </div>
+                      )}
 
-          <Button type="submit" className="w-full bg-primary" disabled={submitting}>
-            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-            {submitting ? 'Registering...' : 'Confirm RSVP'}
-          </Button>
-        </form>
+                      {isError && (
+                        <div className="flex items-center gap-1.5 text-xs text-destructive mt-2 font-medium">
+                          <X className="w-3.5 h-3.5" />
+                          {fieldErrors[field.id]}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {errorMsg && (
+              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+                {errorMsg}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full bg-primary" disabled={submitting}>
+              {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              {submitting 
+                ? (existingReg ? 'Updating...' : 'Registering...') 
+                : (existingReg ? 'Update Registration' : 'Confirm RSVP')}
+            </Button>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -583,13 +657,20 @@ function EventsWidgetLayout() {
                 <div key={event.id} className="relative bg-card shadow-sm rounded-[2rem] overflow-hidden hover:shadow-md transition-all duration-300 group border border-border/50 p-5 flex flex-col gap-4">
                   <div className="flex gap-4">
                     {/* Date Bubble */}
-                    <div className={`w-16 h-16 shrink-0 rounded-2xl flex flex-col items-center justify-center border ${isPast ? 'bg-muted border-border/50 opacity-50 grayscale' : 'bg-[#FFF5F5] border-red-50/50'}`}>
-                      <span className={`text-xl font-bold leading-none ${isPast ? 'text-muted-foreground' : 'text-[#8B2323]'}`}>
-                        {new Date(event.date).getDate()}
-                      </span>
-                      <span className={`text-xs font-bold mt-1 ${isPast ? 'text-muted-foreground' : 'text-[#8B2323]'}`}>
-                        {new Date(event.date).toLocaleDateString('en-US', { month: 'short' })}
-                      </span>
+                    <div className="flex flex-col items-center gap-2 shrink-0">
+                      <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center border ${isPast ? 'bg-muted border-border/50 opacity-50 grayscale' : 'bg-[#FFF5F5] border-red-50/50'}`}>
+                        <span className={`text-xl font-bold leading-none ${isPast ? 'text-muted-foreground' : 'text-[#8B2323]'}`}>
+                          {new Date(event.date).getDate()}
+                        </span>
+                        <span className={`text-xs font-bold mt-1 ${isPast ? 'text-muted-foreground' : 'text-[#8B2323]'}`}>
+                          {new Date(event.date).toLocaleDateString('en-US', { month: 'short' })}
+                        </span>
+                      </div>
+                      {event.mapUrl && (
+                        <button onClick={(e) => { e.preventDefault(); window.open(event.mapUrl, '_blank'); }} className="inline-flex items-center justify-center gap-1 w-full py-1 rounded-full bg-gray-200/80 hover:bg-gray-300 text-[#1A202C] text-[10px] font-semibold transition-colors px-1">
+                          <Navigation className="w-2.5 h-2.5" /> Directions
+                        </button>
+                      )}
                     </div>
                     
                     {/* Title & Badges */}
@@ -754,13 +835,20 @@ function EventsPageLayout() {
             <div key={event.id} className="relative bg-card shadow-sm rounded-[2rem] overflow-hidden hover:shadow-md transition-all duration-300 group border border-border/50 p-5 flex flex-col gap-4">
               <div className="flex gap-4">
                 {/* Date Bubble */}
-                <div className={`w-16 h-16 shrink-0 rounded-2xl flex flex-col items-center justify-center border ${isPast ? 'bg-muted border-border/50 opacity-50 grayscale' : 'bg-[#FFF5F5] border-red-50/50'}`}>
-                  <span className={`text-xl font-bold leading-none ${isPast ? 'text-muted-foreground' : 'text-[#8B2323]'}`}>
-                    {new Date(event.date).getDate()}
-                  </span>
-                  <span className={`text-xs font-bold mt-1 ${isPast ? 'text-muted-foreground' : 'text-[#8B2323]'}`}>
-                    {new Date(event.date).toLocaleDateString('en-US', { month: 'short' })}
-                  </span>
+                <div className="flex flex-col items-center gap-2 shrink-0">
+                  <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center border ${isPast ? 'bg-muted border-border/50 opacity-50 grayscale' : 'bg-[#FFF5F5] border-red-50/50'}`}>
+                    <span className={`text-xl font-bold leading-none ${isPast ? 'text-muted-foreground' : 'text-[#8B2323]'}`}>
+                      {new Date(event.date).getDate()}
+                    </span>
+                    <span className={`text-xs font-bold mt-1 ${isPast ? 'text-muted-foreground' : 'text-[#8B2323]'}`}>
+                      {new Date(event.date).toLocaleDateString('en-US', { month: 'short' })}
+                    </span>
+                  </div>
+                  {event.mapUrl && (
+                    <button onClick={(e) => { e.preventDefault(); window.open(event.mapUrl, '_blank'); }} className="inline-flex items-center justify-center gap-1 w-full py-1 rounded-full bg-gray-200/80 hover:bg-gray-300 text-[#1A202C] text-[10px] font-semibold transition-colors px-1">
+                      <Navigation className="w-2.5 h-2.5" /> Directions
+                    </button>
+                  )}
                 </div>
                 
                 {/* Title & Badges */}

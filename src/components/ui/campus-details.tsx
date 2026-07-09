@@ -34,16 +34,9 @@ export const CampusDetails = () => {
   };
 
   return (
-    <section className="py-10 sm:py-16 bg-background">
+    <section className="w-full">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Your Campus Location
-          </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            {member ? 'Here are the details for your campus.' : 'Join us at our central campus this Sunday!'}
-          </p>
-        </div>
+        {/* Header removed for uniform design */}
 
         <div className="grid grid-cols-1 max-w-lg mx-auto gap-8">
           {displayCampuses.map((campus) => (

@@ -535,7 +535,7 @@ function PrayerPageCard({ prayer, session }: { prayer: any, session: any }) {
           }`}
         >
           <Heart className={`w-4 h-4 ${hasPrayed ? 'fill-current' : ''}`} />
-          {hasPrayed ? 'Prayed' : 'Pray'} • {prayedCount}
+          {hasPrayed ? 'Prayed' : 'I Prayed'} • {prayedCount}
         </button>
       </div>
     </motion.div>

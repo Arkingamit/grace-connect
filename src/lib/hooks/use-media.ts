@@ -35,7 +35,9 @@ export function useMedia() {
 
   const updateLiveStream = useCallback(async (campusId: string, updates: Partial<LiveStream>) => {
     const ls = liveStreams.find(l => l.campusId === campusId);
+    
     if (ls && (ls._id || ls.id)) {
+      // Update existing
       const id = ls._id || ls.id;
       const res = await fetch(`/api/admin/media/livestreams/${id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -44,6 +46,21 @@ export function useMedia() {
       if (res.ok) {
         const updated = await res.json();
         setLiveStreams(prev => prev.map(l => l.campusId === campusId ? mapId(updated) : l));
+      }
+    } else {
+      // Create new
+      const payload = { ...updates, campusId };
+      // Provide defaults for required fields if they are missing
+      if (!payload.title) payload.title = 'Live Broadcast';
+      if (!payload.description) payload.description = 'Join our live service';
+      
+      const res = await fetch(`/api/admin/media/livestreams`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setLiveStreams(prev => [...prev, mapId(created)]);
       }
     }
   }, [liveStreams]);

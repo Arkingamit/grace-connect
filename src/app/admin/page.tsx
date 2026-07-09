@@ -657,6 +657,82 @@ export default function AdminDashboardPage() {
               )}
             </Card>
 
+            {/* Content Configuration (Desktop equivalent of mobile options) */}
+            <Card className="bg-card rounded-2xl p-6 shadow-[0_4px_24px_rgba(47,60,94,0.04)] border border-border/60">
+              <h3 className="text-lg font-serif font-bold text-primary dark:text-[#ffb4ab] mb-4">Content Management</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {isCampusLeader && (
+                  <Link href="/admin/worship" className="block group">
+                    <div className="p-4 rounded-xl border border-border/60 bg-muted/10 hover:bg-muted/40 transition-colors h-full flex flex-col justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Music className="w-4 h-4 text-primary" />
+                          <h4 className="font-semibold text-sm text-foreground">Worship Homepage</h4>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">Manage video items that appear on the homepage carousel.</p>
+                      </div>
+                      <div className="flex items-center text-xs font-semibold text-primary">
+                        Manage <ArrowRight className="w-3.5 h-3.5 ml-1 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </Link>
+                )}
+
+                {isCampusLeader && (
+                  <Link href="/admin/live" className="block group">
+                    <div className="p-4 rounded-xl border border-border/60 bg-muted/10 hover:bg-muted/40 transition-colors h-full flex flex-col justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Radio className="w-4 h-4 text-primary" />
+                          <h4 className="font-semibold text-sm text-foreground">Campus Broadcasts</h4>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">Configure live worship feeds and stream settings.</p>
+                      </div>
+                      <div className="flex items-center text-xs font-semibold text-primary">
+                        Manage <ArrowRight className="w-3.5 h-3.5 ml-1 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </Link>
+                )}
+
+                {isAdmin && (
+                  <Link href="/admin/gallery" className="block group">
+                    <div className="p-4 rounded-xl border border-border/60 bg-muted/10 hover:bg-muted/40 transition-colors h-full flex flex-col justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <ImageIcon className="w-4 h-4 text-primary" />
+                          <h4 className="font-semibold text-sm text-foreground">Gallery Config</h4>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">Organize event photos and media albums.</p>
+                      </div>
+                      <div className="flex items-center text-xs font-semibold text-primary">
+                        Manage <ArrowRight className="w-3.5 h-3.5 ml-1 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </Link>
+                )}
+
+                {isAdmin && (
+                  <Link href="/admin/verses" className="block group">
+                    <div className="p-4 rounded-xl border border-border/60 bg-muted/10 hover:bg-muted/40 transition-colors h-full flex flex-col justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <BookOpen className="w-4 h-4 text-primary" />
+                          <h4 className="font-semibold text-sm text-foreground">Daily Verses</h4>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">Curate and schedule scriptural verses.</p>
+                      </div>
+                      <div className="flex items-center text-xs font-semibold text-primary">
+                        Manage <ArrowRight className="w-3.5 h-3.5 ml-1 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </Link>
+                )}
+
+              </div>
+            </Card>
+
           </div>
 
           {/* Right Column (Sidebar) */}

@@ -22,7 +22,7 @@ const LIST_PROJECTION = {
   targetCampuses: 1, targetGroups: 1, excludeCampuses: 1, excludeGroups: 1,
   googlePhotosUrl: 1, isMultiDay: 1, endDate: 1, description: 1,
   customReminders: 1, reminders: 1, attendanceConfig: 1, createdAt: 1,
-  formFields: 1,
+  formFields: 1, allowResponseEdits: 1,
 };
 
 export async function GET() {

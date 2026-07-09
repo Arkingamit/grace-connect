@@ -109,6 +109,13 @@ export interface ILiveStream extends Document {
   isLive: boolean;
   title: string;
   description: string;
+  isAutoEnabled: boolean;
+  youtubeChannelId: string;
+  recurrencePattern: string;
+  recurrenceDay: string;
+  recurrenceWeekOfMonth: string;
+  time: string;
+  lastAutoChecked: Date;
 }
 
 const LiveStreamSchema = new Schema<ILiveStream>({
@@ -117,6 +124,13 @@ const LiveStreamSchema = new Schema<ILiveStream>({
   isLive: { type: Boolean, default: false },
   title: { type: String, required: true },
   description: { type: String, required: true },
+  isAutoEnabled: { type: Boolean, default: false },
+  youtubeChannelId: { type: String, default: '' },
+  recurrencePattern: { type: String, default: 'weekly' },
+  recurrenceDay: { type: String, default: 'Sunday' },
+  recurrenceWeekOfMonth: { type: String, default: '1st' },
+  time: { type: String, default: '10:00' },
+  lastAutoChecked: { type: Date },
 }, { timestamps: true });
 
 export const LiveStream: Model<ILiveStream> = mongoose.models.LiveStream || mongoose.model<ILiveStream>('LiveStream', LiveStreamSchema);

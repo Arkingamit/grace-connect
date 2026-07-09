@@ -17,11 +17,25 @@ interface Verse {
   reference: string;
 }
 
+function getDayOfYear(date: Date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff = (date.getTime() - start.getTime()) + ((start.getTimezoneOffset() - date.getTimezoneOffset()) * 60 * 1000);
+  const oneDay = 1000 * 60 * 60 * 24;
+  return Math.floor(diff / oneDay);
+}
+
 export default function DailyVersesManagementPage() {
   const [verses, setVerses] = useState<Verse[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [previewVerses, setPreviewVerses] = useState<{ text: string; reference: string }[]>([]);
+
+  const currentDayOfYear = getDayOfYear(new Date());
+  const totalVerses = verses.length;
+  let targetDay = totalVerses > 0 ? currentDayOfYear % totalVerses : 1;
+  if (targetDay === 0 && totalVerses > 0) targetDay = totalVerses;
+  
+  const todayVerse = verses.find(v => v.dayOfYear === targetDay) || verses[0];
 
   useEffect(() => {
     fetchVerses();
@@ -214,10 +228,10 @@ export default function DailyVersesManagementPage() {
 
                 {verses.length > 0 ? (
                   <div className="space-y-4">
-                    <h3 className="font-semibold text-sm">Sample Verse (Day 1):</h3>
+                    <h3 className="font-semibold text-sm">Today's Verse (Day {targetDay}):</h3>
                     <div className="p-4 bg-background border rounded-lg italic text-muted-foreground">
-                      "{verses[0].text}" <br/>
-                      <span className="text-sm font-semibold not-italic text-foreground mt-2 block">— {verses[0].reference}</span>
+                      "{todayVerse?.text}" <br/>
+                      <span className="text-sm font-semibold not-italic text-foreground mt-2 block">— {todayVerse?.reference}</span>
                     </div>
 
                     <Button variant="destructive" onClick={handleDeleteAll} className="w-full">

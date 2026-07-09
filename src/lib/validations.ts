@@ -64,7 +64,8 @@ export const eventSchema = z.object({
     longitude: z.number().optional(),
     openMinutesBefore: z.number(),
     closeMinutesAfter: z.number()
-  }).optional()
+  }).optional(),
+  allowResponseEdits: z.boolean().optional()
 });
 
 // User Admin Schema (for creating/updating users in admin)

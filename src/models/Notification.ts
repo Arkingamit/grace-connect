@@ -4,7 +4,7 @@ export interface INotification extends Document {
   userId: string;
   title: string;
   message: string;
-  type: 'recurring_announcement' | 'event_reminder' | 'system' | 'new_event' | 'new_announcement' | 'new_prayer' | 'new_sermon' | 'new_worship_video' | 'new_note';
+  type: 'recurring_announcement' | 'event_reminder' | 'system' | 'new_event' | 'new_announcement' | 'new_prayer' | 'new_sermon' | 'new_worship_video' | 'new_note' | 'greeting';
   sourceId?: string; // the announcement/event _id that generated this
   isRead: boolean;
   targetCampuses: string[];

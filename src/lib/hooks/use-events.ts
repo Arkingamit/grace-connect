@@ -63,6 +63,25 @@ export function useEvents() {
       const created = await res.json();
       setEventRegistrations(prev => [...prev, mapId(created)]);
       setEvents(prev => prev.map(e => e.id === reg.eventId ? { ...e, registered: e.registered + 1 } : e));
+    } else {
+      const errorData = await res.json().catch(() => ({}));
+      import('sonner').then(({ toast }) => toast.error(errorData.error || 'Failed to register'));
+      throw new Error(errorData.error || 'Failed to register');
+    }
+  }, []);
+
+  const updateEventRegistration = useCallback(async (id: string, reg: Partial<EventRegistration>) => {
+    const res = await fetch(`/api/admin/event-registrations/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reg),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setEventRegistrations(prev => prev.map(r => r.id === id ? mapId(updated) : r));
+    } else {
+      const errorData = await res.json().catch(() => ({}));
+      import('sonner').then(({ toast }) => toast.error(errorData.error || 'Failed to update registration'));
+      throw new Error(errorData.error || 'Failed to update registration');
     }
   }, []);
 
@@ -79,6 +98,7 @@ export function useEvents() {
     updateEvent,
     deleteEvent,
     addEventRegistration,
+    updateEventRegistration,
     getEventRegistrations,
   };
 }

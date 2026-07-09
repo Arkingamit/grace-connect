@@ -66,7 +66,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   group_leader: 'Group Leader',
   campus_leader: 'Campus Leader',
   admin: 'Admin',
-  super_admin: 'Super Admin',
+  super_admin: 'IT Team',
 };
 
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
@@ -218,6 +218,7 @@ interface AdminDataContextType {
   updateEvent: (id: string, event: Partial<Event>, updateSeries?: boolean) => void;
   deleteEvent: (id: string, deleteSeries?: boolean) => void;
   addEventRegistration: (reg: Omit<EventRegistration, 'id' | 'registeredAt'>) => void;
+  updateEventRegistration: (id: string, reg: Partial<EventRegistration>) => void;
   getEventRegistrations: (eventId: string) => EventRegistration[];
 
   // Announcements CRUD
@@ -278,7 +279,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Use the extracted hooks
-  const { events, setEvents, eventRegistrations, setEventRegistrations, addEvent, updateEvent, deleteEvent, addEventRegistration, getEventRegistrations } = useEvents();
+  const { events, setEvents, eventRegistrations, setEventRegistrations, addEvent, updateEvent, deleteEvent, addEventRegistration, updateEventRegistration, getEventRegistrations } = useEvents();
   const { announcements, setAnnouncements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useAnnouncements();
   const { galleryAlbums, setGalleryAlbums, galleryAlbumUrl, setGalleryAlbumUrl, addGalleryAlbum, updateGalleryAlbum, deleteGalleryAlbum, reorderGalleryAlbums } = useGallery();
   const { sermons, setSermons, sermonSeries, setSermonSeries, addSermon, updateSermon, deleteSermon, reorderSermons, addSermonSeries, updateSermonSeries, deleteSermonSeries } = useSermons();
@@ -439,7 +440,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
         setCurrentUser, setGalleryAlbumUrl,
         updateLiveStream,
         addGalleryAlbum, updateGalleryAlbum, deleteGalleryAlbum, reorderGalleryAlbums,
-        addEvent, updateEvent, deleteEvent, addEventRegistration, getEventRegistrations,
+        addEvent, updateEvent, deleteEvent, addEventRegistration, updateEventRegistration, getEventRegistrations,
         addAnnouncement, updateAnnouncement, deleteAnnouncement,
         addUser, updateUser, deleteUser,
         addWorshipVideo, updateWorshipVideo, deleteWorshipVideo,

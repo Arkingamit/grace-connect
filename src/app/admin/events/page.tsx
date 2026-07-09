@@ -68,7 +68,8 @@ const emptyForm = {
     longitude: 0,
     openMinutesBefore: 30,
     closeMinutesAfter: 30
-  }
+  },
+  allowResponseEdits: true
 };
 
 export default function EventsPage() {
@@ -83,6 +84,78 @@ export default function EventsPage() {
   const [selectedEventForResponses, setSelectedEventForResponses] = useState<Event | null>(null);
 
   const { getEventRegistrations } = useAdminData();
+
+  const handleExportResponsesExcel = (event: Event, regs: any[]) => {
+    const fieldHeaders = new Set<string>();
+    regs.forEach(reg => {
+      Object.keys(reg.responses).forEach(key => {
+         const field = event.formFields?.find(f => f.id === key);
+         if (field) fieldHeaders.add(field.label);
+      });
+    });
+
+    const headers = ['Name', 'Email', 'Registered At', ...Array.from(fieldHeaders)];
+    const data = regs.map(reg => {
+      const row: any = {
+        'Name': reg.userName,
+        'Email': reg.userEmail,
+        'Registered At': new Date(reg.registeredAt).toLocaleString()
+      };
+      event.formFields?.forEach(field => {
+        if (fieldHeaders.has(field.label)) {
+          const answer = reg.responses[field.id];
+          row[field.label] = Array.isArray(answer) ? answer.join(', ') : (answer || '');
+        }
+      });
+      return row;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data, { header: headers });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Responses');
+    XLSX.writeFile(workbook, `${event.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_responses.xlsx`);
+  };
+
+  const handleExportResponsesPDF = (event: Event, regs: any[]) => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text(`Responses for: ${event.title}`, 14, 20);
+
+    const fieldHeaders = new Set<string>();
+    regs.forEach(reg => {
+      Object.keys(reg.responses).forEach(key => {
+         const field = event.formFields?.find(f => f.id === key);
+         if (field) fieldHeaders.add(field.label);
+      });
+    });
+
+    const headers = ['Name', 'Email', 'Registered At', ...Array.from(fieldHeaders)];
+    const tableData = regs.map(reg => {
+      const row = [
+        reg.userName,
+        reg.userEmail,
+        new Date(reg.registeredAt).toLocaleString()
+      ];
+      event.formFields?.forEach(field => {
+        if (fieldHeaders.has(field.label)) {
+          const answer = reg.responses[field.id];
+          row.push(Array.isArray(answer) ? answer.join(', ') : (answer || ''));
+        }
+      });
+      return row;
+    });
+
+    autoTable(doc, {
+      startY: 28,
+      head: [headers],
+      body: tableData,
+      theme: 'grid',
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [139, 35, 35] },
+    });
+
+    doc.save(`${event.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_responses.pdf`);
+  };
 
   const handleExportPDF = (broadcastUsers: any[]) => {
     const doc = new jsPDF();
@@ -164,6 +237,7 @@ export default function EventsPage() {
       excludeCampuses: event.excludeCampuses ?? [],
       excludeGroups: event.excludeGroups ?? [],
       googlePhotosUrl: event.googlePhotosUrl || '',
+      allowResponseEdits: event.allowResponseEdits !== false,
       formFields: event.formFields || [],
       isMultiDay: event.isMultiDay || false,
       endDate: event.endDate || '',
@@ -527,9 +601,9 @@ export default function EventsPage() {
                     )}
                   </div>
                 </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <div className="flex gap-1 shrink-0">
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setSelectedEventForResponses(event)} title="View Responses">
-                    <ListEnd className="w-3.5 h-3.5" />
+                    <Users className="w-3.5 h-3.5" />
                   </Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(event)}>
                     <Pencil className="w-3.5 h-3.5" />
@@ -1393,12 +1467,25 @@ export default function EventsPage() {
 
             {/* Right Column: Form Builder */}
             <div className="border-l border-border/50 pl-8 space-y-6">
-              <div>
-                <h4 className="font-bold flex items-center gap-2">
-                  <ListPlus className="w-4 h-4 text-primary" />
-                  Custom Registration Form
-                </h4>
-                <p className="text-xs text-muted-foreground mt-1">Design a poll or questionnaire for attendees answering your RSVP.</p>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-bold flex items-center gap-2">
+                    <ListPlus className="w-4 h-4 text-primary" />
+                    Custom Registration Form
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-1">Design a poll or questionnaire for attendees answering your RSVP.</p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 border border-border/50 rounded-xl bg-muted/20">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm">Allow Response Edits</Label>
+                    <p className="text-xs text-muted-foreground">If disabled, users can only view their submitted responses.</p>
+                  </div>
+                  <Switch
+                    checked={form.allowResponseEdits !== false} // Default to true if undefined
+                    onCheckedChange={(c) => setForm({ ...form, allowResponseEdits: c })}
+                  />
+                </div>
               </div>
 
               <div className="space-y-6">
@@ -1618,14 +1705,21 @@ export default function EventsPage() {
 
                 return (
                   <div className="space-y-6">
-                    <div className="flex gap-4 items-center p-3 bg-muted rounded-lg">
-                      <div className="flex-1">
-                        <p className="text-sm text-muted-foreground">Total Responses</p>
-                        <p className="text-2xl font-bold">{regs.length}</p>
+                    <div className="flex items-center justify-between p-6 bg-muted/60 rounded-[2rem]">
+                      <div className="space-y-3">
+                        <p className="text-[15px] font-medium text-muted-foreground leading-tight">
+                          Total<br />Responses
+                        </p>
+                        <p className="text-4xl font-bold tracking-tight">{regs.length}</p>
                       </div>
-                      <Button variant="outline" className="gap-2 shrink-0">
-                        <Download className="w-4 h-4" /> Export CSV
-                      </Button>
+                      <div className="flex flex-col gap-2 shrink-0">
+                        <Button variant="outline" className="rounded-full bg-background shadow-sm h-11 px-6 font-medium gap-2 border-border/50" onClick={() => handleExportResponsesExcel(selectedEventForResponses, regs)}>
+                          <Download className="w-4 h-4" /> Export Excel
+                        </Button>
+                        <Button variant="outline" className="rounded-full bg-background shadow-sm h-11 px-6 font-medium gap-2 border-border/50" onClick={() => handleExportResponsesPDF(selectedEventForResponses, regs)}>
+                          <FileText className="w-4 h-4" /> Export PDF
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="border rounded-xl divide-y">

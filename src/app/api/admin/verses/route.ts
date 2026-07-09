@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/api-auth';
 import connectToDatabase from '@/lib/db';
 import { DailyVerse } from '@/models/DailyVerse';
+import { serverCache } from '@/lib/cache';
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -40,6 +41,9 @@ export async function POST(req: Request) {
 
     await DailyVerse.insertMany(newVerses);
     
+    // Invalidate the daily verse cache so updates reflect immediately
+    serverCache.invalidate('daily-verse');
+    
     return NextResponse.json({ success: true, count: newVerses.length });
   } catch (error) {
     console.error('Error saving verses:', error);
@@ -54,6 +58,10 @@ export async function DELETE() {
   try {
     await connectToDatabase();
     await DailyVerse.deleteMany({});
+    
+    // Invalidate the daily verse cache
+    serverCache.invalidate('daily-verse');
+    
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete verses' }, { status: 500 });

@@ -4,6 +4,8 @@ import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
 import bcrypt from 'bcryptjs';
 
+export const dynamic = 'force-dynamic';
+
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdminWithScope();
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

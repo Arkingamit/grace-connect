@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { BookOpen, Calendar, Clock, Heart, MapPin, Sparkles, Users, ArrowRight, Bell } from 'lucide-react';
+import { BookOpen, Calendar, Clock, Heart, MapPin, Sparkles, Users, ArrowRight, Bell, Radio } from 'lucide-react';
 import { useAdminData, type FlipCardItem } from '@/lib/admin-data-context';
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
@@ -30,8 +30,9 @@ const cardGradients = [
 ];
 
 export const HeroSection = () => {
-  const { flipCardConfig, events, announcements, sermons, worshipVideos, prayerRequests } = useAdminData();
+  const { flipCardConfig, events, announcements, sermons, worshipVideos, prayerRequests, liveStreams } = useAdminData();
   const { session } = useAuth();
+  const isAnyLive = liveStreams?.some((stream: any) => stream.isLive);
 
   const getDisplayDetails = (item: FlipCardItem) => {
     let displayTitle = item.title || '';
@@ -150,9 +151,21 @@ export const HeroSection = () => {
                 <Button variant="gradient" size="xl" className="hover-lift shadow-xl w-full sm:w-auto rounded-2xl text-lg font-semibold py-7">
                   Join Us Sunday
                 </Button>
-                <Button variant="ghost" size="xl" className="hover-lift w-full sm:w-auto text-primary font-bold text-lg py-7">
-                  Watch Live
-                </Button>
+                <Link href="/live" className="w-full sm:w-auto block">
+                  {isAnyLive ? (
+                    <Button variant="default" size="xl" className="hover-lift w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold text-lg py-7 shadow-xl shadow-red-600/20 relative group overflow-hidden border border-red-500 rounded-2xl">
+                      <div className="absolute inset-0 bg-gradient-to-r from-red-600/0 via-white/20 to-red-600/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
+                      <span className="absolute left-3 top-3 w-3 h-3 bg-red-300 rounded-full animate-ping" />
+                      <span className="absolute left-3 top-3 w-3 h-3 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                      <Radio className="w-5 h-5 mr-2 animate-pulse" />
+                      LIVE NOW
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" size="xl" className="hover-lift w-full sm:w-auto text-primary font-bold text-lg py-7 rounded-2xl">
+                      Watch Live
+                    </Button>
+                  )}
+                </Link>
               </div>
 
             </div>

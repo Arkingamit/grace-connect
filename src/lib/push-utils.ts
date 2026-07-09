@@ -153,3 +153,91 @@ export async function sendPushToTargeted(
     console.error('[push] Error sending push notifications:', error);
   }
 }
+
+/**
+ * Send push notifications to specific user IDs.
+ */
+export async function sendPushToUsers(
+  payload: PushPayload,
+  userIds: string[]
+): Promise<void> {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    console.warn('[push] VAPID keys not configured — skipping push');
+    return;
+  }
+
+  if (userIds.length === 0) return;
+
+  try {
+    await connectToDatabase();
+
+    const subscriptions = await PushSubscriptionModel.find({
+      userId: { $in: userIds },
+    }).lean();
+
+    if (subscriptions.length === 0) return;
+
+    const payloadStr = JSON.stringify(payload);
+    const expiredWebEndpoints: string[] = [];
+    const expiredFcmTokens: string[] = [];
+
+    const results = await Promise.allSettled(
+      subscriptions.map(async (sub) => {
+        try {
+          if (sub.platform === 'web' && sub.endpoint && sub.keys) {
+            await webpush.sendNotification(
+              {
+                endpoint: sub.endpoint,
+                keys: {
+                  p256dh: sub.keys.p256dh,
+                  auth: sub.keys.auth,
+                },
+              },
+              payloadStr,
+              { TTL: 60 * 60 }
+            );
+          } else if ((sub.platform === 'android' || sub.platform === 'ios') && sub.fcmToken) {
+            if (getApps().length === 0) return;
+
+            await getMessaging().send({
+              token: sub.fcmToken,
+              notification: {
+                title: payload.title,
+                body: payload.body,
+              },
+              data: {
+                type: payload.type || 'system',
+                url: payload.url || '',
+                tag: payload.tag || '',
+              },
+            });
+          }
+        } catch (err: any) {
+          if (sub.platform === 'web' && (err.statusCode === 404 || err.statusCode === 410)) {
+            expiredWebEndpoints.push(sub.endpoint!);
+          } else if (
+            err.code === 'messaging/invalid-registration-token' ||
+            err.code === 'messaging/registration-token-not-registered'
+          ) {
+            expiredFcmTokens.push(sub.fcmToken!);
+          }
+        }
+      })
+    );
+
+    if (expiredWebEndpoints.length > 0) {
+      await PushSubscriptionModel.deleteMany({ endpoint: { $in: expiredWebEndpoints } });
+    }
+    if (expiredFcmTokens.length > 0) {
+      await PushSubscriptionModel.deleteMany({ fcmToken: { $in: expiredFcmTokens } });
+    }
+
+    const sent = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (sent > 0 || failed > 0) {
+      console.log(`[push] Users Push: Sent ${sent}, failed ${failed}, cleaned ${expiredWebEndpoints.length + expiredFcmTokens.length}`);
+    }
+  } catch (error) {
+    console.error('[push] Error sending push to users:', error);
+  }
+}

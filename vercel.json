@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/daily-greetings",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/recurring-announcements",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/check-live",
+      "schedule": "* * * * *"
+    }
+  ]
+}
