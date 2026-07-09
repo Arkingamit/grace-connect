@@ -23,6 +23,7 @@ import { NoteShareSection } from '@/components/ui/note-share-section';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { AuthGate } from '@/components/ui/auth-gate';
+import { ProfileSwitcher } from '@/components/ui/profile-switcher';
 
 const christianIcons = [
   // Cross
@@ -663,35 +664,7 @@ export function MobileHomeView() {
               )}
             </Link>
             {session ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="w-10 h-10 rounded-full bg-[#721515] flex items-center justify-center border border-[#E5D5C5]/60 shadow-sm outline-none">
-                    <span className="text-xs font-bold text-white uppercase">{getInitials(session.name)}</span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 border-[#E5D5C5]">
-                  <DropdownMenuLabel className="font-bold text-[#1A202C]">{session.name}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
-                    <Link href="/profile">My Profile</Link>
-                  </DropdownMenuItem>
-                  {['admin', 'superadmin', 'super_admin', 'staff', 'group_leader', 'campus_leader'].includes(session.role?.toLowerCase() || '') && (
-                    <DropdownMenuItem asChild className="rounded-xl cursor-pointer text-[#8B2323] font-bold">
-                      <Link href="/admin">Admin Panel</Link>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={async () => {
-                      await logout();
-                      window.location.href = '/';
-                    }}
-                    className="rounded-xl cursor-pointer text-red-600 font-bold focus:text-red-600"
-                  >
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <ProfileSwitcher />
             ) : (
               <Link href="/login" className="w-10 h-10 rounded-full bg-[#721515] flex items-center justify-center text-white border border-[#E5D5C5]/60 shadow-sm">
                 <span className="text-xs font-bold">DA</span>
@@ -718,25 +691,28 @@ export function MobileHomeView() {
                 </p>
               </div>
 
-              <div className="flex gap-4 pt-2">
-                <Button asChild className="flex-1 bg-[#8B2323] hover:bg-[#721515] active:scale-95 active:bg-[#5a1010] transition-all text-white rounded-full py-6 font-semibold shadow-md">
-                  <Link href="/visit">Join Sunday</Link>
+              <div className="flex gap-3 pt-2">
+                <Button asChild className="flex-1 bg-[#8B2323] hover:bg-[#721515] active:scale-95 active:bg-[#5a1010] transition-all text-white rounded-full py-6 font-semibold shadow-md px-1">
+                  <Link href="/visit">
+                    <span className="text-sm tracking-tight">Join Sunday</span>
+                  </Link>
                 </Button>
                 {isAnyLive ? (
-                  <Button asChild variant="default" className="flex-1 bg-red-600 hover:bg-red-700 active:scale-95 transition-all text-white font-bold rounded-full py-6 shadow-[0_4px_16px_rgba(239,68,68,0.4)] relative overflow-hidden group border border-red-500">
-                    <Link href="/live" className="flex items-center justify-center w-full">
+                  <Button asChild variant="default" className="flex-1 bg-red-600 hover:bg-red-700 active:scale-95 transition-all text-white font-bold rounded-full py-6 shadow-[0_4px_16px_rgba(239,68,68,0.4)] relative overflow-hidden group border-0 px-1">
+                    <Link href="/live">
                       <div className="absolute inset-0 bg-gradient-to-r from-red-600/0 via-white/20 to-red-600/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center justify-center">
+                      <div className="relative flex items-center justify-center w-3 h-3 shrink-0 z-10">
                         <span className="absolute w-3 h-3 bg-red-300 rounded-full animate-ping" />
                         <span className="relative w-3 h-3 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                       </div>
-                      <Radio className="w-5 h-5 mr-2 animate-pulse" />
-                      LIVE NOW
+                      <span className="text-sm tracking-tight font-bold z-10 relative">LIVE NOW</span>
                     </Link>
                   </Button>
                 ) : (
-                  <Button asChild className="flex-1 bg-[#8B2323] hover:bg-[#721515] active:scale-95 active:bg-[#5a1010] transition-all text-white rounded-full py-6 font-semibold shadow-md">
-                    <Link href="/live">Watch Live</Link>
+                  <Button asChild className="flex-1 bg-[#8B2323] hover:bg-[#721515] active:scale-95 active:bg-[#5a1010] transition-all text-white rounded-full py-6 font-semibold shadow-md px-1">
+                    <Link href="/live">
+                      <span className="text-sm tracking-tight">Watch Live</span>
+                    </Link>
                   </Button>
                 )}
               </div>

@@ -160,6 +160,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
   }, [existingReg]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -270,13 +271,17 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
           <div className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {event.location}</div>
         </div>
 
-        {existingReg && event.allowResponseEdits === false ? (
+        {existingReg && !isEditing ? (
           <div className="space-y-6 py-2">
             <div className="bg-success/10 text-success p-4 rounded-xl flex items-start gap-3 border border-success/20">
               <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-sm">You are registered for this event</p>
-                <p className="text-xs mt-1">Your responses have been recorded and editing is closed.</p>
+                <p className="font-semibold text-sm">You have already filled the form for this event</p>
+                {event.allowResponseEdits !== false ? (
+                  <p className="text-xs mt-1">If you want to edit your responses, click the button below.</p>
+                ) : (
+                  <p className="text-xs mt-1">Your responses have been recorded and editing is closed.</p>
+                )}
               </div>
             </div>
 
@@ -311,27 +316,16 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                 </div>
               </div>
             )}
-            <div className="pt-4 border-t border-border/40">
-              <Button onClick={onClose} className="w-full" variant="outline">Close Window</Button>
+            <div className="pt-4 border-t border-border/40 flex flex-col gap-2">
+              {event.allowResponseEdits !== false && (
+                <Button onClick={() => setIsEditing(true)} className="w-full">Edit Registration</Button>
+              )}
+              <Button onClick={onClose} className="w-full" variant={event.allowResponseEdits !== false ? "outline" : "default"}>Close Window</Button>
             </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6 py-2">
-            {/* Basic Info */}
-            <div className="space-y-4">
-              <h4 className="font-semibold text-sm border-b pb-2">Your Information</h4>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Full Name <span className="text-destructive">*</span></Label>
-                  <Input required value={name} onChange={e => setName(e.target.value)} placeholder="John Doe" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email <span className="text-destructive">*</span></Label>
-                  <Input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="john@example.com" />
-                </div>
-              </div>
-            </div>
-
+            {/* Basic Info Removed - System uses currentUser data */}
             {/* Dynamic Forms */}
             {event.formFields && event.formFields.length > 0 && (
               <div className="space-y-6">

@@ -254,15 +254,27 @@ export interface UserProfile {
   id: string;
   _id?: string;
   name: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
   email: string;
   role: UserRole;
   campusId: string;
   groups: string[];
+  gender?: 'male' | 'female';
+  birthday?: string;
+  maritalStatus?: 'single' | 'married';
+  marriageDate?: string;
+  phone?: string;
+  whatsapp?: string;
+  parentAccountId?: string;
+  isLinkedProfile?: boolean;
 }
 
 export interface ChurchMember {
   id: string;
   _id?: string;
+  name?: string;
   firstName: string;
   middleName?: string;
   lastName: string;
@@ -280,6 +292,8 @@ export interface ChurchMember {
   groups: string[];
   qrCode?: string;
   familyMemberId?: string;
+  parentAccountId?: string;
+  isLinkedProfile?: boolean;
   role?: string;
   createdBy?: string;
 }

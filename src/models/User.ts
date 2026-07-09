@@ -20,6 +20,8 @@ export interface IUser extends Document {
   groups: string[];
   qrCode?: string;
   familyMemberId?: mongoose.Types.ObjectId;
+  parentAccountId?: mongoose.Types.ObjectId;
+  isLinkedProfile: boolean;
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -53,6 +55,8 @@ const UserSchema = new Schema<IUser>(
     groups: [{ type: String }],
     qrCode: { type: String },
     familyMemberId: { type: Schema.Types.ObjectId, ref: 'User' },
+    parentAccountId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    isLinkedProfile: { type: Boolean, default: false },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
@@ -64,6 +68,7 @@ UserSchema.index({ status: 1 });
 UserSchema.index({ role: 1 });
 UserSchema.index({ campusId: 1, status: 1 });
 UserSchema.index({ createdAt: -1 });
+UserSchema.index({ parentAccountId: 1 });
 
 // Prevent mongoose from recompiling the model upon hot reload
 const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);

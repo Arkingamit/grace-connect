@@ -161,7 +161,7 @@ export default function SettingsPage() {
 
   const handleSaveSettings = async () => {
     setSavingSettings(true);
-    await updateSystemSettings({ minAppVersion });
+    await updateSystemSettings({ minAppVersion, statsMembers, statsGroups, statsYears });
     setSavingSettings(false);
   };
 
@@ -197,39 +197,49 @@ export default function SettingsPage() {
                 Users with an app version lower than this will be forced to update.
               </p>
             </div>
+            
             <div className="space-y-2">
-              <Label>Hero Stats - Members</Label>
+              <Label>Total Members</Label>
               <Input 
                 type="number"
                 value={statsMembers} 
                 onChange={(e) => setStatsMembers(Number(e.target.value))} 
+                placeholder="2500" 
               />
+              <p className="text-[10px] text-muted-foreground">Displayed on the home screen as "X MEMBERS"</p>
             </div>
+            
             <div className="space-y-2">
-              <Label>Hero Stats - Groups</Label>
+              <Label>Total Groups</Label>
               <Input 
                 type="number"
                 value={statsGroups} 
                 onChange={(e) => setStatsGroups(Number(e.target.value))} 
+                placeholder="25" 
               />
+              <p className="text-[10px] text-muted-foreground">Displayed on the home screen as "X+ GROUPS"</p>
             </div>
+            
             <div className="space-y-2">
-              <Label>Hero Stats - Years Serving</Label>
+              <Label>Years Serving</Label>
               <Input 
                 type="number"
                 value={statsYears} 
                 onChange={(e) => setStatsYears(Number(e.target.value))} 
+                placeholder="15" 
               />
+              <p className="text-[10px] text-muted-foreground">Displayed on the home screen as "X YRS SERVING"</p>
             </div>
-
+            
           </div>
-          <Button 
-            onClick={handleSaveSettings} 
-            disabled={savingSettings || (minAppVersion === (systemSettings?.minAppVersion || '0.1.0') && statsMembers === (systemSettings?.statsMembers || 2500) && statsGroups === (systemSettings?.statsGroups || 25) && statsYears === (systemSettings?.statsYears || 15))}
-            className="w-full sm:w-auto"
-          >
-            {savingSettings ? 'Saving...' : 'Save Settings'}
-          </Button>
+          <div className="flex justify-end pt-4">
+            <Button 
+              onClick={handleSaveSettings} 
+              disabled={savingSettings || (minAppVersion === (systemSettings?.minAppVersion || '0.1.0') && statsMembers === (systemSettings?.statsMembers || 2500) && statsGroups === (systemSettings?.statsGroups || 25) && statsYears === (systemSettings?.statsYears || 15))}
+            >
+              {savingSettings ? 'Saving...' : 'Save Configuration'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -318,7 +328,7 @@ export default function SettingsPage() {
                 >
                   <Tag className="w-3.5 h-3.5 text-primary shrink-0" />
                   <span className="text-sm font-medium">{group.name}</span>
-                  <Badge variant="secondary" className="text-[10px] ml-1 bg-background truncate max-w-[100px] sm:max-w-none">
+                  <Badge variant="outline" className="text-[10px] ml-1 border-primary/20 bg-primary/5 text-primary truncate max-w-[100px] sm:max-w-none">
                     {group.scope === 'global' ? 'Global' : campuses.find(c => c.id === group.scope)?.name || group.scope}
                   </Badge>
                   <Badge variant="outline" className="text-[9px] gap-1 shrink-0">

@@ -65,10 +65,19 @@ const roleColors: Record<UserRole, string> = {
 
 const emptyForm = {
   name: '',
+  firstName: '',
+  middleName: '',
+  lastName: '',
   email: '',
   role: 'member' as UserRole,
   campusId: 'main',
   groups: [] as string[],
+  gender: 'male' as 'male' | 'female',
+  birthday: '',
+  maritalStatus: 'single' as 'single' | 'married',
+  marriageDate: '',
+  phone: '',
+  whatsapp: '',
 };
 
 export default function UsersPage() {
@@ -115,8 +124,16 @@ export default function UsersPage() {
   };
 
   const openEdit = (user: UserProfile) => {
+    const parts = user.name.trim().split(' ');
+    const fallbackFirst = parts[0] || '';
+    const fallbackLast = parts.slice(1).join(' ') || '';
+
     setEditingId(user.id);
     setForm({
+      ...emptyForm,
+      ...user,
+      firstName: user.firstName || fallbackFirst,
+      lastName: user.lastName || fallbackLast,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -127,15 +144,23 @@ export default function UsersPage() {
   };
 
   const handleSubmit = async () => {
-    if (!form.name || !form.email) return;
+    const updatedForm = { ...form };
+    
+    // Automatically generate full name if first and last names are provided
+    if (updatedForm.firstName && updatedForm.lastName) {
+      updatedForm.name = `${updatedForm.firstName} ${updatedForm.middleName ? updatedForm.middleName + ' ' : ''}${updatedForm.lastName}`.trim();
+    }
+    
+    if (!updatedForm.name || !updatedForm.email) return;
+    
     if (editingId !== null) {
-      const res = await updateUser(editingId, form) as any;
+      const res = await updateUser(editingId, updatedForm) as any;
       if (res && !res.success) {
         alert(res.error);
         return;
       }
     } else {
-      const res = await addUser(form) as any;
+      const res = await addUser(updatedForm) as any;
       if (res && !res.success) {
         alert(res.error);
         return;
@@ -217,8 +242,11 @@ export default function UsersPage() {
                     {user.id === currentUser.id && (
                       <Badge variant="outline" className="text-[10px] border-[#8B2323]/30 text-[#8B2323] font-semibold bg-[#FBE8E8]/50">You</Badge>
                     )}
+                    {(user as any).isLinkedProfile && (
+                      <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 font-semibold bg-blue-50">Linked Profile</Badge>
+                    )}
                   </div>
-                  <p className="text-sm text-[#7A6150] truncate">{user.email}</p>
+                  <p className="text-sm text-[#7A6150] truncate">{(user as any).isLinkedProfile ? `Family of ${users.find(u => u.id === (user as any).parentAccountId)?.name || 'Unknown'}` : user.email}</p>
                   <div className="flex items-center gap-3 mt-1 flex-wrap">
                     <span className="text-xs text-[#7A6150] font-medium flex items-center gap-1">
                       <Building2 className="w-3 h-3" /> {user.campusId === 'global' ? 'Global' : (campus?.name || user.campusId)}
@@ -266,13 +294,67 @@ export default function UsersPage() {
             <DialogTitle>{editingId ? 'Edit User' : 'Add User'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Name *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Full name" />
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-2">
+                <Label>First Name *</Label>
+                <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="First" />
+              </div>
+              <div className="space-y-2">
+                <Label>Middle Name</Label>
+                <Input value={form.middleName} onChange={(e) => setForm({ ...form, middleName: e.target.value })} placeholder="Middle" />
+              </div>
+              <div className="space-y-2">
+                <Label>Last Name *</Label>
+                <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="Last" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Email *</Label>
-              <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@grace.org" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Email *</Label>
+                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@grace.org" />
+              </div>
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1..." />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-2">
+                <Label>WhatsApp</Label>
+                <Input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} placeholder="+1..." />
+              </div>
+              <div className="space-y-2">
+                <Label>Gender</Label>
+                <Select value={form.gender} onValueChange={(v) => setForm({ ...form, gender: v as 'male' | 'female' })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Birthday</Label>
+                <Input type="date" value={form.birthday} onChange={(e) => setForm({ ...form, birthday: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Marital Status</Label>
+                <Select value={form.maritalStatus} onValueChange={(v) => setForm({ ...form, maritalStatus: v as 'single' | 'married' })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">Single</SelectItem>
+                    <SelectItem value="married">Married</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {form.maritalStatus === 'married' && (
+                <div className="space-y-2">
+                  <Label>Marriage Date</Label>
+                  <Input type="date" value={form.marriageDate} onChange={(e) => setForm({ ...form, marriageDate: e.target.value })} />
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -303,28 +385,26 @@ export default function UsersPage() {
                 </Select>
               </div>
             </div>
-            {['member', 'group_leader'].includes(form.role) && (
-              <div className="space-y-2">
-                <Label>Groups</Label>
-                {getGroupsForCampus(groupScopes, form.campusId).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No groups available for this campus.</p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {getGroupsForCampus(groupScopes, form.campusId).map(g => (
-                      <label key={g} className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={form.groups.includes(g)}
-                          onChange={() => toggleGroup(g)}
-                          className="rounded"
-                        />
-                        {g}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label>Groups</Label>
+              {getGroupsForCampus(groupScopes, form.campusId).length === 0 ? (
+                <p className="text-sm text-muted-foreground">No groups available for this campus.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-1.5">
+                  {getGroupsForCampus(groupScopes, form.campusId).map(g => (
+                    <label key={g} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.groups.includes(g)}
+                        onChange={() => toggleGroup(g)}
+                        className="rounded"
+                      />
+                      {g}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>

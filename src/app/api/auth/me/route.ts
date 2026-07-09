@@ -18,7 +18,19 @@ export async function GET() {
       return NextResponse.json({ user: null }, { status: 404 });
     }
 
-    return NextResponse.json({ user });
+    // Fetch linked profiles for this user
+    const linkedProfiles = await User.find(
+      { parentAccountId: userId },
+      { password: 0 }
+    ).lean();
+
+    const formattedProfiles = linkedProfiles.map((p: any) => ({
+      ...p,
+      id: p._id.toString(),
+      _id: p._id.toString(),
+    }));
+
+    return NextResponse.json({ user, linkedProfiles: formattedProfiles });
   } catch (error: any) {
     return NextResponse.json({ error: 'Failed to fetch user session' }, { status: 500 });
   }
