@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       userId,
       title: 'A message from your leader',
       message: message,
-      type: 'general',
+      type: 'system',
       read: false,
     });
 
