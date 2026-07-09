@@ -6,15 +6,16 @@ import User from '@/models/User';
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await requireAuth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     await connectToDatabase();
     
-    const existing = await EventRegistration.findById(params.id);
+    const existing = await EventRegistration.findById(id);
     if (!existing) {
       return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
     }
@@ -31,7 +32,7 @@ export async function PUT(
     const body = await req.json();
 
     const updated = await EventRegistration.findByIdAndUpdate(
-      params.id,
+      id,
       { $set: body },
       { returnDocument: 'after' }
     );
