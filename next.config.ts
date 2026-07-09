@@ -10,6 +10,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ['graceconnect.graceahmedabad.org', 'https://graceconnect.graceahmedabad.org'],
   async headers() {
     return [
       // Security headers for all routes
