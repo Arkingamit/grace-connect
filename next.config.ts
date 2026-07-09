@@ -10,23 +10,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ['graceconnect.graceahmedabad.org', 'https://graceconnect.graceahmedabad.org'],
   async headers() {
     return [
       // Security headers for all routes
       {
         source: '/(.*)',
         headers: securityHeaders,
-      },
-      // CORS configuration for API routes
-      {
-        source: "/api/:path*",
-        headers: [
-          { key: "Access-Control-Allow-Credentials", value: "true" },
-          { key: "Access-Control-Allow-Origin", value: "https://graceconnect.graceahmedabad.org" },
-          { key: "Access-Control-Allow-Methods", value: "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
-          { key: "Access-Control-Allow-Headers", value: "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version" },
-        ]
       },
       // Static assets built by Next.js (fingerprinted, safe to cache forever)
       {
