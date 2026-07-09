@@ -420,7 +420,7 @@ function HighlightsCardStack({
 }
 
 export function MobileHomeView() {
-  const { events, worshipVideos, flipCardConfig, announcements, sermons, prayerRequests, getVisibleGalleryAlbums, systemSettings } = useAdminData();
+  const { events, worshipVideos, flipCardConfig, announcements, sermons, prayerRequests, getVisibleGalleryAlbums, systemSettings, liveStreams } = useAdminData();
   const { session, getSessionMember, getEffectiveGroups, logout } = useAuth();
 
   const sessionMember = getSessionMember();
@@ -428,7 +428,7 @@ export function MobileHomeView() {
   const userGroups = effectiveGroups.length > 0 ? Array.from(new Set([...effectiveGroups])) : ['all'];
   const galleryAlbums = getVisibleGalleryAlbums('all', userGroups as string[]);
   
-  const isAnyLive = worshipVideos?.some(v => v.status === 'live');
+  const isAnyLive = liveStreams?.some(v => v.isLive);
 
   // Fallback verse if API fails
   const [verse, setVerse] = useState({

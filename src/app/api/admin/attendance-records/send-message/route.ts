@@ -28,15 +28,18 @@ export async function POST(request: Request) {
       title: 'A message from your leader',
       message: message,
       type: 'system',
-      read: false,
+      isRead: false,
     });
 
     // Send Push Notification
     await sendPushToUsers(
-      [userId],
-      'A message from your leader',
-      message,
-      '/attendance'
+      {
+        title: 'A message from your leader',
+        body: message,
+        url: '/attendance',
+        type: 'system',
+      },
+      [userId]
     );
 
     return NextResponse.json({ success: true });
