@@ -4,9 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { LogOut, User, Sun, Moon, QrCode } from 'lucide-react';
+import { LogOut, User, Sun, Moon, QrCode, UserPlus, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from 'next-themes';
+import { AddFamilyMemberDialog } from './add-family-member-dialog';
 
 const AnimatedNavLink = ({ href, children }: { href: string; children: React.ReactNode }) => {
   const defaultTextColor = 'text-muted-foreground';
@@ -42,10 +43,12 @@ export const Navigation = () => {
   const [lastScrollY, setLastScrollY] = useState(0);
 
   // Existing auth state
-  const { session, logout } = useAuth();
+  const { session, logout, getSessionMember, linkedProfiles, switchProfile } = useAuth();
+  const activeMember = getSessionMember();
   const router = useRouter();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState(false);
+  const [isAddingMember, setIsAddingMember] = useState(false);
 
   useEffect(() => {
     if (session) {
@@ -154,9 +157,9 @@ export const Navigation = () => {
         className="flex items-center gap-2 px-2 py-1.5 rounded-full border border-border bg-card hover:bg-muted hover:border-primary/50 transition-all"
       >
         <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-          <span className="text-[9px] font-bold text-foreground">{getInitials(session.name)}</span>
+          <span className="text-[9px] font-bold text-foreground">{getInitials((activeMember as any)?.name || activeMember?.firstName || session.name)}</span>
         </div>
-        <span className="text-sm font-medium text-foreground hidden sm:block max-w-[80px] truncate">{session.name.split(' ')[0]}</span>
+        <span className="text-sm font-medium text-foreground hidden sm:block max-w-[80px] truncate">{((activeMember as any)?.name || activeMember?.firstName || session.name).split(' ')[0]}</span>
       </button>
       {userMenuOpen && (
         <>
@@ -174,7 +177,7 @@ export const Navigation = () => {
                 <QrCode className="w-4 h-4" /> My ePass
               </Link>
             )}
-            {(session.role === 'admin' || session.role === 'super_admin' || session.role === 'campus_leader') && (
+            {['admin', 'superadmin', 'super_admin', 'staff', 'group_leader', 'campus_leader'].includes(session.role?.toLowerCase() || '') && (
               <Link
                 href="/admin"
                 onClick={() => setUserMenuOpen(false)}
@@ -190,6 +193,40 @@ export const Navigation = () => {
             >
               <User className="w-4 h-4 text-muted-foreground" /> Profile
             </Link>
+
+            <div className="px-3 py-1.5 mt-1 text-[10px] text-muted-foreground uppercase tracking-wider">Switch Profile</div>
+            
+            <button
+              onClick={() => { switchProfile(null); setUserMenuOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors text-left"
+            >
+              <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold shrink-0">{getInitials(session.name)}</div>
+              <span className="flex-1 truncate">{session.name} <span className="text-[10px] text-muted-foreground">(You)</span></span>
+              {!linkedProfiles.find(p => p.id === activeMember?.id) && <Check className="w-3 h-3 text-primary shrink-0" />}
+            </button>
+            
+            {linkedProfiles.map((profile) => (
+              <button
+                key={profile.id}
+                onClick={() => { switchProfile(profile.id); setUserMenuOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors text-left"
+              >
+                <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold shrink-0">{getInitials(profile.name || profile.firstName)}</div>
+                <span className="flex-1 truncate">{profile.name || profile.firstName}</span>
+                {activeMember?.id === profile.id && <Check className="w-3 h-3 text-primary shrink-0" />}
+              </button>
+            ))}
+
+            <button
+              onClick={() => {
+                setUserMenuOpen(false);
+                setIsAddingMember(true);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+            >
+              <UserPlus className="w-4 h-4 text-muted-foreground" /> Add Member
+            </button>
+            <div className="border-t border-border mt-1"></div>
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors"
@@ -312,6 +349,7 @@ export const Navigation = () => {
           )}
         </div>
       </div>
+      <AddFamilyMemberDialog open={isAddingMember} onOpenChange={setIsAddingMember} />
     </header>
   );
 };

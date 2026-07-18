@@ -65,12 +65,12 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const [toasts, setToasts] = useState<NotificationToast[]>([]);
+  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const lastPollRef = useRef<string | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const swRegistered = useRef(false);
 
-  // ── Register Service Worker & subscribe to push ──
-  const registerPush = useCallback(async () => {
+  const registerPush = useCallback(async (userInitiated = false) => {
     if (swRegistered.current) return;
     if (typeof window === 'undefined') return;
 
@@ -79,6 +79,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       if (Capacitor.isNativePlatform()) {
         let permStatus = await PushNotifications.checkPermissions();
         
+        if (permStatus.receive === 'prompt' && !userInitiated) {
+          setShowPermissionPrompt(true);
+          return;
+        }
+
         if (permStatus.receive === 'prompt') {
           permStatus = await PushNotifications.requestPermissions();
         }
@@ -138,6 +143,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       let subscription = await registration.pushManager.getSubscription();
 
       if (!subscription) {
+        if (Notification.permission === 'default' && !userInitiated) {
+          setShowPermissionPrompt(true);
+          return;
+        }
+
         // Request notification permission
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') return;
@@ -233,6 +243,45 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   return (
     <>
       {children}
+
+      {/* ── Permission Prompt Banner ── */}
+      <AnimatePresence>
+        {showPermissionPrompt && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-0 left-0 right-0 z-[10000] p-4 bg-white shadow-md border-b border-[#E5D5C5] flex flex-col sm:flex-row items-center justify-between gap-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                <Bell className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="font-bold text-sm text-[#1A202C]">Stay Updated</p>
+                <p className="text-xs text-[#7A6150]">Enable push notifications so you don't miss important church updates and events.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <button
+                onClick={() => setShowPermissionPrompt(false)}
+                className="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium text-[#7A6150] bg-[#FAF7F2] hover:bg-[#F2EAE0] transition-colors"
+              >
+                Not Now
+              </button>
+              <button
+                onClick={() => {
+                  setShowPermissionPrompt(false);
+                  registerPush(true);
+                }}
+                className="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#8B2323] hover:bg-[#721c1c] transition-colors"
+              >
+                Enable
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Floating Toast Stack ── */}
       <div
