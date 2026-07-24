@@ -45,10 +45,12 @@ export function NoteShareSection({ variant = 'default' }: { variant?: 'default' 
   return (
     <div className="w-full">
       {variant === 'default' && (
-        <div className="flex justify-between items-end mb-4">
-          <h2 className="text-xl font-serif font-bold text-foreground border-l-4 border-primary pl-3 py-0.5 leading-none">
-            Note Share
-          </h2>
+        <div className="text-center space-y-4 mb-12">
+          <span className="section-heading">Resources</span>
+          <h2 className="section-title">Note Share</h2>
+          <p className="section-subtitle">
+            Access sermon notes, study guides, and community announcements
+          </p>
         </div>
       )}
 

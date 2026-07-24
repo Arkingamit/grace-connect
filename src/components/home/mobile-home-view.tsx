@@ -701,11 +701,11 @@ export function MobileHomeView() {
                   <Button asChild variant="default" className="flex-1 bg-red-600 hover:bg-red-700 active:scale-95 transition-all text-white font-bold rounded-full py-6 shadow-[0_4px_16px_rgba(239,68,68,0.4)] relative overflow-hidden group border-0 px-1">
                     <Link href="/live">
                       <div className="absolute inset-0 bg-gradient-to-r from-red-600/0 via-white/20 to-red-600/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
+                      <span className="text-sm tracking-tight font-bold z-10 relative">LIVE NOW</span>
                       <div className="relative flex items-center justify-center w-3 h-3 shrink-0 z-10">
                         <span className="absolute w-3 h-3 bg-red-300 rounded-full animate-ping" />
                         <span className="relative w-3 h-3 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                       </div>
-                      <span className="text-sm tracking-tight font-bold z-10 relative">LIVE NOW</span>
                     </Link>
                   </Button>
                 ) : (
