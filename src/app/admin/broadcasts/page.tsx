@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, Plus, Trash2, RefreshCw, ExternalLink, Link2, X } from 'lucide-react';
+import { FileText, Plus, Pencil, Trash2, RefreshCw, ExternalLink, Link2, X } from 'lucide-react';
 import { useAdminData, getAllowedCampuses, hasGlobalScope } from '@/lib/admin-data-context';
 import { toast } from 'sonner';
 
@@ -15,6 +15,7 @@ export default function AdminBroadcastsPage() {
   const { campuses, currentUser } = useAdminData();
   const [broadcasts, setBroadcasts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const [form, setForm] = useState({
@@ -53,6 +54,23 @@ export default function AdminBroadcastsPage() {
     setForm({ ...form, materialLinks: updated });
   };
 
+  const openCreate = () => {
+    setEditingId(null);
+    setForm({ title: '', description: '', targetCampuses: ['all'], materialLinks: [{ label: '', url: '' }] });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (b: any) => {
+    setEditingId(b._id);
+    setForm({
+      title: b.title || '',
+      description: b.description || '',
+      targetCampuses: b.targetCampuses || ['all'],
+      materialLinks: b.materialLinks?.length ? b.materialLinks : [{ label: '', url: '' }],
+    });
+    setDialogOpen(true);
+  };
+
   const handleSave = async () => {
     if (!form.title.trim() || !form.description.trim()) {
       toast.error('Title and description are required');
@@ -62,18 +80,21 @@ export default function AdminBroadcastsPage() {
     const validLinks = form.materialLinks.filter(l => l.label.trim() && l.url.trim());
 
     try {
-      const res = await fetch('/api/admin/broadcasts', {
-        method: 'POST',
+      const url = editingId ? `/api/admin/broadcasts/${editingId}` : '/api/admin/broadcasts';
+      const method = editingId ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, materialLinks: validLinks }),
       });
       if (res.ok) {
-        toast.success('Note share published!');
+        toast.success(editingId ? 'Note share updated!' : 'Note share published!');
         setDialogOpen(false);
+        setEditingId(null);
         setForm({ title: '', description: '', targetCampuses: ['all'], materialLinks: [{ label: '', url: '' }] });
         fetchBroadcasts();
       } else {
-        toast.error('Failed to create note share');
+        toast.error(editingId ? 'Failed to update note share' : 'Failed to create note share');
       }
     } catch {
       toast.error('An error occurred');
@@ -102,7 +123,7 @@ export default function AdminBroadcastsPage() {
           <h1 className="text-3xl font-bold text-[#1A202C]">Note Share</h1>
           <p className="text-muted-foreground mt-1">Share notes, materials, and resources with your community</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)} className="bg-[#8B2323] hover:bg-[#721515]">
+        <Button onClick={openCreate} className="bg-[#8B2323] hover:bg-[#721515]">
           <Plus className="w-4 h-4 mr-2" />
           New Note Share
         </Button>
@@ -129,14 +150,24 @@ export default function AdminBroadcastsPage() {
                       By {b.createdByName || 'Unknown'} • {new Date(b.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                    onClick={() => handleDelete(b._id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted"
+                      onClick={() => openEdit(b)}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => handleDelete(b._id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="p-4 space-y-3">
@@ -168,7 +199,7 @@ export default function AdminBroadcastsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>New Note Share</DialogTitle>
+            <DialogTitle>{editingId ? 'Edit Note Share' : 'New Note Share'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="space-y-2">

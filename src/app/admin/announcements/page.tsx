@@ -646,7 +646,7 @@ export default function AnnouncementsPage() {
                 )}
                 {isGroupLeader && (
                   <p className="text-[10px] text-emerald-500">
-                    As a Group Leader, you can only broadcast to your campus: {campuses.find(c => c.id === currentUser.campusId)?.name}
+                    As a FASL member, you can only broadcast to your campus: {campuses.find(c => c.id === currentUser.campusId)?.name}
                   </p>
                 )}
                 {hasGlobalScope(currentUser.role) && (
@@ -708,7 +708,7 @@ export default function AnnouncementsPage() {
                 <Label className="text-xs text-muted-foreground">Visible to Groups</Label>
                 {isGroupLeader && (
                   <p className="text-[10px] text-emerald-500">
-                    As a Group Leader, you can only broadcast to your assigned groups.
+                    As a FASL member, you can only broadcast to your assigned groups.
                   </p>
                 )}
                 <div className="flex items-center gap-4">

@@ -69,6 +69,19 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: 'IT Team',
 };
 
+/**
+ * Returns the context-aware display label for a role.
+ * group_leader with campusId === 'global' → 'FASL'
+ * group_leader with a specific campusId   → 'Group Leader'
+ * All other roles use the standard ROLE_LABELS entry.
+ */
+export function getRoleLabel(role: UserRole, campusId?: string): string {
+  if (role === 'group_leader') {
+    return campusId === 'global' ? 'FASL' : 'Group Leader';
+  }
+  return ROLE_LABELS[role];
+}
+
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
   member: 0,
   group_leader: 1,
@@ -87,6 +100,10 @@ export function canPublish(role: UserRole): boolean {
 
 export function canPublishAllCampuses(role: UserRole): boolean {
   return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY.admin;
+}
+
+export function canViewUsers(role: UserRole): boolean {
+  return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY.group_leader;
 }
 
 export function canManageUsers(role: UserRole): boolean {

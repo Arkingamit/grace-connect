@@ -18,7 +18,17 @@ export async function GET() {
       // Campus leaders see users in their campus or global users
       query = { $or: [{ campusId: admin.campusId }, { campusId: 'global' }] };
     } else if (admin.role === 'group_leader') {
-      return NextResponse.json({ error: 'Group leaders cannot view the user list' }, { status: 403 });
+      // Group leaders can view (read-only) users who share at least one of their assigned groups
+      if (admin.groups.length === 0) {
+        return NextResponse.json([]); // No groups assigned — nothing to show
+      }
+      if (admin.campusId === 'global') {
+        // FASL: see members from any campus who are in their groups
+        query = { groups: { $in: admin.groups } };
+      } else {
+        // Campus group leader: see members in their campus who are in their groups
+        query = { campusId: admin.campusId, groups: { $in: admin.groups } };
+      }
     }
 
     // Exclude password, use .lean() for 30-50% faster serialization

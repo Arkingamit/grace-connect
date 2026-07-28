@@ -25,10 +25,8 @@ export function MobileBottomNav() {
     ];
 
     return (
-        <nav className="fixed inset-x-0 bottom-0 z-50 md:hidden pb-[env(safe-area-inset-bottom)]">
-            <div 
-                className="mx-auto max-w-screen-sm border-t border-[#a59d94]/60 px-2 pt-2 pb-2 shadow-[0_-4px_16px_-2px_rgba(58,45,39,0.12),0_1px_0px_rgba(255,255,255,0.6)_inset] bg-[#FAF7F2]/80 backdrop-blur-md"
-            >
+        <nav className="fixed inset-x-0 bottom-0 z-50 md:hidden bg-[#FAF7F2] dark:bg-[#1C1917] border-t border-[#a59d94]/60 shadow-[0_-4px_16px_-2px_rgba(58,45,39,0.12)]">
+            <div className="mx-auto max-w-screen-sm px-2 py-1.5">
                 <div className="grid grid-cols-4 gap-1">
                     {navItems.map((item) => {
                         const Icon = item.icon;
@@ -40,18 +38,20 @@ export function MobileBottomNav() {
                             <Link
                                 key={item.href}
                                 href={item.href}
-                                className={`flex flex-col items-center justify-center gap-1 rounded-full px-2 py-2 text-[11px] font-medium transition-colors ${isActive
+                                className={`flex flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1.5 text-[11px] font-medium transition-colors ${isActive
                                     ? "bg-[#FBE8E8] text-[#8B2323]"
                                     : "text-[#7A6150] hover:bg-[#E5D5C5] hover:text-[#3A2D27]"
                                     }`}
                             >
-                                <Icon strokeWidth={isActive ? 2 : 1.5} className={`h-6 w-6 mb-0.5 ${isActive ? "text-[#8B2323]" : "text-[#7A6150]"}`} />
+                                <Icon strokeWidth={isActive ? 2 : 1.5} className={`h-5 w-5 ${isActive ? "text-[#8B2323]" : "text-[#7A6150]"}`} />
                                 <span className="leading-none">{item.label}</span>
                             </Link>
                         );
                     })}
                 </div>
             </div>
+            {/* Blocks any content from peeking out below the screen edge without increasing navbar height */}
+            <div className="absolute top-full inset-x-0 h-40 bg-[#FAF7F2] dark:bg-[#1C1917] pointer-events-none" />
         </nav>
     );
 }

@@ -595,7 +595,7 @@ export default function SermonManagementPage() {
                     <p className="text-[10px] text-amber-500">Campus Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
                   )}
                   {isGroupLeader && (
-                    <p className="text-[10px] text-emerald-500">Group Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
+                    <p className="text-[10px] text-emerald-500">FASL: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
                   )}
                   {hasGlobalScope(currentUser.role) && (
                     <div className="flex items-center gap-4">
@@ -641,7 +641,7 @@ export default function SermonManagementPage() {
                 <div className="space-y-2 pt-2 border-t border-border/50">
                   <Label className="text-xs text-muted-foreground">Visible to Groups</Label>
                   {isGroupLeader && (
-                    <p className="text-[10px] text-emerald-500">Group Leader: restricted to your assigned groups</p>
+                    <p className="text-[10px] text-emerald-500">FASL: restricted to your assigned groups</p>
                   )}
                   <div className="flex items-center gap-4">
                     <label className="flex items-center gap-2 text-sm cursor-pointer">

@@ -31,9 +31,15 @@ export async function PUT(
 
     const body = await req.json();
 
+    // Whitelist allowed update fields to prevent tampering with status, eventId, etc.
+    const allowedFields: Record<string, any> = {};
+    if (body.formData !== undefined) allowedFields.formData = body.formData;
+    if (body.status !== undefined && isAdmin) allowedFields.status = body.status; // Only admins can update status
+    if (body.notes !== undefined && isAdmin) allowedFields.notes = body.notes;
+
     const updated = await EventRegistration.findByIdAndUpdate(
       id,
-      { $set: body },
+      { $set: allowedFields },
       { returnDocument: 'after' }
     );
 

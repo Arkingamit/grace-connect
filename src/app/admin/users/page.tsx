@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState } from 'react';
+import * as XLSX from 'xlsx';
 import {
   useAdminData,
+  canViewUsers,
   canManageUsers,
   canAppointRole,
   getAssignableRoles,
@@ -10,6 +12,7 @@ import {
   getAllowedCampuses,
   hasGlobalScope,
   ROLE_LABELS,
+  getRoleLabel,
   type UserProfile,
   type UserRole,
 } from '@/lib/admin-data-context';
@@ -45,6 +48,9 @@ import {
   Building2,
   UserPlus,
   UserCheck,
+  UserRound,
+  Clock,
+  FileDown,
 } from 'lucide-react';
 
 const roleIcons: Record<UserRole, React.ElementType> = {
@@ -88,30 +94,48 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [visitorFilter, setVisitorFilter] = useState(false);
 
-  if (!canManageUsers(currentUser.role)) {
+  if (!canViewUsers(currentUser.role)) {
     return (
       <div className="text-center py-16 text-[#3A2D27]">
         <Shield className="w-12 h-12 mx-auto text-[#8B2323]/50 mb-3" />
         <p className="text-lg font-serif font-bold">Access Restricted</p>
-        <p className="text-[#7A6150] mt-1 font-medium">You need Campus Leader access to manage users.</p>
+        <p className="text-[#7A6150] mt-1 font-medium">You need FASL or Leader access to view users.</p>
       </div>
     );
   }
 
+  const isGroupLeader = currentUser.role === 'group_leader';
   const isCampusLeader = currentUser.role === 'campus_leader';
+  const canManage = canManageUsers(currentUser.role);
   const assignableRoles = getAssignableRoles(currentUser.role);
 
   const filtered = users.filter(u => {
-    // Campus leaders only see users in their campus + global users
-    if (isCampusLeader && u.campusId !== currentUser.campusId && u.campusId !== 'global') {
+    // Group leaders (including FASL) only see users in their assigned groups
+    if (isGroupLeader) {
+      if (!currentUser.groups || currentUser.groups.length === 0) return false;
+      const hasMatchingGroup = u.groups.some(g => currentUser.groups.includes(g));
+      if (!hasMatchingGroup) return false;
+      if (currentUser.campusId !== 'global' && u.campusId !== currentUser.campusId && u.campusId !== 'global') {
+        return false;
+      }
+    } else if (isCampusLeader && u.campusId !== currentUser.campusId && u.campusId !== 'global') {
       return false;
     }
     const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase());
+    // 'visitor' filter = pending members
+    if (visitorFilter) {
+      return matchesSearch && (u as any).status === 'pending';
+    }
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
     return matchesSearch && matchesRole;
   });
+
+  // Counts for stat cards
+  const visitorCount = users.filter(u => (u as any).status === 'pending').length;
+  const approvedCount = users.filter(u => (u as any).status === 'approved').length;
 
   const openCreate = () => {
     setEditingId(null);
@@ -184,6 +208,59 @@ export default function UsersPage() {
     }));
   };
 
+  const exportToExcel = () => {
+    const campusName = (campusId: string) =>
+      campusId === 'global' ? 'Global (All Campuses)' : (campuses.find(c => c.id === campusId)?.name || campusId);
+
+    // Sheet 1: Full user list
+    const userRows = users.map(u => ({
+      'Full Name': u.name,
+      'First Name': (u as any).firstName || '',
+      'Last Name': (u as any).lastName || '',
+      'Email': u.email,
+      'Phone': (u as any).phone || '',
+      'WhatsApp': (u as any).whatsapp || '',
+      'Role': getRoleLabel(u.role, u.campusId),
+      'Status': (u as any).status === 'pending' ? 'Visitor (Pending)' : (u as any).status || 'approved',
+      'Campus': campusName(u.campusId),
+      'Groups': u.groups.join(', '),
+      'Gender': (u as any).gender || '',
+      'Birthday': (u as any).birthday || '',
+      'Marital Status': (u as any).maritalStatus || '',
+      'Joined': (u as any).createdAt ? new Date((u as any).createdAt).toLocaleDateString('en-IN') : '',
+    }));
+
+    // Sheet 2: Role summary
+    const roleCounts: Record<string, number> = {};
+    users.forEach(u => {
+      const label = getRoleLabel(u.role, u.campusId);
+      roleCounts[label] = (roleCounts[label] || 0) + 1;
+    });
+    const pendingCount = users.filter(u => (u as any).status === 'pending').length;
+    const summaryRows = [
+      ...Object.entries(roleCounts).map(([role, count]) => ({ 'Role / Category': role, 'Count': count })),
+      { 'Role / Category': '─────────────', 'Count': '' },
+      { 'Role / Category': 'Visitors (Pending Approval)', 'Count': pendingCount },
+      { 'Role / Category': 'Approved Members', 'Count': users.filter(u => (u as any).status === 'approved').length },
+      { 'Role / Category': 'Total Users', 'Count': users.length },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.json_to_sheet(userRows);
+    const ws2 = XLSX.utils.json_to_sheet(summaryRows);
+
+    // Auto column widths for user sheet
+    const colWidths = Object.keys(userRows[0] || {}).map(k => ({ wch: Math.max(k.length, 18) }));
+    ws1['!cols'] = colWidths;
+    ws2['!cols'] = [{ wch: 30 }, { wch: 10 }];
+
+    XLSX.utils.book_append_sheet(wb, ws1, 'Users');
+    XLSX.utils.book_append_sheet(wb, ws2, 'Role Summary');
+
+    const date = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `grace-users-${date}.xlsx`);
+  };
+
 
   return (
     <div className="space-y-6">
@@ -193,10 +270,87 @@ export default function UsersPage() {
           <h1 className="text-3xl font-bold font-serif text-[#1A202C]">User Management</h1>
           <p className="text-[#7A6150] mt-1 font-medium">Manage users and assign roles</p>
         </div>
-        <Button onClick={openCreate} className="gap-2 shrink-0 bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl">
-          <UserPlus className="w-4 h-4" />
-          Add User
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          <Button
+            onClick={exportToExcel}
+            variant="outline"
+            className="gap-2 border-[#8B2323]/30 text-[#8B2323] hover:bg-[#8B2323] hover:text-white rounded-xl transition-colors"
+          >
+            <FileDown className="w-4 h-4" />
+            Export Excel
+          </Button>
+          {canManage && (
+            <Button onClick={openCreate} className="gap-2 bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl">
+              <UserPlus className="w-4 h-4" />
+              Add User
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Visitor / Member Stats Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <button
+          onClick={() => { setVisitorFilter(false); setRoleFilter('all'); }}
+          className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+            !visitorFilter && roleFilter === 'all'
+              ? 'bg-[#8B2323] text-white border-[#8B2323]'
+              : 'bg-[#FAF7F2] border-[#E5D5C5]/60 hover:border-[#8B2323]/40'
+          }`}
+        >
+          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+            !visitorFilter && roleFilter === 'all' ? 'bg-white/20' : 'bg-[#E5D5C5]/40'
+          }`}>
+            <Users className={`w-4 h-4 ${!visitorFilter && roleFilter === 'all' ? 'text-white' : 'text-[#8B2323]'}`} />
+          </div>
+          <div>
+            <p className={`text-xl font-bold leading-none ${!visitorFilter && roleFilter === 'all' ? 'text-white' : 'text-[#1A202C]'}`}>{users.length}</p>
+            <p className={`text-[10px] font-semibold uppercase tracking-wide mt-0.5 ${!visitorFilter && roleFilter === 'all' ? 'text-white/70' : 'text-[#7A6150]'}`}>All Users</p>
+          </div>
+        </button>
+
+        <button
+          onClick={() => { setVisitorFilter(false); setRoleFilter('member'); }}
+          className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+            !visitorFilter && roleFilter === 'member'
+              ? 'bg-[#8B2323] text-white border-[#8B2323]'
+              : 'bg-[#FAF7F2] border-[#E5D5C5]/60 hover:border-[#8B2323]/40'
+          }`}
+        >
+          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+            !visitorFilter && roleFilter === 'member' ? 'bg-white/20' : 'bg-[#E5D5C5]/40'
+          }`}>
+            <User className={`w-4 h-4 ${!visitorFilter && roleFilter === 'member' ? 'text-white' : 'text-[#8B2323]'}`} />
+          </div>
+          <div>
+            <p className={`text-xl font-bold leading-none ${!visitorFilter && roleFilter === 'member' ? 'text-white' : 'text-[#1A202C]'}`}>{approvedCount}</p>
+            <p className={`text-[10px] font-semibold uppercase tracking-wide mt-0.5 ${!visitorFilter && roleFilter === 'member' ? 'text-white/70' : 'text-[#7A6150]'}`}>Members</p>
+          </div>
+        </button>
+
+        <button
+          onClick={() => { setVisitorFilter(true); setRoleFilter('all'); }}
+          className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left relative ${
+            visitorFilter
+              ? 'bg-amber-600 text-white border-amber-600'
+              : 'bg-[#FAF7F2] border-[#E5D5C5]/60 hover:border-amber-400'
+          }`}
+        >
+          {visitorCount > 0 && !visitorFilter && (
+            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+              {visitorCount}
+            </span>
+          )}
+          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+            visitorFilter ? 'bg-white/20' : 'bg-amber-100'
+          }`}>
+            <Clock className={`w-4 h-4 ${visitorFilter ? 'text-white' : 'text-amber-600'}`} />
+          </div>
+          <div>
+            <p className={`text-xl font-bold leading-none ${visitorFilter ? 'text-white' : 'text-[#1A202C]'}`}>{visitorCount}</p>
+            <p className={`text-[10px] font-semibold uppercase tracking-wide mt-0.5 ${visitorFilter ? 'text-white/70' : 'text-[#7A6150]'}`}>Visitors</p>
+          </div>
+        </button>
       </div>
 
 
@@ -206,17 +360,25 @@ export default function UsersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7A6150]" />
           <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-[#FAF7F2] border-[#E5D5C5]/60 focus-visible:ring-[#8B2323] text-[#3A2D27] rounded-xl h-11" />
         </div>
-        <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-[180px] bg-[#FAF7F2] border-[#E5D5C5]/60 text-[#3A2D27] rounded-xl h-11 font-medium">
-            <SelectValue placeholder="Filter by role" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Roles</SelectItem>
-            {(['super_admin', 'admin', 'campus_leader', 'group_leader', 'member'] as UserRole[]).map(r => (
-              <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {!visitorFilter && (
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-[180px] bg-[#FAF7F2] border-[#E5D5C5]/60 text-[#3A2D27] rounded-xl h-11 font-medium">
+              <SelectValue placeholder="Filter by role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              {(['super_admin', 'admin', 'campus_leader', 'group_leader', 'member'] as UserRole[]).map(r => (
+                <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {visitorFilter && (
+          <div className="flex items-center gap-2 px-3 h-11 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm font-semibold">
+            <Clock className="w-4 h-4" />
+            Showing Visitors Only
+          </div>
+        )}
       </div>
 
       {/* User List */}
@@ -224,8 +386,8 @@ export default function UsersPage() {
         {filtered.map(user => {
           const Icon = roleIcons[user.role];
           const campus = campuses.find(c => c.id === user.campusId);
-          const canEdit = canAppointRole(currentUser.role, user.role) || user.id === currentUser.id;
-          const canDelete = user.id !== currentUser.id && canAppointRole(currentUser.role, user.role);
+          const canEdit = canManage && (canAppointRole(currentUser.role, user.role) || user.id === currentUser.id);
+          const canDelete = canManage && user.id !== currentUser.id && canAppointRole(currentUser.role, user.role);
 
           return (
             <Card key={user.id} className="border-[#E5D5C5]/60 bg-white hover:shadow-md transition-shadow group rounded-2xl">
@@ -237,8 +399,13 @@ export default function UsersPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-[#1A202C] truncate">{user.name}</p>
                     <Badge variant="outline" className={`text-[10px] border-[#E5D5C5]/60 font-semibold ${roleColors[user.role]}`}>
-                      {ROLE_LABELS[user.role]}
+                      {getRoleLabel(user.role, user.campusId)}
                     </Badge>
+                    {(user as any).status === 'pending' && (
+                      <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 font-semibold bg-amber-50">
+                        <Clock className="w-2.5 h-2.5 mr-1" />Visitor
+                      </Badge>
+                    )}
                     {user.id === currentUser.id && (
                       <Badge variant="outline" className="text-[10px] border-[#8B2323]/30 text-[#8B2323] font-semibold bg-[#FBE8E8]/50">You</Badge>
                     )}

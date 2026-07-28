@@ -286,8 +286,6 @@ function HighlightsCardStack({
               — {item.data.reference}
             </p>
           </div>
-
-          <div className="highlights-swipe-hint">Swipe to navigate</div>
         </div>
       );
     }
@@ -328,8 +326,6 @@ function HighlightsCardStack({
             </a>
           </Button>
         </div>
-
-        <div className="highlights-swipe-hint">Swipe to navigate</div>
       </Card>
     );
   };
