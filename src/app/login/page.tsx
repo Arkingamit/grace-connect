@@ -6,17 +6,39 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Church, ArrowLeft } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
+import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [isNative, setIsNative] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    
+    const initNative = () => {
+      const isCapacitor = typeof window !== 'undefined' && (window as any).Capacitor?.isNative;
+      const isWebView = typeof window !== 'undefined' && /wv|Nexus|Android.*AppleWebKit/i.test(navigator.userAgent);
+      
+      if (isCapacitor || isWebView) {
+        setIsNative(true);
+        try {
+          GoogleAuth.initialize({
+            clientId: '1041926673516-hft1e549snh2040b0h6g2t7s06c83697.apps.googleusercontent.com',
+            scopes: ['profile', 'email'],
+            grantOfflineAccess: true,
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
 
-
+    initNative();
+    setTimeout(initNative, 500); // Retry in case bridge injects late
   }, [router]);
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
@@ -31,6 +53,26 @@ export default function LoginPage() {
       router.push('/');
     } else {
       setError(result.error || 'Login failed');
+    }
+  };
+
+  const handleNativeGoogleLogin = async () => {
+    try {
+      setError('');
+      const user = await GoogleAuth.signIn();
+      if (!user.authentication.idToken) {
+        setError('Google authentication failed. No ID Token received.');
+        return;
+      }
+      const result = await login(user.authentication.idToken);
+      if (result.success) {
+        router.push('/');
+      } else {
+        setError(result.error || 'Login failed');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError('Native Google login failed or was canceled.');
     }
   };
 
@@ -76,6 +118,14 @@ export default function LoginPage() {
             <div className="flex justify-center w-full min-h-[44px] items-center">
               {!mounted ? (
                 <div className="w-full h-[44px] animate-pulse bg-[#F3EAE1]/50 rounded-lg"></div>
+              ) : isNative ? (
+                <button
+                  onClick={handleNativeGoogleLogin}
+                  className="w-full bg-white text-gray-700 border border-gray-300 font-medium text-sm rounded-md py-2.5 px-4 flex items-center justify-center gap-3 hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                  Sign in with Google
+                </button>
               ) : (
                 <div className="w-full flex justify-center [&>div]:!w-full [&>div>div]:!w-full [&_iframe]:!w-full">
                   <GoogleLogin
