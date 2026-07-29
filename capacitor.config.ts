@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Grace Connect',
   webDir: 'public',
   server: {
-    url: 'https://graceconnect-psi.vercel.app',
+    url: 'https://graceconnect.graceahmedabad.org',
     cleartext: true
   },
   plugins: {
