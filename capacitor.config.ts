@@ -6,7 +6,8 @@ const config: CapacitorConfig = {
   webDir: 'public',
   server: {
     url: 'https://graceconnect.graceahmedabad.org',
-    cleartext: true
+    cleartext: true,
+    allowNavigation: ['graceconnect.graceahmedabad.org', '*.graceahmedabad.org']
   },
   plugins: {
     GoogleAuth: {

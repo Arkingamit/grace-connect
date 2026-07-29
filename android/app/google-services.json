@@ -1,33 +1,33 @@
 {
   "project_info": {
-    "project_number": "709590581969",
-    "project_id": "vaulted-tower-385216",
-    "storage_bucket": "vaulted-tower-385216.firebasestorage.app"
+    "project_number": "641349616597",
+    "project_id": "grace-connect-503911",
+    "storage_bucket": "grace-connect-503911.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:709590581969:android:7ad68ae3cf34a0603cfbf0",
+        "mobilesdk_app_id": "1:641349616597:android:166df4ca732e4e6e6b335c",
         "android_client_info": {
           "package_name": "com.graceconnect.app"
         }
       },
       "oauth_client": [
         {
-          "client_id": "709590581969-0504brneek3u1oioqnsd839sk6aukhvs.apps.googleusercontent.com",
+          "client_id": "641349616597-i769rj34s7j08odnfurq27quo5f0jv7k.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyCdxcyzGzRd39CrS41jaf5K0grbf8xt95E"
+          "current_key": "AIzaSyCoQ0aQrkJTakAMqT9T--1YoxiYzqygL4Q"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "709590581969-0504brneek3u1oioqnsd839sk6aukhvs.apps.googleusercontent.com",
+              "client_id": "641349616597-i769rj34s7j08odnfurq27quo5f0jv7k.apps.googleusercontent.com",
               "client_type": 3
             }
           ]
