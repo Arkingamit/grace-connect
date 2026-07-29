@@ -286,7 +286,7 @@ export default function SettingsPage() {
     setCreatingGroup(false);
 
     if (!result || result.success === false) {
-      toast.error(result?.error || 'Failed to create group');
+      toast.error((result as any)?.error || 'Failed to create group');
       return;
     }
 
