@@ -11,6 +11,11 @@
     "start": "next start -p 4000",
     "lint": "next lint"
   },
+  "browserslist": [
+    "chrome >= 80",
+    "ios >= 13",
+    "safari >= 13"
+  ],
   "dependencies": {
     "@21st-sdk/agent": "^0.0.18",
     "@21st-sdk/nextjs": "^0.0.11",
