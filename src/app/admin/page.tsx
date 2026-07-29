@@ -411,16 +411,16 @@ export default function AdminDashboardPage() {
         {isCampusLeader && (
           <div className="grid grid-cols-2 gap-4">
             <Link href="/admin/qr-codes" className="block">
-              <div className="flex items-center justify-center gap-3 p-4 bg-rose-50/50 border border-rose-100 hover:bg-rose-50 transition-all duration-300 rounded-2xl shadow-sm text-center cursor-pointer group">
-                <QrCode className="w-5 h-5 text-rose-600 group-hover:scale-110 transition-transform duration-200" />
-                <span className="font-bold text-sm text-rose-950">QR Codes</span>
+              <div className="flex items-center justify-center gap-3 p-4 bg-slate-50 border border-slate-200/80 hover:bg-slate-100 transition-all duration-300 rounded-2xl shadow-sm text-center cursor-pointer group">
+                <QrCode className="w-5 h-5 text-slate-600 group-hover:scale-110 transition-transform duration-200" />
+                <span className="font-bold text-sm text-slate-900">QR Codes</span>
               </div>
             </Link>
             
             <Link href="/admin/users" className="block">
               <div className="flex items-center justify-center gap-3 p-4 bg-slate-50 border border-slate-200/80 hover:bg-slate-100 transition-all duration-300 rounded-2xl shadow-sm text-center cursor-pointer group">
                 <Users className="w-5 h-5 text-slate-600 group-hover:scale-110 transition-transform duration-200" />
-                <span className="font-bold text-sm text-slate-900">Users</span>
+                <span className="font-bold text-sm text-slate-900">Members</span>
               </div>
             </Link>
           </div>

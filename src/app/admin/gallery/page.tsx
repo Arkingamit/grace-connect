@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useAdminData, canPublishAllCampuses, getGroupsForCampus, getAllowedCampuses, getAllowedGroups, hasGlobalScope, GalleryAlbum } from '@/lib/admin-data-context';
+import { useAdminData, canPublishAllCampuses, getGroupsForCampus, getAllowedCampuses, getAllowedGroups, hasGlobalScope, isCoreTeamLeader, isFasLeader, GalleryAlbum } from '@/lib/admin-data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,13 +58,19 @@ export default function GalleryManagementPage() {
 
   const isCampusLeader = currentUser.role === 'campus_leader';
   const isGroupLeader = currentUser.role === 'group_leader';
+  const isCore = isCoreTeamLeader(currentUser.role, currentUser.campusId);
+  const isFas = isFasLeader(currentUser.role, currentUser.campusId);
+  const campusLocked = isCampusLeader || isFas;
+  const canAllCampusesScope = hasGlobalScope(currentUser.role, currentUser.campusId);
 
   // ── Audience helpers ──
   const campusMode = form.targetCampuses?.includes('all') ? 'all' : 'specific';
-  const groupMode = form.targetGroups?.includes('all') || (isGroupLeader && form.targetGroups?.length === currentUser.groups.length && currentUser.groups.length > 0) ? 'all' : 'specific';
+  const groupMode = isFas
+    ? 'specific'
+    : (form.targetGroups?.includes('all') || (isGroupLeader && form.targetGroups?.length === currentUser.groups.length && currentUser.groups.length > 0) ? 'all' : 'specific');
 
   const setCampusMode = (mode: 'all' | 'specific') => {
-    if (isCampusLeader || isGroupLeader) return;
+    if (campusLocked) return;
     setForm(f => ({
       ...f,
       targetCampuses: mode === 'specific' ? [] : ['all'],
@@ -72,7 +78,7 @@ export default function GalleryManagementPage() {
   };
 
   const toggleCampus = (id: string) => {
-    if (isCampusLeader || isGroupLeader) return;
+    if (campusLocked) return;
     setForm(f => {
       const tc = f.targetCampuses || [];
       const has = tc.includes(id);
@@ -82,7 +88,7 @@ export default function GalleryManagementPage() {
   };
 
   const toggleExcludeCampus = (id: string) => {
-    if (isCampusLeader || isGroupLeader) return;
+    if (campusLocked) return;
     setForm(f => {
       const ec = f.excludeCampuses || [];
       const has = ec.includes(id);
@@ -92,6 +98,7 @@ export default function GalleryManagementPage() {
   };
 
   const setGroupMode = (mode: 'all' | 'specific') => {
+    if (isFas) return;
     setForm(f => {
       let nextTarget = ['all'];
       if (isGroupLeader) {
@@ -108,7 +115,10 @@ export default function GalleryManagementPage() {
       const tg = f.targetGroups || [];
       const has = tg.includes(g);
       const next = has ? tg.filter(x => x !== g) : [...tg.filter(x => x !== 'all'), g];
-      return { ...f, targetGroups: next.length === 0 ? (isGroupLeader ? currentUser.groups : ['all']) : next };
+      if (next.length === 0) {
+        return { ...f, targetGroups: isFas ? [] : (isGroupLeader ? currentUser.groups : ['all']) };
+      }
+      return { ...f, targetGroups: next };
     });
   };
 
@@ -200,8 +210,12 @@ export default function GalleryManagementPage() {
       coverImage: album.coverImage || '',
       category: album.category,
       targetCampuses: album.targetCampuses || ['all'],
-      targetGroups: album.targetGroups || ['all'],
-      excludeCampuses: album.excludeCampuses || [],
+      targetGroups: isFas
+        ? (album.targetGroups || []).includes('all')
+          ? [...currentUser.groups]
+          : (album.targetGroups || []).filter(g => g !== 'all' && currentUser.groups.includes(g))
+        : (album.targetGroups || ['all']),
+      excludeCampuses: campusLocked ? [] : (album.excludeCampuses || []),
       excludeGroups: album.excludeGroups || [],
     });
     setEditingId(album.id);
@@ -247,8 +261,8 @@ export default function GalleryManagementPage() {
           <Button onClick={() => {
             setForm({
               title: '', description: '', url: '', coverImage: '', category: 'Worship',
-              targetCampuses: (isCampusLeader || isGroupLeader) ? [currentUser.campusId] : ['all'],
-              targetGroups: isGroupLeader ? currentUser.groups : ['all'],
+              targetCampuses: campusLocked ? [currentUser.campusId] : ['all'],
+              targetGroups: isGroupLeader ? [...currentUser.groups] : ['all'],
               excludeCampuses: [],
               excludeGroups: [],
             });
@@ -314,11 +328,14 @@ export default function GalleryManagementPage() {
                     id="coverImage"
                     value={form.coverImage || ''}
                     onChange={e => setForm({ ...form, coverImage: e.target.value })}
-                    placeholder="https://... (Leave blank to use first photo)"
+                    placeholder="https://... (Leave blank to auto-save first photo)"
                     className="bg-background/50 border-border/50 focus:ring-primary/20 pl-10"
                   />
                   <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
+                <p className="text-xs text-muted-foreground italic">
+                  Leave blank to fetch and store the first album photo as the cover on the server.
+                </p>
               </div>
 
 
@@ -334,20 +351,23 @@ export default function GalleryManagementPage() {
                   {isCampusLeader && (
                     <p className="text-[10px] text-amber-500">Campus Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
                   )}
-                  {isGroupLeader && (
-                    <p className="text-[10px] text-emerald-500">FASL: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
+                  {isFas && (
+                    <p className="text-[10px] text-emerald-500">FASL Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
                   )}
-                  {hasGlobalScope(currentUser.role) && (
+                  {isCore && (
+                    <p className="text-[10px] text-emerald-500">Core Team Leader: all campuses, your assigned teams only</p>
+                  )}
+                  {canAllCampusesScope && (
                     <div className="flex items-center gap-4">
                       <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <Checkbox checked={campusMode === 'all'} onCheckedChange={() => setCampusMode('all')} disabled={isCampusLeader || isGroupLeader} /> All
+                        <Checkbox checked={campusMode === 'all'} onCheckedChange={() => setCampusMode('all')} disabled={campusLocked} /> All
                       </label>
                       <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <Checkbox checked={campusMode === 'specific'} onCheckedChange={() => setCampusMode('specific')} disabled={isCampusLeader || isGroupLeader} /> Specific
+                        <Checkbox checked={campusMode === 'specific'} onCheckedChange={() => setCampusMode('specific')} disabled={campusLocked} /> Specific
                       </label>
                     </div>
                   )}
-                  {(campusMode !== 'all' || !hasGlobalScope(currentUser.role)) && (
+                  {(campusMode !== 'all' || !canAllCampusesScope) && (
                     <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
                       {getAllowedCampuses(currentUser.role, currentUser.campusId, campuses).map(c => (
                         <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -361,37 +381,42 @@ export default function GalleryManagementPage() {
                     </div>
                   )}
 
-                  <div className="pt-2">
-                    <Label className="text-xs text-muted-foreground">Exclude Campuses (Optional)</Label>
-                    <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
-                      {campuses.map(c => (
-                        <label key={`ex-${c.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
-                          <Checkbox
-                            checked={(form.excludeCampuses || []).includes(c.id)}
-                            onCheckedChange={() => toggleExcludeCampus(c.id)}
-                            disabled={(isCampusLeader || isGroupLeader) && c.id !== currentUser.campusId}
-                          />
-                          {c.name}
-                        </label>
-                      ))}
+                  {!campusLocked && (
+                    <div className="pt-2">
+                      <Label className="text-xs text-muted-foreground">Exclude Campuses (Optional)</Label>
+                      <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
+                        {campuses.map(c => (
+                          <label key={`ex-${c.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
+                            <Checkbox
+                              checked={(form.excludeCampuses || []).includes(c.id)}
+                              onCheckedChange={() => toggleExcludeCampus(c.id)}
+                            />
+                            {c.name}
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
                 {/* Groups */}
                 <div className="space-y-2 pt-2">
                   <Label className="text-xs text-muted-foreground">Visible to Groups</Label>
                   {isGroupLeader && (
-                    <p className="text-[10px] text-emerald-500">FASL: restricted to your assigned groups</p>
+                    <p className="text-[10px] text-emerald-500">
+                      {isCore ? 'Core Team Leader: restricted to your assigned groups' : 'FASL Leader: select from your assigned groups'}
+                    </p>
                   )}
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <Checkbox checked={groupMode === 'all'} onCheckedChange={() => setGroupMode('all')} /> All
-                    </label>
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <Checkbox checked={groupMode === 'specific'} onCheckedChange={() => setGroupMode('specific')} /> Specific
-                    </label>
-                  </div>
-                  {groupMode !== 'all' && (
+                  {!isFas && (
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox checked={groupMode === 'all'} onCheckedChange={() => setGroupMode('all')} /> All
+                      </label>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox checked={groupMode === 'specific'} onCheckedChange={() => setGroupMode('specific')} /> Specific
+                      </label>
+                    </div>
+                  )}
+                  {(groupMode !== 'all' || isFas) && (
                     <div className="grid grid-cols-2 gap-1.5 pl-2 mt-2">
                       {(() => {
                         // Filter groups based on selected campuses
@@ -444,7 +469,7 @@ export default function GalleryManagementPage() {
                     {campusMode === 'all' ? '🌐 All Campuses' : `🏢 ${(form.targetCampuses || []).map(id => campuses.find(c => c.id === id)?.name || id).join(', ') || 'None'}`}
                     {(form.excludeCampuses || []).length > 0 && ` (excluding: ${(form.excludeCampuses || []).map(id => campuses.find(c => c.id === id)?.name || id).join(', ')})`}
                     {' · '}
-                    {groupMode === 'all' ? '👥 All Groups' : `👤 ${(form.targetGroups || []).join(', ') || 'None'}`}
+                    {groupMode === 'all' && !isFas ? '👥 All Groups' : `👤 ${(form.targetGroups || []).join(', ') || 'None'}`}
                     {(form.excludeGroups || []).length > 0 && ` (excluding: ${(form.excludeGroups || []).join(', ')})`}
                   </p>
                   {(() => {

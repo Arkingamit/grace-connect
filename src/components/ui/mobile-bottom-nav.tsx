@@ -1,10 +1,8 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Home, PlayCircle, CalendarHeart, FileText } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
 
 type NavItem = {
     label: string;
@@ -15,7 +13,7 @@ type NavItem = {
 
 export function MobileBottomNav() {
     const pathname = usePathname();
-    const { session } = useAuth();
+    const router = useRouter();
 
     const navItems: NavItem[] = [
         { label: "Home", href: "/", icon: Home, exact: true },
@@ -35,9 +33,13 @@ export function MobileBottomNav() {
                             : pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
 
                         return (
-                            <Link
+                            <button
                                 key={item.href}
-                                href={item.href}
+                                type="button"
+                                onClick={() => {
+                                    // Replace so Android back does not walk tab history
+                                    if (pathname !== item.href) router.replace(item.href);
+                                }}
                                 className={`flex flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1.5 text-[11px] font-medium transition-colors ${isActive
                                     ? "bg-[#FBE8E8] text-[#8B2323]"
                                     : "text-[#7A6150] hover:bg-[#E5D5C5] hover:text-[#3A2D27]"
@@ -45,7 +47,7 @@ export function MobileBottomNav() {
                             >
                                 <Icon strokeWidth={isActive ? 2 : 1.5} className={`h-5 w-5 ${isActive ? "text-[#8B2323]" : "text-[#7A6150]"}`} />
                                 <span className="leading-none">{item.label}</span>
-                            </Link>
+                            </button>
                         );
                     })}
                 </div>

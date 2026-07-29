@@ -3,6 +3,7 @@ import { requireAdmin, requireAdminWithScope, enforceCampusScope, enforceGroupSc
 import connectToDatabase from '@/lib/db';
 import { Sermon, SermonSeries, WorshipVideo, GalleryAlbum, LiveStream } from '@/models/Media';
 import { serverCache } from '@/lib/cache';
+import { fetchGooglePhotosCover } from '@/lib/google-photos';
 
 const models: any = {
   sermons: Sermon,
@@ -49,6 +50,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ type: st
     } else if (type === 'livestreams') {
       if (admin.role === 'campus_leader' || admin.role === 'group_leader') {
         body.campusId = admin.campusId;
+      }
+    }
+
+    // Auto-fetch cover when missing or when album URL changed
+    if (type === 'gallery' && body.url && (!body.coverImage || body.url !== existingItem.url)) {
+      try {
+        const cover = await fetchGooglePhotosCover(body.url);
+        if (cover) body.coverImage = cover;
+      } catch (e) {
+        console.warn('Could not auto-fetch gallery cover on update:', e);
       }
     }
 

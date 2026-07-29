@@ -22,7 +22,7 @@ export async function GET(req: Request) {
     }
 
     const user = await User.findById(session.userId);
-    if (!user || !['campus_leader', 'admin', 'super_admin'].includes(user.role)) {
+    if (!user || !['campus_leader', 'admin', 'super_admin', 'group_leader'].includes(user.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -31,19 +31,38 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    if (user.role === 'campus_leader' && attSession.campusId !== user.campusId) {
+    if (
+      (user.role === 'campus_leader' || (user.role === 'group_leader' && user.campusId !== 'global')) &&
+      attSession.campusId !== user.campusId &&
+      attSession.campusId !== 'all'
+    ) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const records = await AttendanceRecord.find({ sessionId }).sort({ markedAt: -1 }).lean();
     
-    // Fetch all users in the campus (or all users if campusId === 'all')
+    // Fetch users in session campus, then narrow for FASL / Core leaders
     const userQuery: any = { status: 'approved' };
     if (attSession.campusId !== 'all') {
       userQuery.campusId = attSession.campusId;
     }
+    if (user.role === 'group_leader') {
+      if (!user.groups || user.groups.length === 0) {
+        return NextResponse.json([]);
+      }
+      userQuery.groups = { $in: user.groups };
+      if (user.campusId !== 'global') {
+        // FASL: only their campus members in their groups
+        userQuery.campusId = user.campusId;
+      }
+      // Core (global): groups filter only — drop campus lock if session is campus-specific
+      // Keep session campus filter when session is campus-scoped so Core sees that campus's group members
+      if (user.campusId === 'global' && attSession.campusId !== 'all') {
+        userQuery.campusId = attSession.campusId;
+      }
+    }
     const allUsers = await User.find(userQuery)
-      .select('name email gender birthday maritalStatus familyMemberId whatsapp')
+      .select('name email gender birthday maritalStatus familyMemberId whatsapp campusId groups')
       .lean();
 
     // Map records by userId

@@ -14,14 +14,16 @@ export async function GET(req: Request) {
     }
 
     const user = await User.findById(session.userId);
-    if (!user || !['campus_leader', 'admin', 'super_admin'].includes(user.role)) {
+    if (!user || !['campus_leader', 'admin', 'super_admin', 'group_leader'].includes(user.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const query: any = {};
-    if (user.role === 'campus_leader') {
+    if (user.role === 'campus_leader' || (user.role === 'group_leader' && user.campusId !== 'global')) {
+      // Campus leaders & FASL: sessions for their campus only
       query.campusId = user.campusId;
     }
+    // Core Team Leader (global) and admins: all sessions
 
     const sessions = await AttendanceSession.find(query).sort({ date: -1, startTime: -1 }).lean();
     return NextResponse.json(sessions);

@@ -15,25 +15,64 @@ export async function GET() {
     
     let query: any = {};
     if (admin.role === 'campus_leader') {
-      // Campus leaders see users in their campus or global users
-      query = { $or: [{ campusId: admin.campusId }, { campusId: 'global' }] };
+      // Campus leaders: only members at their campus
+      query = { campusId: admin.campusId };
     } else if (admin.role === 'group_leader') {
-      // Group leaders can view (read-only) users who share at least one of their assigned groups
       if (admin.groups.length === 0) {
-        return NextResponse.json([]); // No groups assigned — nothing to show
+        return NextResponse.json([]);
       }
       if (admin.campusId === 'global') {
-        // FASL: see members from any campus who are in their groups
+        // Core Team Leader: members in their groups across all campuses
         query = { groups: { $in: admin.groups } };
       } else {
-        // Campus group leader: see members in their campus who are in their groups
+        // FASL Leader: members in their campus who are in their assigned groups
         query = { campusId: admin.campusId, groups: { $in: admin.groups } };
       }
     }
 
     // Exclude password, use .lean() for 30-50% faster serialization
     const users = await User.find(query, { password: 0 }).sort({ createdAt: -1 }).lean();
-    return NextResponse.json(users);
+
+    // Resolve parent names for linked/family profiles (parent may be outside the filtered set)
+    const parentIds = Array.from(new Set(
+      users
+        .map((u: any) => {
+          if (u.parentAccountId) return String(u.parentAccountId);
+          // Fallback: parse parent id from placeholder email linked_<parentId>_<ts>@family.internal
+          const email = typeof u.email === 'string' ? u.email : '';
+          const match = email.match(/^linked_([a-f\d]{24})_/i);
+          return match?.[1] || null;
+        })
+        .filter(Boolean) as string[]
+    ));
+
+    let parentNameById: Record<string, string> = {};
+    if (parentIds.length > 0) {
+      const parents = await User.find(
+        { _id: { $in: parentIds } },
+        { name: 1, firstName: 1, lastName: 1, middleName: 1 }
+      ).lean();
+      parentNameById = Object.fromEntries(
+        parents.map((p: any) => [
+          String(p._id),
+          p.name || `${p.firstName || ''} ${p.middleName ? p.middleName + ' ' : ''}${p.lastName || ''}`.trim() || 'Unknown',
+        ])
+      );
+    }
+
+    const enriched = users.map((u: any) => {
+      const parentId = u.parentAccountId
+        ? String(u.parentAccountId)
+        : (typeof u.email === 'string' ? u.email.match(/^linked_([a-f\d]{24})_/i)?.[1] : undefined);
+      return {
+        ...u,
+        parentAccountId: parentId || u.parentAccountId,
+        parentName: parentId ? parentNameById[parentId] : undefined,
+        isLinkedProfile: !!u.isLinkedProfile || (typeof u.email === 'string' && (u.email.startsWith('linked_') || u.email.endsWith('@family.internal'))),
+      };
+    });
+
+    return NextResponse.json(enriched);
   } catch (error: any) {
     return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
   }
@@ -53,10 +92,10 @@ export async function POST(req: Request) {
       
       // Enforce role appointment rules
       if (body.role && !['member', 'group_leader'].includes(body.role)) {
-        return NextResponse.json({ error: 'Campus leaders can only appoint members and group leaders' }, { status: 403 });
+        return NextResponse.json({ error: 'Campus leaders can only appoint members and FASL leaders' }, { status: 403 });
       }
     } else if (admin.role === 'group_leader') {
-      return NextResponse.json({ error: 'Group leaders cannot create users' }, { status: 403 });
+      return NextResponse.json({ error: 'FASL / Core Team leaders cannot create users' }, { status: 403 });
     }
 
     // Auto-fill required fields that might be missing from the admin UI

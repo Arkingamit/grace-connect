@@ -3,8 +3,11 @@ export type MemberStatus = 'pending' | 'approved' | 'rejected';
 
 // Group scope: 'global' means visible everywhere; a campusId means campus-specific
 export interface Group {
+  id?: string;
   name: string;
   scope: 'global' | string; // 'global' or a campusId
+  /** Linked Core (global) group id when this is a campus FASL group */
+  coreGroupId?: string | null;
 }
 
 export interface Campus {
@@ -174,7 +177,15 @@ export interface Sermon {
 export interface SystemSettings {
   id?: string;
   _id?: string;
+  /** @deprecated Prefer platform-specific min versions */
   minAppVersion: string;
+  minAppVersionAndroid?: string;
+  minAppVersionIos?: string;
+  latestAppVersionAndroid?: string;
+  latestAppVersionIos?: string;
+  androidStoreUrl?: string;
+  iosStoreUrl?: string;
+  forceUpdateMessage?: string;
   statsMembers?: number;
   statsGroups?: number;
   statsYears?: number;
@@ -267,7 +278,10 @@ export interface UserProfile {
   marriageDate?: string;
   phone?: string;
   whatsapp?: string;
+  status?: string;
+  createdBy?: string;
   parentAccountId?: string;
+  parentName?: string;
   isLinkedProfile?: boolean;
 }
 

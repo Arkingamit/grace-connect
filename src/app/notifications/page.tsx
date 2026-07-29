@@ -1,41 +1,85 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, Bell, Heart, Megaphone, User as UserIcon, Check, X, ShieldAlert } from 'lucide-react';
+import { ChevronLeft, Bell, Megaphone, User as UserIcon, Check, X, ShieldAlert, Users, CheckCircle, Link2 } from 'lucide-react';
 import { useAdminData } from '@/lib/admin-data-context';
 import { useAuth } from '@/lib/auth-context';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
+const DISMISSED_KEY = 'grace_dismissed_notifications';
+const ACTIONABLE_TYPES = new Set(['user-approval', 'prayer-approval']);
+
+function readDismissedIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(DISMISSED_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeDismissedIds(ids: string[]) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids));
+}
+
 export default function NotificationsPage() {
-  const { announcements } = useAdminData();
+  const { announcements, campuses, groupScopes } = useAdminData();
   const { session } = useAuth();
-  
+
   const [pendingPrayers, setPendingPrayers] = useState<any[]>([]);
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+  const [usersById, setUsersById] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [approveDialogUser, setApproveDialogUser] = useState<any | null>(null);
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [approving, setApproving] = useState(false);
+  const dismissibleIdsRef = useRef<string[]>([]);
+  const canAutoDismissRef = useRef(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('grace_dismissed_notifications');
-      if (stored) {
-        try {
-          setDismissedIds(JSON.parse(stored));
-        } catch (e) {}
-      }
-    }
+    setDismissedIds(readDismissedIds());
   }, []);
 
-  const handleDismiss = (id: string) => {
-    setDismissedIds(prev => {
-      const updated = [...prev, id];
-      localStorage.setItem('grace_dismissed_notifications', JSON.stringify(updated));
-      return updated;
-    });
+  // After the page has been open briefly, mark non-actionable items to clear on leave
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      canAutoDismissRef.current = true;
+    }, 400);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const persistDismissed = (idsToAdd: string[]) => {
+    if (!idsToAdd.length) return;
+    const updated = Array.from(new Set([...readDismissedIds(), ...idsToAdd]));
+    writeDismissedIds(updated);
+    setDismissedIds(updated);
   };
+
+  // When leaving the notifications page, clear everything except pending approvals
+  useEffect(() => {
+    const dismissNonActionable = () => {
+      if (!canAutoDismissRef.current) return;
+      const ids = dismissibleIdsRef.current;
+      if (!ids.length) return;
+      const updated = Array.from(new Set([...readDismissedIds(), ...ids]));
+      writeDismissedIds(updated);
+    };
+
+    return () => {
+      dismissNonActionable();
+    };
+  }, []);
 
   useEffect(() => {
     // Only fetch pending approvals for campus leaders and admins
@@ -49,12 +93,51 @@ export default function NotificationsPage() {
           setPendingPrayers(prayers.filter(p => p.status === 'pending'));
         }
         if (Array.isArray(users)) {
-          setPendingUsers(users.filter(u => u.status === 'pending'));
+          const byId: Record<string, any> = {};
+          users.forEach((u: any) => {
+            const id = String(u._id || u.id || '');
+            if (id) byId[id] = u;
+          });
+          setUsersById(byId);
+          setPendingUsers(users.filter((u: any) => u.status === 'pending'));
         }
       }).catch(err => console.error("Error fetching admin approvals:", err))
       .finally(() => setLoading(false));
     }
   }, [session?.role]);
+
+  const getUserDisplayName = (u: any) => {
+    const fromParts = [u.firstName, u.middleName, u.lastName].filter(Boolean).join(' ').trim();
+    if (fromParts) return fromParts;
+    if (u.name && !String(u.name).startsWith('linked_')) return u.name;
+    return 'Unknown member';
+  };
+
+  const isLinkedPlaceholderEmail = (email?: string) =>
+    !!email && (email.startsWith('linked_') || email.endsWith('@family.internal'));
+
+  const getPendingUserMessage = (u: any) => {
+    const displayName = getUserDisplayName(u);
+    const parentId = u.parentAccountId ? String(u.parentAccountId) : '';
+    const parent = parentId ? usersById[parentId] : null;
+    const parentName = parent ? getUserDisplayName(parent) : null;
+    const isLinked = u.isLinkedProfile || isLinkedPlaceholderEmail(u.email) || !!parentId;
+
+    if (isLinked) {
+      if (parentName) {
+        return `${displayName} (family profile linked to ${parentName}) is requesting to join as a member.`;
+      }
+      return `${displayName} (family profile) is requesting to join as a member.`;
+    }
+
+    const emailPart = u.email && !isLinkedPlaceholderEmail(u.email) ? ` (${u.email})` : '';
+    const roleLabel = u.role && u.role !== 'member'
+      ? (u.role === 'group_leader'
+          ? (u.campusId === 'global' ? 'Core Team leader' : 'FASL leader')
+          : u.role.replace(/_/g, ' '))
+      : 'member';
+    return `${displayName}${emailPart} is requesting to join as a ${roleLabel}.`;
+  };
 
   const handleApprovePrayer = async (id: string) => {
     try {
@@ -92,21 +175,45 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleApproveUser = async (id: string) => {
+  const openApproveDialog = (userId: string) => {
+    const user = pendingUsers.find(u => String(u._id || u.id) === String(userId));
+    if (!user) {
+      toast.error('Member details not found');
+      return;
+    }
+    setApproveDialogUser(user);
+    setSelectedGroups([]);
+  };
+
+  const toggleGroup = (group: string) => {
+    setSelectedGroups(prev =>
+      prev.includes(group) ? prev.filter(g => g !== group) : [...prev, group]
+    );
+  };
+
+  const handleApproveUser = async () => {
+    if (!approveDialogUser || selectedGroups.length === 0) return;
+    const id = String(approveDialogUser._id || approveDialogUser.id);
     try {
+      setApproving(true);
+      const qrCode = crypto.randomUUID();
       const res = await fetch(`/api/admin/users/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'active' })
+        body: JSON.stringify({ status: 'approved', groups: selectedGroups, qrCode })
       });
       if (res.ok) {
-        setPendingUsers(prev => prev.filter(u => u.id !== id && u._id !== id));
-        toast.success("Member registration approved");
+        setPendingUsers(prev => prev.filter(u => String(u.id) !== id && String(u._id) !== id));
+        setApproveDialogUser(null);
+        setSelectedGroups([]);
+        toast.success('Member registration approved');
       } else {
-        toast.error("Failed to approve member");
+        toast.error('Failed to approve member');
       }
     } catch (e) {
-      toast.error("An error occurred");
+      toast.error('An error occurred');
+    } finally {
+      setApproving(false);
     }
   };
 
@@ -180,7 +287,7 @@ export default function NotificationsPage() {
         originalId: u._id || u.id,
         type: 'user-approval',
         title: 'Pending Member Registration',
-        content: `${u.name || u.firstName + ' ' + u.lastName} (${u.email}) is requesting to join as a ${u.role}.`,
+        content: getPendingUserMessage(u),
         date: new Date(u.createdAt || Date.now()),
         icon: UserIcon,
         color: 'text-[#2D3748]',
@@ -192,15 +299,31 @@ export default function NotificationsPage() {
     return items
       .filter(item => !dismissedIds.includes(item.id))
       .sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [announcements, pendingPrayers, pendingUsers, dismissedIds]);
+  }, [announcements, pendingPrayers, pendingUsers, dismissedIds, usersById]);
+
+  // Keep a live list of non-actionable notification ids to clear on leave
+  useEffect(() => {
+    dismissibleIdsRef.current = notifications
+      .filter((n) => !ACTIONABLE_TYPES.has(n.type))
+      .map((n) => n.id);
+  }, [notifications]);
+
+  const handleLeaveNotifications = () => {
+    canAutoDismissRef.current = true;
+    persistDismissed(dismissibleIdsRef.current);
+  };
 
   return (
     <div className="min-h-screen bg-transparent pb-24">
-      
+
       {/* Header */}
       <div className="sticky top-0 z-50 bg-[#FAF7F2]/80 backdrop-blur-md border-b border-[#E5D5C5]/40 shadow-sm pt-4 pb-4 px-4">
         <div className="flex items-center gap-3">
-          <Link href="/" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#7A6150] shadow-sm shrink-0 hover:bg-[#F3EAE1] transition-colors">
+          <Link
+            href="/"
+            onClick={handleLeaveNotifications}
+            className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#7A6150] shadow-sm shrink-0 hover:bg-[#F3EAE1] transition-colors"
+          >
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <div className="flex items-center gap-2">
@@ -241,11 +364,6 @@ export default function NotificationsPage() {
                           <span className="text-[10px] font-bold text-[#7A6150] whitespace-nowrap">
                             {notif.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
-                          {notif.type === 'announcement' && (
-                            <button onClick={() => handleDismiss(notif.id)} className="text-[#7A6150]/50 hover:text-[#7A6150] transition-colors p-1 -mr-1">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          )}
                         </div>
                       </div>
                       <p className="text-xs text-[#7A6150] leading-relaxed line-clamp-3">
@@ -253,21 +371,21 @@ export default function NotificationsPage() {
                       </p>
                     </div>
                   </div>
-                  
+
                   {/* Actionable Buttons for Approvals */}
                   {(notif.type === 'prayer-approval' || notif.type === 'user-approval') && (
                     <div className="flex items-center gap-2 pt-2 border-t border-[#F3EAE1]/50 mt-1">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                      <Button
+                        size="sm"
+                        variant="outline"
                         className="flex-1 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800"
-                        onClick={() => notif.type === 'prayer-approval' ? handleApprovePrayer(notif.originalId) : handleApproveUser(notif.originalId)}
+                        onClick={() => notif.type === 'prayer-approval' ? handleApprovePrayer(notif.originalId) : openApproveDialog(notif.originalId)}
                       >
                         <Check className="w-4 h-4 mr-1" /> Accept
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                      <Button
+                        size="sm"
+                        variant="outline"
                         className="flex-1 bg-red-50 text-red-700 border-red-200 hover:bg-red-100 hover:text-red-800"
                         onClick={() => notif.type === 'prayer-approval' ? handleRejectPrayer(notif.originalId) : handleRejectUser(notif.originalId)}
                       >
@@ -281,6 +399,106 @@ export default function NotificationsPage() {
           </div>
         )}
       </div>
+
+      {/* Approve & Assign Groups */}
+      <Dialog open={approveDialogUser !== null} onOpenChange={(open) => { if (!open) { setApproveDialogUser(null); setSelectedGroups([]); } }}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Approve & Assign Groups</DialogTitle>
+          </DialogHeader>
+          {approveDialogUser && (
+            <div className="space-y-4 py-2">
+              <div className="bg-muted/30 rounded-lg p-3 space-y-1">
+                <p className="text-sm font-medium">
+                  {getUserDisplayName(approveDialogUser)}
+                </p>
+                {approveDialogUser.email && !isLinkedPlaceholderEmail(approveDialogUser.email) && (
+                  <p className="text-xs text-muted-foreground">{approveDialogUser.email}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {campuses.find(c => c.id === approveDialogUser.campusId)?.name || approveDialogUser.campusId}
+                </p>
+                {(approveDialogUser.parentAccountId || approveDialogUser.isLinkedProfile) && (() => {
+                  const parentId = approveDialogUser.parentAccountId ? String(approveDialogUser.parentAccountId) : '';
+                  const parent = parentId ? usersById[parentId] : null;
+                  if (!parent) {
+                    return (
+                      <div className="flex items-center gap-2 mt-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <Link2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        <p className="text-xs font-medium text-emerald-600">Family linked profile</p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="flex items-center gap-2 mt-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <Link2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-emerald-600">Family linked to:</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {getUserDisplayName(parent)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary" /> Assign to Groups *
+                </Label>
+                <p className="text-xs text-muted-foreground">Select one or more groups for this member</p>
+                <div className="space-y-4">
+                  {groupScopes.filter(g => g.scope === 'global').length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Global Groups</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {groupScopes.filter(g => g.scope === 'global').map(g => (
+                          <label key={g.name} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                            <Checkbox
+                              checked={selectedGroups.includes(g.name)}
+                              onCheckedChange={() => toggleGroup(g.name)}
+                            />
+                            <span className="truncate">{g.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {groupScopes.filter(g => g.scope === approveDialogUser.campusId).length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-border/50">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Campus Groups</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {groupScopes.filter(g => g.scope === approveDialogUser.campusId).map(g => (
+                          <label key={g.name} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                            <Checkbox
+                              checked={selectedGroups.includes(g.name)}
+                              onCheckedChange={() => toggleGroup(g.name)}
+                            />
+                            <span className="truncate">{g.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {groupScopes.filter(g => g.scope === 'global' || g.scope === approveDialogUser.campusId).length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">No groups available for this campus.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setApproveDialogUser(null); setSelectedGroups([]); }} disabled={approving}>
+              Cancel
+            </Button>
+            <Button onClick={handleApproveUser} disabled={selectedGroups.length === 0 || approving} className="gap-1">
+              <CheckCircle className="w-4 h-4" /> {approving ? 'Approving...' : 'Approve'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

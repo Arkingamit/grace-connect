@@ -9,7 +9,11 @@ const defaultFlipCardConfig: FlipCardConfig = {
 };
 
 export function useSystem() {
-  const [systemSettings, setSystemSettings] = useState<SystemSettings>({ minAppVersion: '1.0.0' });
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>({
+    minAppVersion: '1.0.0',
+    minAppVersionAndroid: '1.0.0',
+    minAppVersionIos: '1.0.0',
+  });
   const [flipCardConfig, setFlipCardConfig] = useState<FlipCardConfig>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('grace_flipCardConfig');

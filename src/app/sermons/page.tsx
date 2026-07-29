@@ -12,10 +12,7 @@ import {
   Tv, 
   ChevronRight, 
   Play, 
-  Calendar, 
   User, 
-  Filter,
-  ArrowRight
 } from 'lucide-react';
 
 export default function SermonsPage() {
@@ -154,37 +151,6 @@ export default function SermonsPage() {
           </div>
         )}
       </div>
-
-      {/* Featured Single Message Call to Action */}
-      <section className="container mx-auto px-6 mt-32">
-        <Card className="relative overflow-hidden border-0 glass-card p-1">
-          <div className="bg-gradient-to-r from-primary/10 via-accent/5 to-primary/10 rounded-3xl p-8 md:p-16 flex flex-col md:flex-row items-center gap-12">
-            <div className="flex-1 text-center md:text-left">
-              <Badge className="bg-primary/20 text-primary border-0 mb-6">Our Mission</Badge>
-              <h2 className="text-3xl md:text-4xl font-bold mb-6">Grow Your Faith Through <span className="gradient-text">Message Archive</span></h2>
-              <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
-                Access hundreds of life-changing messages and series from our past services. 
-                Filter by topic, date, or speaker to find exactly what you need today.
-              </p>
-              <Button size="lg" className="hover-lift px-10 rounded-full font-bold">
-                Subscribe to Youtube <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </div>
-            <div className="shrink-0 relative w-full md:w-[400px] aspect-[4/3] rounded-2xl overflow-hidden glass-card shadow-2xl">
-              <img 
-                src="https://images.unsplash.com/photo-1511988617509-a57c8a288659?q=80&w=2071&auto=format&fit=crop"
-                alt="Worship focus"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-primary/20 backdrop-blur-[2px] flex items-center justify-center">
-                <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
-                  <Play className="w-10 h-10 text-white fill-current" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-      </section>
     </div>
   );
 }

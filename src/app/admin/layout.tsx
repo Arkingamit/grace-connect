@@ -4,6 +4,7 @@ import { LiveStreamPoller } from '@/components/live-stream-poller';
 import { redirect } from 'next/navigation';
 import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
+import { AdminActionLoadingProvider } from '@/components/admin/admin-action-loading';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <>
       <LiveStreamPoller />
-      <AdminLayoutClient>{children}</AdminLayoutClient>
+      <AdminLayoutClient>
+        <AdminActionLoadingProvider>{children}</AdminActionLoadingProvider>
+      </AdminLayoutClient>
     </>
   );
 }

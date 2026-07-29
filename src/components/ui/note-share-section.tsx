@@ -3,8 +3,55 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, ExternalLink } from 'lucide-react';
+import { FileText, SquareArrowOutUpRight } from 'lucide-react';
 import { useAdminData } from '@/lib/admin-data-context';
+
+function normalizeExternalUrl(url: string): string | null {
+  const trimmed = (url || '').trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^\/\//.test(trimmed)) return `https:${trimmed}`;
+  // Treat bare domains / paths as https links
+  return `https://${trimmed.replace(/^\/+/, '')}`;
+}
+
+function MaterialLinkRow({ label, url }: { label: string; url: string }) {
+  const href = normalizeExternalUrl(url);
+  if (!href) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground p-1.5 rounded-md bg-muted/50 border border-border/40">
+        <FileText className="w-3.5 h-3.5 shrink-0 text-primary" />
+        <span className="truncate">{label || 'Material'}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="inline-flex w-full -space-x-px rounded-lg shadow-sm shadow-black/5 rtl:space-x-reverse">
+      <Button
+        asChild
+        variant="outline"
+        className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-9 px-3 text-xs font-medium text-primary border-border/60 bg-muted/40 hover:bg-muted"
+      >
+        <a href={href} target="_blank" rel="noopener noreferrer" title={label || 'Open material'}>
+          <FileText className="w-3.5 h-3.5 shrink-0 text-primary" aria-hidden="true" />
+          <span className="truncate">{label || 'Open material'}</span>
+        </a>
+      </Button>
+      <Button
+        asChild
+        variant="outline"
+        size="icon"
+        className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-9 w-9 shrink-0 border-border/60 bg-muted/40 hover:bg-muted text-primary"
+        aria-label={`Open ${label || 'material'} in new tab`}
+      >
+        <a href={href} target="_blank" rel="noopener noreferrer">
+          <SquareArrowOutUpRight size={16} strokeWidth={2} aria-hidden="true" />
+        </a>
+      </Button>
+    </div>
+  );
+}
 
 export function NoteShareSection({ variant = 'default' }: { variant?: 'default' | 'page' }) {
   const { broadcasts: contextBroadcasts } = useAdminData();
@@ -46,7 +93,6 @@ export function NoteShareSection({ variant = 'default' }: { variant?: 'default' 
     <div className="w-full">
       {variant === 'default' && (
         <div className="text-center space-y-4 mb-12">
-          <span className="section-heading">Resources</span>
           <h2 className="section-title">Note Share</h2>
           <p className="section-subtitle">
             Access sermon notes, study guides, and community announcements
@@ -73,16 +119,7 @@ export function NoteShareSection({ variant = 'default' }: { variant?: 'default' 
                 <div className="space-y-1.5 pt-2 border-t border-border/50">
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Materials</p>
                   {b.materialLinks.map((link: any, idx: number) => (
-                    <a
-                      key={idx}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-xs text-primary hover:underline p-1.5 rounded-md bg-muted/50 hover:bg-muted border border-border/40 shadow-sm transition-colors"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{link.label}</span>
-                    </a>
+                    <MaterialLinkRow key={idx} label={link.label} url={link.url} />
                   ))}
                 </div>
               )}

@@ -63,21 +63,31 @@ import { mapId } from './hooks/utils';
 // ── Permissions ────────────────────────────────────────────────────────
 export const ROLE_LABELS: Record<UserRole, string> = {
   member: 'Member',
-  group_leader: 'Group Leader',
+  group_leader: 'FASL Leader',
   campus_leader: 'Campus Leader',
   admin: 'Admin',
   super_admin: 'IT Team',
 };
 
+/** Core Team Leader = group_leader with campusId === 'global' (cross-campus for their groups) */
+export function isCoreTeamLeader(role: UserRole | string, campusId?: string): boolean {
+  return role === 'group_leader' && campusId === 'global';
+}
+
+/** FASL Leader = group_leader assigned to a specific campus */
+export function isFasLeader(role: UserRole | string, campusId?: string): boolean {
+  return role === 'group_leader' && campusId !== 'global';
+}
+
 /**
  * Returns the context-aware display label for a role.
- * group_leader with campusId === 'global' → 'FASL'
- * group_leader with a specific campusId   → 'Group Leader'
+ * group_leader + campusId === 'global' → 'Core Team Leader'
+ * group_leader + specific campus       → 'FASL Leader'
  * All other roles use the standard ROLE_LABELS entry.
  */
 export function getRoleLabel(role: UserRole, campusId?: string): string {
   if (role === 'group_leader') {
-    return campusId === 'global' ? 'FASL' : 'Group Leader';
+    return isCoreTeamLeader(role, campusId) ? 'Core Team Leader' : 'FASL Leader';
   }
   return ROLE_LABELS[role];
 }
@@ -110,8 +120,19 @@ export function canManageUsers(role: UserRole): boolean {
   return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY.campus_leader;
 }
 
+/** FASL / Core can edit members inside their group (and campus) scope */
+export function canEditScopedMembers(role: UserRole): boolean {
+  return role === 'group_leader' || canManageUsers(role);
+}
+
+/** Campuses + system settings: Admin / IT Team */
 export function canManageCampusesAndGroups(role: UserRole): boolean {
-  return role === 'super_admin';
+  return role === 'super_admin' || role === 'admin';
+}
+
+/** Create/manage groups + appoint FASL / Core leaders: Campus Leader and above */
+export function canManageGroups(role: UserRole): boolean {
+  return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY.campus_leader;
 }
 
 export function canAppointRole(appointerRole: UserRole, targetRole: UserRole): boolean {
@@ -141,10 +162,11 @@ export function getGroupsForCampus(groupScopes: Group[], campusId: string): stri
 /**
  * Returns the campuses a user is allowed to target based on their role.
  * - admin/super_admin: all campuses
- * - campus_leader/group_leader: only their own campus
+ * - Core Team Leader (group_leader + global): all campuses
+ * - campus_leader / FASL Leader: only their own campus
  */
 export function getAllowedCampuses(role: UserRole, campusId: string, campuses: Campus[]): Campus[] {
-  if (role === 'admin' || role === 'super_admin') {
+  if (role === 'admin' || role === 'super_admin' || isCoreTeamLeader(role, campusId)) {
     return campuses;
   }
   return campuses.filter(c => c.id === campusId);
@@ -154,7 +176,7 @@ export function getAllowedCampuses(role: UserRole, campusId: string, campuses: C
  * Returns the group names a user is allowed to target.
  * - admin/super_admin: all groups
  * - campus_leader: all groups within their campus
- * - group_leader: only their own assigned groups
+ * - group_leader (FASL or Core): only their own assigned groups
  */
 export function getAllowedGroups(
   role: UserRole,
@@ -174,9 +196,10 @@ export function getAllowedGroups(
 
 /**
  * Whether the user has global (all-campus) broadcast scope.
+ * Core Team Leaders can target all campuses (groups still restricted).
  */
-export function hasGlobalScope(role: UserRole): boolean {
-  return role === 'admin' || role === 'super_admin';
+export function hasGlobalScope(role: UserRole, campusId?: string): boolean {
+  return role === 'admin' || role === 'super_admin' || isCoreTeamLeader(role, campusId);
 }
 
 // ── Default Groups (kept client-side for now) ──────────────────────────
@@ -268,8 +291,8 @@ interface AdminDataContextType {
   addCampus: (campus: Omit<Campus, 'id'>) => void;
   updateCampus: (id: string, updates: Partial<Campus>) => void;
   deleteCampus: (id: string) => void;
-  addGroup: (name: string, scope?: string) => void;
-  deleteGroup: (name: string, scope: string) => void;
+  addGroup: (name: string, scope?: string, leaderId?: string, coreGroupId?: string) => Promise<{ success: boolean; error?: string; group?: any; leader?: any } | void>;
+  deleteGroup: (name: string, scope: string, id?: string) => Promise<{ success: boolean; error?: string } | void>;
   updateGroupScope: (name: string, scope: string) => void;
   updateFlipCardConfig: (config: FlipCardConfig) => void;
 
@@ -378,8 +401,27 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
         if (usersRes?.ok) {
           const rawUsers = await usersRes.json();
           setUsers(rawUsers.map((u: any) => ({
-            id: u._id, _id: u._id, name: u.name || `${u.firstName} ${u.lastName}`,
-            email: u.email, role: u.role, campusId: u.campusId, groups: u.groups || [],
+            id: u._id || u.id,
+            _id: u._id || u.id,
+            name: u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim(),
+            firstName: u.firstName,
+            middleName: u.middleName,
+            lastName: u.lastName,
+            email: u.email,
+            role: u.role,
+            campusId: u.campusId,
+            groups: u.groups || [],
+            gender: u.gender,
+            birthday: u.birthday,
+            maritalStatus: u.maritalStatus,
+            marriageDate: u.marriageDate,
+            phone: u.phone,
+            whatsapp: u.whatsapp,
+            parentAccountId: u.parentAccountId ? String(u.parentAccountId) : undefined,
+            parentName: u.parentName || undefined,
+            isLinkedProfile: !!u.isLinkedProfile || (typeof u.email === 'string' && (u.email.startsWith('linked_') || u.email.endsWith('@family.internal'))),
+            status: u.status,
+            createdBy: u.createdBy ? String(u.createdBy) : undefined,
           })));
         }
         if (eventRegistrationsRes?.ok) setEventRegistrations(rawToMapped(await eventRegistrationsRes.json()));
@@ -387,7 +429,12 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
         if (groupsRes?.ok) {
           const rawGroups = await groupsRes.json();
           const mappedGroups = rawToMapped(rawGroups);
-          setGroupScopes(mappedGroups.map((g: any) => ({ name: g.name, scope: g.scope, id: g.id || g._id })));
+          setGroupScopes(mappedGroups.map((g: any) => ({
+            name: g.name,
+            scope: g.scope,
+            id: g.id || g._id,
+            coreGroupId: g.coreGroupId ? String(g.coreGroupId) : null,
+          })));
           setGroups(mappedGroups.map((g: any) => g.name));
         }
       } catch (err) {

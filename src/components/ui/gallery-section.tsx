@@ -56,21 +56,30 @@ function GalleryWidgetLayout() {
     const fetchCovers = async () => {
       let changed = false;
       const newCovers: Record<string, string> = {};
-      
+
       for (const album of galleryAlbums) {
-        if (!fetchedAlbums.current.has(album.id) && album.url) {
+        if (album.coverImage && !fetchedAlbums.current.has(album.id)) {
+          fetchedAlbums.current.add(album.id);
+          newCovers[album.id] = album.coverImage;
+          changed = true;
+        }
+      }
+
+      for (const album of galleryAlbums) {
+        if (!fetchedAlbums.current.has(album.id) && album.url && !album.coverImage) {
           fetchedAlbums.current.add(album.id);
           try {
-            const res = await fetch(`/api/gallery/photos?url=${encodeURIComponent(album.url)}`);
+            const res = await fetch(
+              `/api/gallery/photos?url=${encodeURIComponent(album.url)}&albumId=${encodeURIComponent(album.id)}&persistCover=1`
+            );
             if (!res.ok) {
               const errorData = await res.json();
               console.error(`API Error for album ${album.id}:`, errorData.error);
               continue;
             }
             const data = await res.json();
-            if (data.photos && data.photos.length > 0) {
-              // Prefer admin-specified coverImage, otherwise default to the FIRST photo (static)
-              newCovers[album.id] = album.coverImage || data.photos[0].src;
+            if (data.coverImage || (data.photos && data.photos.length > 0)) {
+              newCovers[album.id] = data.coverImage || data.photos[0].src;
               changed = true;
             }
           } catch (err) {
@@ -78,7 +87,7 @@ function GalleryWidgetLayout() {
           }
         }
       }
-      
+
       if (changed) {
         setAlbumCovers(prev => ({ ...prev, ...newCovers }));
       }
@@ -168,9 +177,9 @@ function GalleryWidgetLayout() {
                 >
                   {/* Album Cover */}
                   <div className="w-full h-full bg-primary/5 flex items-center justify-center relative">
-                    {albumCovers[album.id] ? (
+                    {(album.coverImage || albumCovers[album.id]) ? (
                       <img 
-                        src={albumCovers[album.id]} 
+                        src={album.coverImage || albumCovers[album.id]} 
                         alt={album.title}
                         className="w-full h-full object-cover"
                       />
@@ -211,9 +220,9 @@ function GalleryWidgetLayout() {
                         >
                           {/* Album Cover */}
                           <div className="w-full h-full bg-primary/5 flex items-center justify-center group overflow-hidden">
-                            {albumCovers[album.id] ? (
+                            {(album.coverImage || albumCovers[album.id]) ? (
                               <img 
-                                src={albumCovers[album.id]} 
+                                src={album.coverImage || albumCovers[album.id]} 
                                 alt={album.title}
                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                               />
@@ -424,20 +433,30 @@ function GalleryPageLayout() {
     const fetchCovers = async () => {
       let changed = false;
       const newCovers: Record<string, string> = {};
-      
+
       for (const album of galleryAlbums) {
-        if (!fetchedAlbums.current.has(album.id) && album.url) {
+        if (album.coverImage && !fetchedAlbums.current.has(album.id)) {
+          fetchedAlbums.current.add(album.id);
+          newCovers[album.id] = album.coverImage;
+          changed = true;
+        }
+      }
+
+      for (const album of galleryAlbums) {
+        if (!fetchedAlbums.current.has(album.id) && album.url && !album.coverImage) {
           fetchedAlbums.current.add(album.id);
           try {
-            const res = await fetch(`/api/gallery/photos?url=${encodeURIComponent(album.url)}`);
+            const res = await fetch(
+              `/api/gallery/photos?url=${encodeURIComponent(album.url)}&albumId=${encodeURIComponent(album.id)}&persistCover=1`
+            );
             if (!res.ok) {
               const errorData = await res.json();
               console.error(`API Error for album ${album.id}:`, errorData.error);
               continue;
             }
             const data = await res.json();
-            if (data.photos && data.photos.length > 0) {
-              newCovers[album.id] = album.coverImage || data.photos[0].src;
+            if (data.coverImage || (data.photos && data.photos.length > 0)) {
+              newCovers[album.id] = data.coverImage || data.photos[0].src;
               changed = true;
             }
           } catch (err) {
@@ -445,7 +464,7 @@ function GalleryPageLayout() {
           }
         }
       }
-      
+
       if (changed) {
         setAlbumCovers(prev => ({ ...prev, ...newCovers }));
       }
@@ -617,9 +636,9 @@ function GalleryPageLayout() {
                   >
                     {/* Album Cover */}
                     <div className="w-full h-full bg-primary/5 flex items-center justify-center relative">
-                      {albumCovers[album.id] ? (
+                      {(album.coverImage || albumCovers[album.id]) ? (
                         <img 
-                          src={albumCovers[album.id]} 
+                          src={album.coverImage || albumCovers[album.id]} 
                           alt={album.title}
                           className="w-full h-full object-cover"
                         />
@@ -660,9 +679,9 @@ function GalleryPageLayout() {
                           >
                             {/* Album Cover */}
                             <div className="w-full h-full bg-primary/5 flex items-center justify-center group overflow-hidden relative">
-                              {albumCovers[album.id] ? (
+                              {(album.coverImage || albumCovers[album.id]) ? (
                                 <img 
-                                  src={albumCovers[album.id]} 
+                                  src={album.coverImage || albumCovers[album.id]} 
                                   alt={album.title}
                                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                                 />

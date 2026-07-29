@@ -14,7 +14,13 @@ export async function GET() {
     await connectToDatabase();
     let settings = await SystemSettings.findOne().lean();
     if (!settings) {
-      const created = await SystemSettings.create({ minAppVersion: '0.1.0' });
+      const created = await SystemSettings.create({
+        minAppVersion: '0.1.0',
+        minAppVersionAndroid: '0.1.0',
+        minAppVersionIos: '0.1.0',
+        latestAppVersionAndroid: '0.1.0',
+        latestAppVersionIos: '0.1.0',
+      });
       settings = created.toObject();
     }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdminWithScope } from '@/lib/api-auth';
+import { memberUnderLeaderScope } from '@/lib/leader-scope';
 import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
 import bcrypt from 'bcryptjs';
@@ -25,30 +26,58 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Cannot change the role of a super admin' }, { status: 403 });
     }
 
-    // Enforce campus scope for campus leaders
     if (admin.role === 'campus_leader') {
       if (targetUser.campusId !== admin.campusId) {
-        return NextResponse.json({ error: 'You can only edit users in your campus' }, { status: 403 });
+        return NextResponse.json({ error: 'You can only edit members in your campus' }, { status: 403 });
       }
-      
-      // Enforce role appointment rules
+      body.campusId = admin.campusId;
+
       if (body.role && body.role !== targetUser.role) {
         if (!['member', 'group_leader'].includes(body.role)) {
-          return NextResponse.json({ error: 'Campus leaders can only appoint members and group leaders' }, { status: 403 });
+          return NextResponse.json({ error: 'Campus leaders can only appoint members and FASL leaders' }, { status: 403 });
         }
       }
     } else if (admin.role === 'group_leader') {
-      return NextResponse.json({ error: 'Group leaders cannot edit users' }, { status: 403 });
+      const inScope = memberUnderLeaderScope(
+        { campusId: targetUser.campusId, groups: targetUser.groups || [] },
+        { role: admin.role, campusId: admin.campusId, groups: admin.groups }
+      );
+      if (!inScope) {
+        return NextResponse.json({ error: 'You can only edit members in your groups' }, { status: 403 });
+      }
+      // FASL / Core: edit members only — no role changes, no campus changes
+      if (targetUser.role !== 'member' && String(targetUser._id) !== String(admin.userId)) {
+        return NextResponse.json({ error: 'You can only edit members in your groups' }, { status: 403 });
+      }
+      body.role = targetUser.role;
+      if (admin.campusId !== 'global') {
+        body.campusId = admin.campusId;
+      } else {
+        body.campusId = targetUser.campusId;
+      }
+      // Preserve groups outside this leader's assignment; only manage their own groups
+      if (Array.isArray(body.groups)) {
+        const outside = (targetUser.groups || []).filter((g: string) => !admin.groups.includes(g));
+        const allowed = body.groups.filter((g: string) => admin.groups.includes(g));
+        body.groups = [...new Set([...outside, ...allowed])];
+      }
     }
-    
-    // Hash password if it is being updated
+
+    // Linked family profiles: email is system-managed and must not change
+    const isLinkedEmail =
+      typeof targetUser.email === 'string' &&
+      (targetUser.email.startsWith('linked_') || targetUser.email.endsWith('@family.internal'));
+    if (isLinkedEmail || targetUser.isLinkedProfile || targetUser.parentAccountId) {
+      body.email = targetUser.email;
+    }
+
     if (body.password) {
       const salt = await bcrypt.genSalt(10);
       body.password = await bcrypt.hash(body.password, salt);
     }
-    
+
     const user = await User.findByIdAndUpdate(id, body, { new: true, select: '-password' });
-    
+
     return NextResponse.json(user);
   } catch (error: any) {
     return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
@@ -62,24 +91,22 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   try {
     await connectToDatabase();
     const { id } = await params;
-    
+
     const targetUser = await User.findById(id);
     if (!targetUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Protect super admin deletion
     if (targetUser.role === 'super_admin') {
       return NextResponse.json({ error: 'Cannot delete a super admin account' }, { status: 403 });
     }
 
-    // Enforce campus scope for campus leaders
     if (admin.role === 'campus_leader') {
       if (targetUser.campusId !== admin.campusId) {
-        return NextResponse.json({ error: 'You can only delete users in your campus' }, { status: 403 });
+        return NextResponse.json({ error: 'You can only delete members in your campus' }, { status: 403 });
       }
     } else if (admin.role === 'group_leader') {
-      return NextResponse.json({ error: 'Group leaders cannot delete users' }, { status: 403 });
+      return NextResponse.json({ error: 'FASL / Core Team leaders cannot delete members' }, { status: 403 });
     }
 
     await User.findByIdAndDelete(id);

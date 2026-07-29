@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useAdminData, type Sermon, type SermonSeries, hasGlobalScope, getAllowedCampuses, getAllowedGroups, getGroupsForCampus } from '@/lib/admin-data-context';
+import { useAdminData, type Sermon, type SermonSeries, hasGlobalScope, getAllowedCampuses, getAllowedGroups, getGroupsForCampus, isCoreTeamLeader, isFasLeader } from '@/lib/admin-data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,12 +83,27 @@ export default function SermonManagementPage() {
   });
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'sermon' | 'series', id: string } | null>(null);
-  const [campusMode, setCampusMode] = useState<'all'|'specific'>('all');
+  const [campusMode, setCampusModeState] = useState<'all'|'specific'>('all');
   const [groupMode, setGroupMode] = useState<'all'|'specific'>('all');
   const isCampusLeader = currentUser?.role === 'campus_leader';
   const isGroupLeader = currentUser?.role === 'group_leader';
+  const isCore = isCoreTeamLeader(currentUser?.role || 'member', currentUser?.campusId);
+  const isFas = isFasLeader(currentUser?.role || 'member', currentUser?.campusId);
+  const campusLocked = isCampusLeader || isFas;
+  const canAllCampusesScope = hasGlobalScope(currentUser?.role || 'member', currentUser?.campusId);
+
+  const setCampusMode = (mode: 'all' | 'specific') => {
+    if (campusLocked) return;
+    setCampusModeState(mode);
+    if (mode === 'all') {
+      setSermonForm(f => ({ ...f, targetCampuses: ['all'] }));
+    } else {
+      setSermonForm(f => ({ ...f, targetCampuses: [] }));
+    }
+  };
 
   const toggleCampus = (id: string) => {
+    if (campusLocked) return;
     setSermonForm(f => {
       const tc = f.targetCampuses || [];
       const has = tc.includes(id);
@@ -98,6 +113,7 @@ export default function SermonManagementPage() {
   };
 
   const toggleExcludeCampus = (id: string) => {
+    if (campusLocked) return;
     setSermonForm(f => {
       const ec = f.excludeCampuses || [];
       const has = ec.includes(id);
@@ -110,8 +126,24 @@ export default function SermonManagementPage() {
       const tg = f.targetGroups || [];
       const has = tg.includes(id);
       const next = has ? tg.filter(c => c !== id) : [...tg.filter(c => c !== 'all'), id];
-      return { ...f, targetGroups: next.length === 0 ? ['all'] : next };
+      if (next.length === 0) {
+        return { ...f, targetGroups: isFas ? [] : (isGroupLeader ? currentUser.groups : ['all']) };
+      }
+      return { ...f, targetGroups: next };
     });
+  };
+
+  const setGroupModeSafe = (mode: 'all' | 'specific') => {
+    if (isFas) return;
+    setGroupMode(mode);
+    if (mode === 'all') {
+      setSermonForm(f => ({
+        ...f,
+        targetGroups: isGroupLeader ? currentUser.groups : ['all'],
+      }));
+    } else {
+      setSermonForm(f => ({ ...f, targetGroups: [] }));
+    }
   };
 
   const toggleExcludeGroup = (id: string) => {
@@ -177,18 +209,23 @@ export default function SermonManagementPage() {
       description: '',
       isFeatured: false,
       materials: [],
-      targetCampuses: (isCampusLeader || isGroupLeader) ? [currentUser.campusId] : ['all'],
-      targetGroups: isGroupLeader ? currentUser.groups : ['all'],
+      targetCampuses: campusLocked ? [currentUser.campusId] : ['all'],
+      targetGroups: isGroupLeader ? [...currentUser.groups] : ['all'],
       excludeCampuses: [],
       excludeGroups: [],
     });
-    setCampusMode(isCampusLeader || isGroupLeader ? 'specific' : 'all');
-    setGroupMode(isGroupLeader ? 'specific' : 'all');
+    setCampusModeState(campusLocked ? 'specific' : 'all');
+    setGroupMode(isFas || isGroupLeader ? 'specific' : 'all');
     setSermonDialogOpen(true);
   };
 
   const openEditSermon = (sermon: Sermon) => {
     setEditingSermonId(sermon.id);
+    const nextGroups = isFas
+      ? (sermon.targetGroups || []).includes('all')
+        ? [...currentUser.groups]
+        : (sermon.targetGroups || []).filter(g => g !== 'all' && currentUser.groups.includes(g))
+      : (sermon.targetGroups || ['all']);
     setSermonForm({
       ...sermon,
       isFeatured: !!sermon.isFeatured,
@@ -199,12 +236,12 @@ export default function SermonManagementPage() {
         type: m.type || 'other'
       })),
       targetCampuses: sermon.targetCampuses || ['all'],
-      targetGroups: sermon.targetGroups || ['all'],
-      excludeCampuses: sermon.excludeCampuses || [],
+      targetGroups: nextGroups,
+      excludeCampuses: campusLocked ? [] : (sermon.excludeCampuses || []),
       excludeGroups: sermon.excludeGroups || [],
     });
-    setCampusMode((sermon.targetCampuses || []).includes('all') ? 'all' : 'specific');
-    setGroupMode((sermon.targetGroups || []).includes('all') ? 'all' : 'specific');
+    setCampusModeState((sermon.targetCampuses || []).includes('all') ? 'all' : 'specific');
+    setGroupMode(isFas ? 'specific' : ((sermon.targetGroups || []).includes('all') ? 'all' : 'specific'));
     setSermonDialogOpen(true);
   };
 
@@ -594,20 +631,23 @@ export default function SermonManagementPage() {
                   {isCampusLeader && (
                     <p className="text-[10px] text-amber-500">Campus Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
                   )}
-                  {isGroupLeader && (
-                    <p className="text-[10px] text-emerald-500">FASL: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
+                  {isFas && (
+                    <p className="text-[10px] text-emerald-500">FASL Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
                   )}
-                  {hasGlobalScope(currentUser.role) && (
+                  {isCore && (
+                    <p className="text-[10px] text-emerald-500">Core Team Leader: all campuses, your assigned teams only</p>
+                  )}
+                  {canAllCampusesScope && (
                     <div className="flex items-center gap-4">
                       <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <Checkbox checked={campusMode === 'all'} onCheckedChange={() => setCampusMode('all')} disabled={isCampusLeader || isGroupLeader} /> All
+                        <Checkbox checked={campusMode === 'all'} onCheckedChange={() => setCampusMode('all')} disabled={campusLocked} /> All
                       </label>
                       <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <Checkbox checked={campusMode === 'specific'} onCheckedChange={() => setCampusMode('specific')} disabled={isCampusLeader || isGroupLeader} /> Specific
+                        <Checkbox checked={campusMode === 'specific'} onCheckedChange={() => setCampusMode('specific')} disabled={campusLocked} /> Specific
                       </label>
                     </div>
                   )}
-                  {(campusMode !== 'all' || !hasGlobalScope(currentUser.role)) && (
+                  {(campusMode !== 'all' || !canAllCampusesScope) && (
                     <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
                       {getAllowedCampuses(currentUser.role, currentUser.campusId, campuses).map(c => (
                         <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -621,37 +661,42 @@ export default function SermonManagementPage() {
                     </div>
                   )}
 
-                  <div className="pt-2">
-                    <Label className="text-xs text-muted-foreground">Exclude Campuses (Optional)</Label>
-                    <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
-                      {campuses.map(c => (
-                        <label key={"ex-" + c.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                          <Checkbox
-                            checked={(sermonForm.excludeCampuses || []).includes(c.id)}
-                            onCheckedChange={() => toggleExcludeCampus(c.id)}
-                            disabled={(isCampusLeader || isGroupLeader) && c.id !== currentUser.campusId}
-                          />
-                          {c.name}
-                        </label>
-                      ))}
+                  {!campusLocked && (
+                    <div className="pt-2">
+                      <Label className="text-xs text-muted-foreground">Exclude Campuses (Optional)</Label>
+                      <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
+                        {campuses.map(c => (
+                          <label key={"ex-" + c.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                            <Checkbox
+                              checked={(sermonForm.excludeCampuses || []).includes(c.id)}
+                              onCheckedChange={() => toggleExcludeCampus(c.id)}
+                            />
+                            {c.name}
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="space-y-2 pt-2 border-t border-border/50">
                   <Label className="text-xs text-muted-foreground">Visible to Groups</Label>
                   {isGroupLeader && (
-                    <p className="text-[10px] text-emerald-500">FASL: restricted to your assigned groups</p>
+                    <p className="text-[10px] text-emerald-500">
+                      {isCore ? 'Core Team Leader: restricted to your assigned groups' : 'FASL Leader: select from your assigned groups'}
+                    </p>
                   )}
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <Checkbox checked={groupMode === 'all'} onCheckedChange={() => setGroupMode('all')} /> All
-                    </label>
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <Checkbox checked={groupMode === 'specific'} onCheckedChange={() => setGroupMode('specific')} /> Specific
-                    </label>
-                  </div>
-                  {groupMode !== 'all' && (
+                  {!isFas && (
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox checked={groupMode === 'all'} onCheckedChange={() => setGroupModeSafe('all')} /> All
+                      </label>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox checked={groupMode === 'specific'} onCheckedChange={() => setGroupModeSafe('specific')} /> Specific
+                      </label>
+                    </div>
+                  )}
+                  {(groupMode !== 'all' || isFas) && (
                     <div className="grid grid-cols-2 gap-1.5 pl-2 mt-2">
                       {(() => {
                         const selectedCampusIds = campusMode === 'all' ? ['global'] : (sermonForm.targetCampuses || []);

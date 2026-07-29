@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useAuth, type ChurchMember } from '@/lib/auth-context';
 import { useAdminData } from '@/lib/admin-data-context';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -15,6 +15,17 @@ import {
   UserPlus, Clock, CheckCircle, XCircle, Mail, Phone, Calendar,
   Building2, Heart, User, Users, Link2,
 } from 'lucide-react';
+
+function isLinkedPlaceholderEmail(email?: string) {
+  return !!email && (email.startsWith('linked_') || email.endsWith('@family.internal'));
+}
+
+function getMemberDisplayName(member: Pick<ChurchMember, 'firstName' | 'middleName' | 'lastName' | 'name'>) {
+  const fromParts = [member.firstName, member.middleName, member.lastName].filter(Boolean).join(' ').trim();
+  if (fromParts) return fromParts;
+  if (member.name && !String(member.name).startsWith('linked_')) return member.name;
+  return 'Unknown member';
+}
 
 export default function RequestsPage() {
   const { session, members, getPendingRequests, approveMember, rejectMember, getMember } = useAuth();
@@ -31,10 +42,6 @@ export default function RequestsPage() {
     }
     return true;
   });
-
-  const recentlyProcessed = members.filter(m =>
-    (m.status === 'approved' || m.status === 'rejected') && m.qrCode !== undefined
-  ).slice(-5);
 
   // Approve dialog
   const [approveDialog, setApproveDialog] = useState<ChurchMember | null>(null);
@@ -66,16 +73,35 @@ export default function RequestsPage() {
     );
   };
 
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-  });
+  const formatDate = (d?: string) => {
+    if (!d) return '—';
+    const date = new Date(d);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+    });
+  };
+
+  const getLinkedParent = (member: ChurchMember) => {
+    if (member.parentAccountId) {
+      const parent = getMember(member.parentAccountId) || members.find(m => m.id === member.parentAccountId);
+      if (parent) return parent;
+    }
+    if (member.familyMemberId) {
+      return getMember(member.familyMemberId) || members.find(m => m.id === member.familyMemberId) || null;
+    }
+    return null;
+  };
+
+  const isFamilyProfile = (member: ChurchMember) =>
+    !!member.isLinkedProfile || isLinkedPlaceholderEmail(member.email) || !!member.parentAccountId;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Registration Requests</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Registration Requests</h1>
+        <p className="text-muted-foreground mt-1 text-sm sm:text-base">
           Review and approve new member registrations
           {isCampusLeader && (
             <span className="text-amber-500"> · Showing requests for {campuses.find(c => c.id === currentUser.campusId)?.name}</span>
@@ -84,37 +110,37 @@ export default function RequestsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 max-w-lg">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Card className="border-border/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
+          <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
               <Clock className="w-4 h-4 text-amber-500" />
             </div>
-            <div>
-              <p className="text-xl font-bold">{pendingRequests.length}</p>
-              <p className="text-[10px] text-muted-foreground">Pending</p>
+            <div className="min-w-0">
+              <p className="text-lg sm:text-xl font-bold leading-none">{pendingRequests.length}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Pending</p>
             </div>
           </CardContent>
         </Card>
         <Card className="border-border/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+          <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
               <CheckCircle className="w-4 h-4 text-emerald-500" />
             </div>
-            <div>
-              <p className="text-xl font-bold">{members.filter(m => m.status === 'approved').length}</p>
-              <p className="text-[10px] text-muted-foreground">Approved</p>
+            <div className="min-w-0">
+              <p className="text-lg sm:text-xl font-bold leading-none">{members.filter(m => m.status === 'approved').length}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Approved</p>
             </div>
           </CardContent>
         </Card>
         <Card className="border-border/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-rose-500/10 flex items-center justify-center">
+          <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-rose-500/10 flex items-center justify-center shrink-0">
               <XCircle className="w-4 h-4 text-rose-500" />
             </div>
-            <div>
-              <p className="text-xl font-bold">{members.filter(m => m.status === 'rejected').length}</p>
-              <p className="text-[10px] text-muted-foreground">Rejected</p>
+            <div className="min-w-0">
+              <p className="text-lg sm:text-xl font-bold leading-none">{members.filter(m => m.status === 'rejected').length}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Rejected</p>
             </div>
           </CardContent>
         </Card>
@@ -128,87 +154,104 @@ export default function RequestsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {pendingRequests.map(member => (
-            <Card key={member.id} className="border-border/50 hover:shadow-md transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                  <div className="space-y-3 flex-1">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+          {pendingRequests.map(member => {
+            const displayName = getMemberDisplayName(member);
+            const linkedParent = getLinkedParent(member);
+            const showRealEmail = member.email && !isLinkedPlaceholderEmail(member.email);
+
+            return (
+              <Card key={member.id} className="border-border/50 hover:shadow-md transition-shadow overflow-hidden">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0">
                         <User className="w-5 h-5 text-primary" />
                       </div>
-                      <div>
-                        <h3 className="font-semibold">
-                          {member.firstName} {member.middleName ? `${member.middleName} ` : ''}{member.lastName}
-                        </h3>
-                        <Badge variant="outline" className="text-[10px] mt-0.5">
-                          <Clock className="w-2.5 h-2.5 mr-1" /> Pending
-                        </Badge>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold text-base leading-tight truncate">
+                            {displayName}
+                          </h3>
+                          <Badge variant="outline" className="text-[10px] shrink-0">
+                            <Clock className="w-2.5 h-2.5 mr-1" /> Pending
+                          </Badge>
+                        </div>
+
+                        {showRealEmail ? (
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 min-w-0">
+                            <Mail className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{member.email}</span>
+                          </p>
+                        ) : isFamilyProfile(member) ? (
+                          <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1.5 min-w-0">
+                            <Link2 className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">
+                              {linkedParent
+                                ? `Family linked to ${getMemberDisplayName(linkedParent)}`
+                                : 'Family linked profile'}
+                            </span>
+                          </p>
+                        ) : null}
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Mail className="w-3.5 h-3.5" /> {member.email}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                      {member.phone && (
+                        <div className="flex items-center gap-2 text-muted-foreground min-w-0">
+                          <Phone className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{member.phone}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 text-muted-foreground min-w-0">
+                        <Calendar className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{formatDate(member.birthday)}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Phone className="w-3.5 h-3.5" /> {member.phone}
+                      <div className="flex items-center gap-2 text-muted-foreground min-w-0">
+                        <Building2 className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{campuses.find(c => c.id === member.campusId)?.name || '—'}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Calendar className="w-3.5 h-3.5" /> {formatDate(member.birthday)}
+                      <div className="flex items-center gap-2 text-muted-foreground min-w-0">
+                        <User className="w-3.5 h-3.5 shrink-0" />
+                        <span>{member.gender === 'male' ? 'Male' : member.gender === 'female' ? 'Female' : '—'}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Building2 className="w-3.5 h-3.5" /> {campuses.find(c => c.id === member.campusId)?.name}
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <User className="w-3.5 h-3.5" /> {member.gender === 'male' ? 'Male' : 'Female'}
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Heart className="w-3.5 h-3.5" /> {member.maritalStatus === 'married' ? 'Married' : 'Single'}
+                      <div className="flex items-center gap-2 text-muted-foreground min-w-0">
+                        <Heart className="w-3.5 h-3.5 shrink-0" />
+                        <span>{member.maritalStatus === 'married' ? 'Married' : member.maritalStatus === 'single' ? 'Single' : '—'}</span>
                       </div>
                     </div>
+
                     <p className="text-[10px] text-muted-foreground">
                       Submitted {formatDate(member.createdAt)}
                     </p>
-                    {/* Family link indicator */}
-                    {member.familyMemberId && (() => {
-                      const familyMember = getMember(member.familyMemberId);
-                      return familyMember ? (
-                        <div className="flex items-center gap-2 mt-1">
-                          <Link2 className="w-3 h-3 text-emerald-500" />
-                          <span className="text-[10px] font-medium text-emerald-600">
-                            Linked to: {familyMember.firstName} {familyMember.lastName}
-                          </span>
-                        </div>
-                      ) : null;
-                    })()}
+
+                    <div className="flex gap-2 w-full sm:w-auto sm:self-end">
+                      <Button
+                        size="sm"
+                        className="flex-1 sm:flex-none gap-1"
+                        onClick={() => openApproveDialog(member)}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" /> Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="flex-1 sm:flex-none gap-1"
+                        onClick={() => setRejectConfirm(member.id)}
+                      >
+                        <XCircle className="w-3.5 h-3.5" /> Reject
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <Button
-                      size="sm"
-                      className="gap-1"
-                      onClick={() => openApproveDialog(member)}
-                    >
-                      <CheckCircle className="w-3.5 h-3.5" /> Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="gap-1"
-                      onClick={() => setRejectConfirm(member.id)}
-                    >
-                      <XCircle className="w-3.5 h-3.5" /> Reject
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
       {/* Approve Dialog — assign groups */}
       <Dialog open={approveDialog !== null} onOpenChange={() => setApproveDialog(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Approve & Assign Groups</DialogTitle>
           </DialogHeader>
@@ -216,26 +259,31 @@ export default function RequestsPage() {
             <div className="space-y-4 py-2">
               <div className="bg-muted/30 rounded-lg p-3 space-y-1">
                 <p className="text-sm font-medium">
-                  {approveDialog.firstName} {approveDialog.lastName}
+                  {getMemberDisplayName(approveDialog)}
                 </p>
-                <p className="text-xs text-muted-foreground">{approveDialog.email}</p>
+                {approveDialog.email && !isLinkedPlaceholderEmail(approveDialog.email) && (
+                  <p className="text-xs text-muted-foreground truncate">{approveDialog.email}</p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   {campuses.find(c => c.id === approveDialog.campusId)?.name}
                 </p>
                 {/* Family link info in approve dialog */}
-                {approveDialog.familyMemberId && (() => {
-                  const familyMember = getMember(approveDialog.familyMemberId);
-                  return familyMember ? (
+                {(() => {
+                  const linkedParent = getLinkedParent(approveDialog);
+                  if (!isFamilyProfile(approveDialog) && !approveDialog.familyMemberId) return null;
+                  return (
                     <div className="flex items-center gap-2 mt-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                       <Link2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-emerald-600">Family linked to:</p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {familyMember.firstName} {familyMember.lastName} ({familyMember.email})
+                          {linkedParent
+                            ? getMemberDisplayName(linkedParent)
+                            : 'Family linked profile'}
                         </p>
                       </div>
                     </div>
-                  ) : null;
+                  );
                 })()}
               </div>
               <div className="space-y-2">
@@ -248,9 +296,9 @@ export default function RequestsPage() {
                   {groupScopes.filter(g => g.scope === 'global').length > 0 && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Global Groups</p>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {groupScopes.filter(g => g.scope === 'global').map(g => (
-                          <label key={g.name} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                          <label key={g.name} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors min-w-0">
                             <Checkbox
                               checked={selectedGroups.includes(g.name)}
                               onCheckedChange={() => toggleGroup(g.name)}
@@ -266,9 +314,9 @@ export default function RequestsPage() {
                   {groupScopes.filter(g => g.scope === approveDialog.campusId).length > 0 && (
                     <div className="space-y-2 pt-2 border-t border-border/50">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Campus Groups</p>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {groupScopes.filter(g => g.scope === approveDialog.campusId).map(g => (
-                          <label key={g.name} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                          <label key={g.name} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors min-w-0">
                             <Checkbox
                               checked={selectedGroups.includes(g.name)}
                               onCheckedChange={() => toggleGroup(g.name)}

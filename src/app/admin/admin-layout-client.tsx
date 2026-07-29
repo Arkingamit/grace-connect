@@ -69,17 +69,22 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
 
   React.useEffect(() => {
     const sessionMember = getSessionMember();
-    if (sessionMember && sessionMember.id !== currentUser.id) {
-      setCurrentUser({
-        id: sessionMember._id || sessionMember.id,
-        name: `${sessionMember.firstName || ''} ${sessionMember.lastName || ''}`.trim() || sessionMember.email,
-        email: sessionMember.email,
-        role: sessionMember.role as UserRole,
-        campusId: sessionMember.campusId || 'main',
-        groups: sessionMember.groups || [],
-      });
-    }
-  }, [getSessionMember, currentUser.id, setCurrentUser]);
+    if (!sessionMember) return;
+    const id = sessionMember._id || sessionMember.id;
+    setCurrentUser({
+      id,
+      name: `${sessionMember.firstName || ''} ${sessionMember.lastName || ''}`.trim() || sessionMember.email,
+      email: sessionMember.email,
+      role: sessionMember.role as UserRole,
+      campusId: sessionMember.campusId || 'main',
+      groups: sessionMember.groups || [],
+    });
+  }, [getSessionMember, setCurrentUser]);
+
+  const roleBadgeLabel =
+    currentUser.role === 'group_leader'
+      ? (currentUser.campusId === 'global' ? 'Core Team Leader' : 'FASL Leader')
+      : getRoleLabel(currentUser.role, currentUser.campusId);
 
   const isCampusLeader = currentUser.role === 'campus_leader';
   const pendingCount = isCampusLeader
@@ -103,11 +108,11 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
     { label: 'Daily Verses', href: '/admin/verses', icon: BookOpen, minRole: 'admin' as UserRole },
     { label: 'Highlights Cards', href: '/admin/hero-cards', icon: FlipHorizontal, minRole: 'admin' as UserRole },
     { label: 'Requests', href: '/admin/requests', icon: UserPlus, minRole: 'campus_leader' as UserRole, badge: pendingCount },
-    { label: 'Attendance', href: '/admin/attendance', icon: MapPin, minRole: 'campus_leader' as UserRole },
+    { label: 'Attendance', href: '/admin/attendance', icon: MapPin, minRole: 'group_leader' as UserRole },
     { label: 'ePass Scanner', href: '/admin/scanner', icon: Camera, minRole: 'group_leader' as UserRole },
     { label: 'QR Codes', href: '/admin/qr-codes', icon: QrCode, minRole: 'campus_leader' as UserRole },
-    { label: 'Users', href: '/admin/users', icon: Users, minRole: 'group_leader' as UserRole },
-    { label: 'Settings', href: '/admin/settings', icon: Settings, minRole: 'super_admin' as UserRole },
+    { label: 'Members', href: '/admin/users', icon: Users, minRole: 'group_leader' as UserRole },
+    { label: 'Settings', href: '/admin/settings', icon: Settings, minRole: 'campus_leader' as UserRole },
   ];
 
   const roleHierarchy: Record<UserRole, number> = { member: 0, group_leader: 1, campus_leader: 2, admin: 3, super_admin: 4 };
@@ -123,7 +128,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
           </div>
           <h1 className="text-2xl font-bold">Access Denied</h1>
           <p className="text-muted-foreground">
-            You need at least FASL access to view the admin dashboard.
+            You need at least FASL Leader or Core Team Leader access to view the admin dashboard.
           </p>
           <Button onClick={() => router.push('/')} variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
@@ -167,7 +172,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
 
         <div className="flex items-center gap-4">
           <Badge variant="outline" className={`text-[10px] hidden sm:inline-flex ${roleColors[currentUser.role]}`}>
-            {getRoleLabel(currentUser.role, currentUser.campusId)}
+            {roleBadgeLabel}
             {currentUser.role === 'campus_leader' && (
               <span className="ml-1">· {campuses.find(c => c.id === currentUser.campusId)?.name}</span>
             )}
@@ -182,7 +187,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
       </header>
 
       {/* Main Container */}
-      <div className="flex-1 flex relative min-h-0 md:pl-64">
+      <div className="flex-1 flex relative min-h-0 min-w-0 md:pl-64">
         {/* Backdrop Overlay when drawer is open */}
         {isSidebarOpen && (
           <div 
@@ -256,7 +261,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
             </div>
 
             <Badge variant="outline" className={`text-[10px] w-full justify-center py-1 mt-1 ${roleColors[currentUser.role]}`}>
-              {getRoleLabel(currentUser.role, currentUser.campusId)}
+              {roleBadgeLabel}
               {currentUser.role === 'campus_leader' && (
                 <span className="ml-1 truncate">· {campuses.find(c => c.id === currentUser.campusId)?.name}</span>
               )}
@@ -265,8 +270,8 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 min-h-[calc(100vh-4rem)] overflow-y-auto bg-background/50">
-          <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">{children}</div>
+        <main className="flex-1 min-w-0 min-h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden bg-background/50">
+          <div className="w-full max-w-7xl mx-auto px-3 py-4 sm:p-4 md:p-6 lg:p-8">{children}</div>
         </main>
       </div>
     </div>

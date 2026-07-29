@@ -9,15 +9,62 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Calendar, Clock, MapPin, Users, ArrowRight, Building2, Images, X, Loader2, ExternalLink, Check, ChevronLeft, Navigation, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, ArrowRight, Building2, Images, X, Loader2, ExternalLink, Check, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { getMapsUrl } from '@/lib/maps';
+import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
+import { EventMonthCalendar } from '@/components/ui/event-month-calendar';
 
+function EventLocationLink({
+  location,
+  mapUrl,
+  latitude,
+  longitude,
+  className = '',
+}: {
+  location: string;
+  mapUrl?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  className?: string;
+}) {
+  const href = getMapsUrl({ mapUrl, location, latitude, longitude });
+  if (!href || !location?.trim()) {
+    return <span className={`line-clamp-1 ${className}`}>{location || 'TBA'}</span>;
+  }
 
+  return (
+    <div
+      className={`inline-flex w-full min-w-0 max-w-full -space-x-px rounded-lg shadow-sm shadow-black/5 rtl:space-x-reverse ${className}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Button
+        asChild
+        variant="outline"
+        className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-8 px-2.5 text-xs font-medium text-foreground border-border/60 bg-background hover:bg-accent"
+      >
+        <a href={href} target="_blank" rel="noopener noreferrer" title="Open in Maps">
+          <span className="truncate">{location}</span>
+        </a>
+      </Button>
+      <Button
+        asChild
+        variant="outline"
+        size="icon"
+        className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-8 w-8 shrink-0 border-border/60 bg-background hover:bg-accent p-0 [&_img]:!size-[18px]"
+        aria-label="Open directions in Maps"
+      >
+        <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center">
+          <MapsPinIcon className="w-[18px] h-[18px]" />
+        </a>
+      </Button>
+    </div>
+  );
+}
 
 export const categoryColors: Record<string, string> = {
   Worship: "bg-primary/10 text-primary",
@@ -268,7 +315,14 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
         <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4 bg-muted/30 p-3 rounded-lg">
           <div className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {new Date(event.date).toLocaleDateString()}</div>
           <div className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {event.time}</div>
-          <div className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {event.location}</div>
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            <EventLocationLink
+              location={event.location}
+              mapUrl={event.mapUrl}
+              latitude={event.attendanceConfig?.latitude}
+              longitude={event.attendanceConfig?.longitude}
+            />
+          </div>
         </div>
 
         {existingReg && !isEditing ? (
@@ -660,11 +714,6 @@ function EventsWidgetLayout() {
                           {new Date(event.date).toLocaleDateString('en-US', { month: 'short' })}
                         </span>
                       </div>
-                      {event.mapUrl && (
-                        <button onClick={(e) => { e.preventDefault(); window.open(event.mapUrl, '_blank'); }} className="inline-flex items-center justify-center gap-1 w-full py-1 rounded-full bg-gray-200/80 hover:bg-gray-300 text-[#1A202C] text-[10px] font-semibold transition-colors px-1">
-                          <Navigation className="w-2.5 h-2.5" /> Directions
-                        </button>
-                      )}
                     </div>
                     
                     {/* Title & Badges */}
@@ -690,7 +739,12 @@ function EventsWidgetLayout() {
                     </div>
                     <div className="flex items-start gap-2">
                       <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-primary/70" />
-                      <span className="line-clamp-1">{event.location}</span>
+                      <EventLocationLink
+                        location={event.location}
+                        mapUrl={event.mapUrl}
+                        latitude={event.attendanceConfig?.latitude}
+                        longitude={event.attendanceConfig?.longitude}
+                      />
                     </div>
                     <div className="flex items-start gap-2">
                       <Users className="w-4 h-4 shrink-0 mt-0.5 text-primary/70" />
@@ -769,205 +823,67 @@ function EventsPageLayout() {
   const { getSessionMember, getEffectiveGroups } = useAuth();
   const [albumEvent, setAlbumEvent] = useState<Event | null>(null);
   const [rsvpEvent, setRsvpEvent] = useState<Event | null>(null);
-  const [activeTab, setActiveTab] = useState("upcoming");
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const myRegistrations = useMemo(() => {
-    if (!currentUser) return [];
-    const registeredEventIds = eventRegistrations
-      .filter(reg => reg.userEmail === currentUser.email)
-      .map(reg => reg.eventId);
-    // Remove duplicates if same user registered multiple times
-    const uniqueIds = Array.from(new Set(registeredEventIds));
-    return events.filter(e => uniqueIds.includes(e.id));
-  }, [events, eventRegistrations, currentUser]);
+  const myRegisteredIds = useMemo(() => {
+    if (!currentUser) return new Set<string>();
+    return new Set(
+      eventRegistrations
+        .filter((reg) => reg.userEmail === currentUser.email)
+        .map((reg) => String(reg.eventId))
+    );
+  }, [eventRegistrations, currentUser]);
 
   const visibleEvents = useMemo(() => {
     const sessionMember = getSessionMember();
     if (!sessionMember) {
-      // If not logged in, only see "all" campus / "all" groups events (or maybe guest-allowed)
-      // We'll treat guest as having 'global' campus and no special groups
       return getVisibleEvents('global', []);
     }
     const effectiveGroups = getEffectiveGroups(sessionMember);
-    const isAdminOrLeader = sessionMember.role === 'admin' || sessionMember.role === 'super_admin' || sessionMember.role === 'campus_leader';
-    const userGroups = isAdminOrLeader ? ['all'] : Array.from(new Set([...effectiveGroups, 'all']));
-    
+    const isAdminOrLeader =
+      sessionMember.role === 'admin' ||
+      sessionMember.role === 'super_admin' ||
+      sessionMember.role === 'campus_leader';
+    const userGroups = isAdminOrLeader
+      ? ['all']
+      : Array.from(new Set([...effectiveGroups, 'all']));
+
     return getVisibleEvents(sessionMember.campusId || 'all', userGroups, sessionMember.role);
   }, [getSessionMember, getEffectiveGroups, getVisibleEvents]);
-
-  const upcomingEvents = useMemo(() => {
-    return visibleEvents.filter(e => new Date(e.date) >= today)
-                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [visibleEvents]);
-
-  const pastEvents = useMemo(() => {
-    return visibleEvents.filter(e => new Date(e.date) < today)
-                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [visibleEvents]);
-
-  const renderEventGrid = (eventList: Event[]) => {
-    if (eventList.length === 0) {
-      return (
-        <div className="text-center py-20 glass-card rounded-3xl border-0">
-          <Calendar className="w-16 h-16 text-primary/20 mx-auto mb-4" />
-          <h3 className="text-2xl font-bold mb-2 italic">Nothing here yet</h3>
-          <p className="text-muted-foreground">No events found in this category.</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {eventList.map((event) => {
-          const availability = getAvailabilityStatus(event.registered, event.capacity);
-          const isPast = new Date(event.date) < today;
-
-          return (
-            <div key={event.id} className="relative bg-card shadow-sm rounded-[2rem] overflow-hidden hover:shadow-md transition-all duration-300 group border border-border/50 p-5 flex flex-col gap-4">
-              <div className="flex gap-4">
-                {/* Date Bubble */}
-                <div className="flex flex-col items-center gap-2 shrink-0">
-                  <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center border ${isPast ? 'bg-muted border-border/50 opacity-50 grayscale' : 'bg-[#FFF5F5] border-red-50/50'}`}>
-                    <span className={`text-xl font-bold leading-none ${isPast ? 'text-muted-foreground' : 'text-[#8B2323]'}`}>
-                      {new Date(event.date).getDate()}
-                    </span>
-                    <span className={`text-xs font-bold mt-1 ${isPast ? 'text-muted-foreground' : 'text-[#8B2323]'}`}>
-                      {new Date(event.date).toLocaleDateString('en-US', { month: 'short' })}
-                    </span>
-                  </div>
-                  {event.mapUrl && (
-                    <button onClick={(e) => { e.preventDefault(); window.open(event.mapUrl, '_blank'); }} className="inline-flex items-center justify-center gap-1 w-full py-1 rounded-full bg-gray-200/80 hover:bg-gray-300 text-[#1A202C] text-[10px] font-semibold transition-colors px-1">
-                      <Navigation className="w-2.5 h-2.5" /> Directions
-                    </button>
-                  )}
-                </div>
-                
-                {/* Title & Badges */}
-                <div className="flex-1 flex flex-col justify-center">
-                  <h3 className={`text-lg font-bold leading-tight line-clamp-2 mb-1 ${isPast ? 'text-muted-foreground' : 'text-[#1A202C] group-hover:text-primary transition-colors'}`}>
-                    {event.title}
-                  </h3>
-                  <div className="flex flex-wrap gap-1">
-                    <Badge variant="outline" className={`${categoryColors[event.category] || ''} border-current opacity-90 text-[10px] px-2 py-0`}>
-                      {event.category}
-                    </Badge>
-                    {event.recurring && <Badge variant="outline" className="text-[10px] px-2 py-0 border-border">Recurring</Badge>}
-                    {isPast && <Badge variant="secondary" className="text-[10px] px-2 py-0">Ended</Badge>}
-                  </div>
-                </div>
-              </div>
-
-              {/* Details */}
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <div className="flex items-start gap-2">
-                  <Clock className="w-4 h-4 shrink-0 mt-0.5 text-primary/70" />
-                  <span>{formatTime(event.time)}</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-primary/70" />
-                  <span className="line-clamp-1">{event.location}</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Users className="w-4 h-4 shrink-0 mt-0.5 text-primary/70" />
-                  <span>
-                    {event.capacity === 0 
-                      ? (event.registered > 0 ? `${event.registered} registered (Unlimited)` : "Unlimited spots")
-                      : (event.capacity - event.registered > 0 
-                          ? `${event.capacity - event.registered} spots remaining (out of ${event.capacity})` 
-                          : "Event full")
-                    }
-                  </span>
-                </div>
-              </div>
-
-              {/* Status & Actions */}
-              <div className="mt-auto pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-border/40">
-                <span className={`text-xs font-medium self-start sm:self-auto ${isPast ? 'text-muted-foreground' : availability.color}`}>
-                  {isPast ? 'Event Ended' : availability.text}
-                </span>
-                
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  {event.googlePhotosUrl && (
-                    <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 text-primary hover:bg-primary/10 rounded-xl" onClick={() => setAlbumEvent(event)} title="View Event Photos">
-                      <Images className="w-4 h-4" />
-                    </Button>
-                  )}
-                  <Button 
-                    disabled={isPast || event.registered >= event.capacity}
-                    onClick={() => setRsvpEvent(event)}
-                    className="h-10 w-full sm:w-auto text-sm font-semibold rounded-xl px-6"
-                  >
-                    {isPast ? 'Ended' : event.registered >= event.capacity ? 'Full' : 'RSVP'}
-                    {!isPast && event.registered < event.capacity && <ArrowRight className="w-4 h-4 ml-2" />}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
 
   return (
     <div className="w-full pb-12">
       <main className="flex-1">
         <div className="container mx-auto px-4 md:px-0">
-          <div className="max-w-6xl mx-auto space-y-8">
-            {/* Header */}
+          <div className="max-w-6xl mx-auto space-y-4">
             <div>
               <Link href="/#events">
-                <Button variant="ghost" size="sm" className="mb-6 -ml-3 gap-2 text-muted-foreground hover:text-foreground">
+                <Button variant="ghost" size="sm" className="mb-2 -ml-3 gap-2 text-muted-foreground hover:text-foreground">
                   <ChevronLeft className="w-4 h-4" /> Back to Home
                 </Button>
               </Link>
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none md:border-l-0 md:pl-0">Grace Calendar</h1>
-              <p className="text-xl text-muted-foreground">
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2 border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none md:border-l-0 md:pl-0">
+                Grace Calendar
+              </h1>
+              <p className="text-base text-muted-foreground">
                 Stay connected with our community events, services, and gatherings.
               </p>
             </div>
 
-            {/* Tabs */}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="flex w-full overflow-x-auto no-scrollbar justify-start md:grid md:grid-cols-3 md:max-w-md mb-6 md:mb-8 bg-card/50 p-1 border border-border/50">
-                <TabsTrigger className="shrink-0 rounded-lg px-4 py-2" value="upcoming">Upcoming Events</TabsTrigger>
-                <TabsTrigger className="shrink-0 rounded-lg px-4 py-2" value="registered">Registered Events</TabsTrigger>
-                <TabsTrigger className="shrink-0 rounded-lg px-4 py-2" value="past">Past Events</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="upcoming" className="space-y-6">
-                {renderEventGrid(upcomingEvents)}
-              </TabsContent>
-
-              <TabsContent value="registered" className="space-y-6">
-                {!currentUser ? (
-                  <div className="text-center py-20 glass-card rounded-3xl border-0">
-                    <Users className="w-16 h-16 text-primary/20 mx-auto mb-4" />
-                    <h3 className="text-2xl font-bold mb-2 italic">Sign In Required</h3>
-                    <p className="text-muted-foreground">Please sign in to view your event registrations.</p>
-                  </div>
-                ) : (
-                  renderEventGrid(myRegistrations)
-                )}
-              </TabsContent>
-
-              <TabsContent value="past" className="space-y-6">
-                {renderEventGrid(pastEvents)}
-              </TabsContent>
-            </Tabs>
+            <EventMonthCalendar
+              events={visibleEvents}
+              registeredEventIds={myRegisteredIds}
+              isSignedIn={!!currentUser}
+              onRsvp={(event) => setRsvpEvent(event)}
+              onOpenAlbum={(event) => setAlbumEvent(event)}
+            />
           </div>
         </div>
       </main>
 
-      {/* Photo Album Modal */}
       {albumEvent && (
         <EventPhotoModal event={albumEvent} onClose={() => setAlbumEvent(null)} />
       )}
 
-      {/* RSVP Modal */}
       {rsvpEvent && (
         <EventRSVPModal event={rsvpEvent} onClose={() => setRsvpEvent(null)} />
       )}

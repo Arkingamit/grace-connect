@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useAdminData, canPublishAllCampuses, getGroupsForCampus, getAllowedCampuses, getAllowedGroups, hasGlobalScope, type Announcement } from '@/lib/admin-data-context';
+import { useAdminData, canPublishAllCampuses, getGroupsForCampus, getAllowedCampuses, getAllowedGroups, hasGlobalScope, isCoreTeamLeader, isFasLeader, type Announcement } from '@/lib/admin-data-context';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -91,6 +91,10 @@ export default function AnnouncementsPage() {
 
   const isCampusLeader = currentUser.role === 'campus_leader';
   const isGroupLeader = currentUser.role === 'group_leader';
+  const isCore = isCoreTeamLeader(currentUser.role, currentUser.campusId);
+  const isFas = isFasLeader(currentUser.role, currentUser.campusId);
+  const campusLocked = isCampusLeader || isFas;
+  const canAllCampusesScope = hasGlobalScope(currentUser.role, currentUser.campusId);
 
   const filtered = announcements.filter(a => {
     const matchesSearch = a.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -109,9 +113,9 @@ export default function AnnouncementsPage() {
     setEditingId(null);
     setForm({
       ...emptyForm,
-      // Campus leaders & group leaders: lock to their campus
-      targetCampuses: (isCampusLeader || isGroupLeader) ? [currentUser.campusId] : ['all'],
-      targetGroups: isGroupLeader ? currentUser.groups : ['all'],
+      // Campus leaders & FASL: lock to their campus; Core Team Leaders: all campuses
+      targetCampuses: campusLocked ? [currentUser.campusId] : ['all'],
+      targetGroups: isGroupLeader ? [...currentUser.groups] : ['all'],
     });
     setDialogOpen(true);
   };
@@ -127,8 +131,12 @@ export default function AnnouncementsPage() {
       image: announcement.image,
       reactions: announcement.reactions,
       targetCampuses: announcement.targetCampuses || ['all'],
-      targetGroups: announcement.targetGroups || ['all'],
-      excludeCampuses: announcement.excludeCampuses || [],
+      targetGroups: isFas
+        ? (announcement.targetGroups || []).includes('all')
+          ? [...currentUser.groups]
+          : (announcement.targetGroups || []).filter(g => g !== 'all' && currentUser.groups.includes(g))
+        : (announcement.targetGroups || ['all']),
+      excludeCampuses: campusLocked ? [] : (announcement.excludeCampuses || []),
       excludeGroups: announcement.excludeGroups || [],
       isRecurring: announcement.isRecurring || false,
       recurrencePattern: announcement.recurrencePattern || 'weekly',
@@ -202,10 +210,12 @@ export default function AnnouncementsPage() {
   // ── Audience helpers ──
   // ── Audience helpers ──
   const campusMode = form.targetCampuses.includes('all') ? 'all' : 'specific';
-  const groupMode = form.targetGroups.includes('all') || (isGroupLeader && form.targetGroups.length === currentUser.groups.length && currentUser.groups.length > 0) ? 'all' : 'specific';
+  const groupMode = isFas
+    ? 'specific'
+    : (form.targetGroups.includes('all') || (isGroupLeader && form.targetGroups.length === currentUser.groups.length && currentUser.groups.length > 0) ? 'all' : 'specific');
 
   const setCampusMode = (mode: 'all' | 'specific') => {
-    if (isCampusLeader || isGroupLeader) return; // locked
+    if (campusLocked) return; // locked for campus leader / FASL
     setForm(f => ({
       ...f,
       targetCampuses: mode === 'specific' ? [] : ['all'],
@@ -213,7 +223,7 @@ export default function AnnouncementsPage() {
   };
 
   const toggleCampus = (campusId: string) => {
-    if (isCampusLeader || isGroupLeader) return;
+    if (campusLocked) return;
     setForm(f => {
       const has = f.targetCampuses.includes(campusId);
       const next = has ? f.targetCampuses.filter(c => c !== campusId) : [...f.targetCampuses.filter(c => c !== 'all'), campusId];
@@ -222,7 +232,7 @@ export default function AnnouncementsPage() {
   };
 
   const toggleExcludeCampus = (campusId: string) => {
-    if (isCampusLeader || isGroupLeader) return;
+    if (campusLocked) return;
     setForm(f => {
       const has = f.excludeCampuses.includes(campusId);
       const next = has ? f.excludeCampuses.filter(c => c !== campusId) : [...f.excludeCampuses, campusId];
@@ -231,6 +241,7 @@ export default function AnnouncementsPage() {
   };
 
   const setGroupMode = (mode: 'all' | 'specific') => {
+    if (isFas) return;
     setForm(f => {
       let nextTarget = ['all'];
       if (isGroupLeader) {
@@ -246,7 +257,10 @@ export default function AnnouncementsPage() {
     setForm(f => {
       const has = f.targetGroups.includes(group);
       const next = has ? f.targetGroups.filter(g => g !== group) : [...f.targetGroups.filter(g => g !== 'all'), group];
-      return { ...f, targetGroups: next.length === 0 ? (isGroupLeader ? currentUser.groups : ['all']) : next };
+      if (next.length === 0) {
+        return { ...f, targetGroups: isFas ? [] : (isGroupLeader ? currentUser.groups : ['all']) };
+      }
+      return { ...f, targetGroups: next };
     });
   };
 
@@ -644,18 +658,23 @@ export default function AnnouncementsPage() {
                     As a Campus Leader, you can only broadcast to your campus: {campuses.find(c => c.id === currentUser.campusId)?.name}
                   </p>
                 )}
-                {isGroupLeader && (
+                {isFas && (
                   <p className="text-[10px] text-emerald-500">
-                    As a FASL member, you can only broadcast to your campus: {campuses.find(c => c.id === currentUser.campusId)?.name}
+                    FASL Leader: restricted to your campus ({campuses.find(c => c.id === currentUser.campusId)?.name}) and assigned groups.
                   </p>
                 )}
-                {hasGlobalScope(currentUser.role) && (
+                {isCore && (
+                  <p className="text-[10px] text-emerald-500">
+                    Core Team Leader: all campuses, your assigned teams only.
+                  </p>
+                )}
+                {canAllCampusesScope && (
                   <div className="flex items-center gap-4">
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
                       <Checkbox
                         checked={campusMode === 'all'}
                         onCheckedChange={() => setCampusMode('all')}
-                        disabled={isCampusLeader || isGroupLeader}
+                        disabled={campusLocked}
                       />
                       All Campuses
                     </label>
@@ -663,13 +682,13 @@ export default function AnnouncementsPage() {
                       <Checkbox
                         checked={campusMode === 'specific'}
                         onCheckedChange={() => setCampusMode('specific')}
-                        disabled={isCampusLeader || isGroupLeader}
+                        disabled={campusLocked}
                       />
                       Specific
                     </label>
                   </div>
                 )}
-                {(campusMode !== 'all' || !hasGlobalScope(currentUser.role)) && (
+                {(campusMode !== 'all' || !canAllCampusesScope) && (
                   <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
                     {getAllowedCampuses(currentUser.role, currentUser.campusId, campuses).map(campus => (
                       <label key={campus.id} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -683,24 +702,22 @@ export default function AnnouncementsPage() {
                   </div>
                 )}
 
-                <div className="pt-2">
-                  <Label className="text-xs text-muted-foreground">Exclude Campuses (Optional)</Label>
-                  <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
-                    {campuses.map(campus => (
-                      <label key={`ex-${campus.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
-                        <Checkbox
-                          checked={form.excludeCampuses.includes(campus.id)}
-                          onCheckedChange={() => toggleExcludeCampus(campus.id)}
-                          disabled={(isCampusLeader || isGroupLeader) && campus.id !== currentUser.campusId}
-                        />
-                        {campus.name}
-                        {(isCampusLeader || isGroupLeader) && campus.id !== currentUser.campusId && (
-                          <span className="text-[10px] text-muted-foreground">(restricted)</span>
-                        )}
-                      </label>
-                    ))}
+                {!campusLocked && (
+                  <div className="pt-2">
+                    <Label className="text-xs text-muted-foreground">Exclude Campuses (Optional)</Label>
+                    <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
+                      {campuses.map(campus => (
+                        <label key={`ex-${campus.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <Checkbox
+                            checked={form.excludeCampuses.includes(campus.id)}
+                            onCheckedChange={() => toggleExcludeCampus(campus.id)}
+                          />
+                          {campus.name}
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Group Targeting */}
@@ -708,20 +725,24 @@ export default function AnnouncementsPage() {
                 <Label className="text-xs text-muted-foreground">Visible to Groups</Label>
                 {isGroupLeader && (
                   <p className="text-[10px] text-emerald-500">
-                    As a FASL member, you can only broadcast to your assigned groups.
+                    {isCore
+                      ? 'Core Team Leader: you can only broadcast to your assigned groups across campuses.'
+                      : 'FASL Leader: select from your assigned groups.'}
                   </p>
                 )}
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox checked={groupMode === 'all'} onCheckedChange={() => setGroupMode('all')} />
-                    All Groups
-                  </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox checked={groupMode === 'specific'} onCheckedChange={() => setGroupMode('specific')} />
-                    Specific
-                  </label>
-                </div>
-                {groupMode !== 'all' && (
+                {!isFas && (
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox checked={groupMode === 'all'} onCheckedChange={() => setGroupMode('all')} />
+                      All Groups
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox checked={groupMode === 'specific'} onCheckedChange={() => setGroupMode('specific')} />
+                      Specific
+                    </label>
+                  </div>
+                )}
+                {(groupMode !== 'all' || isFas) && (
                   <div className="grid grid-cols-2 gap-1.5 pl-2 mt-2">
                     {(() => {
                       const selectedCampusIds = campusMode === 'all' ? ['global'] : form.targetCampuses;
@@ -773,7 +794,7 @@ export default function AnnouncementsPage() {
                   {campusMode === 'all' ? '🌐 All Campuses' : `🏢 ${form.targetCampuses.map(id => campuses.find(c => c.id === id)?.name || id).join(', ') || 'None'}`}
                   {form.excludeCampuses.length > 0 && ` (excluding: ${form.excludeCampuses.map(id => campuses.find(c => c.id === id)?.name || id).join(', ')})`}
                   {' · '}
-                  {groupMode === 'all' ? '👥 All Groups' : `👤 ${form.targetGroups.join(', ') || 'None'}`}
+                  {groupMode === 'all' && !isFas ? '👥 All Groups' : `👤 ${form.targetGroups.join(', ') || 'None'}`}
                   {form.excludeGroups.length > 0 && ` (excluding: ${form.excludeGroups.join(', ')})`}
                 </p>
                 {(() => {

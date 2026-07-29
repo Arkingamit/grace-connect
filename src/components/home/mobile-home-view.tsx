@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { Search, Bell, Heart, Music, Calendar, BookOpen, Share2, MapPin, Clock, ChevronRight, ChevronLeft, User, Play, Sparkles, ArrowRight, Image as ImageIcon, Megaphone, Radio, Navigation } from 'lucide-react';
+import { Search, Bell, Heart, Music, Calendar, BookOpen, Share2, MapPin, Clock, ChevronRight, ChevronLeft, User, Play, Sparkles, ArrowRight, Image as ImageIcon, Megaphone, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -24,6 +24,8 @@ import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { AuthGate } from '@/components/ui/auth-gate';
 import { ProfileSwitcher } from '@/components/ui/profile-switcher';
+import { getMapsUrl } from '@/lib/maps';
+import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
 
 const christianIcons = [
   // Cross
@@ -506,15 +508,27 @@ export function MobileHomeView() {
       let changed = false;
       const newCovers: Record<string, string> = {};
 
+      // Seed immediately from server-stored covers
       for (const album of galleryAlbums.slice(0, 5)) {
-        if (!fetchedAlbums.current.has(album.id) && album.url) {
+        if (album.coverImage && !fetchedAlbums.current.has(album.id)) {
+          fetchedAlbums.current.add(album.id);
+          newCovers[album.id] = album.coverImage;
+          changed = true;
+        }
+      }
+
+      // Only scrape Google Photos for albums missing a stored cover, then persist it
+      for (const album of galleryAlbums.slice(0, 5)) {
+        if (!fetchedAlbums.current.has(album.id) && album.url && !album.coverImage) {
           fetchedAlbums.current.add(album.id);
           try {
-            const res = await fetch(`/api/gallery/photos?url=${encodeURIComponent(album.url)}`);
+            const res = await fetch(
+              `/api/gallery/photos?url=${encodeURIComponent(album.url)}&albumId=${encodeURIComponent(album.id)}&persistCover=1`
+            );
             if (res.ok) {
               const data = await res.json();
-              if (data.photos && data.photos.length > 0) {
-                newCovers[album.id] = album.coverImage || data.photos[0].src;
+              if (data.coverImage || (data.photos && data.photos.length > 0)) {
+                newCovers[album.id] = data.coverImage || data.photos[0].src;
                 changed = true;
               }
             }
@@ -938,11 +952,6 @@ export function MobileHomeView() {
                             <span className="text-xl font-bold text-[#8B2323] leading-none">{eventDate.getDate()}</span>
                             <span className="text-xs font-bold text-[#8B2323] mt-1">{eventDate.toLocaleDateString('en-US', { month: 'short' })}</span>
                           </div>
-                          {event.mapUrl && (
-                            <button onClick={(e) => { e.preventDefault(); window.open(event.mapUrl, '_blank'); }} className="inline-flex items-center justify-center gap-1 w-full py-1 rounded-full bg-gray-200/80 hover:bg-gray-300 text-[#1A202C] text-[10px] font-semibold transition-colors px-1">
-                              <Navigation className="w-2.5 h-2.5" /> Directions
-                            </button>
-                          )}
                         </div>
                         <div className="flex flex-col justify-center">
                           <h4 className="font-bold text-[#1A202C] leading-tight mb-2 line-clamp-1">{event.title}</h4>
@@ -951,9 +960,64 @@ export function MobileHomeView() {
                               <Clock className="w-3 h-3 mr-1.5" />
                               {event.time}
                             </div>
-                            <div className="flex items-center text-xs text-[#7A6150] font-medium">
-                              <MapPin className="w-3 h-3 mr-1.5" />
-                              <span className="line-clamp-1">{event.location || 'Grace Community'}</span>
+                            <div className="flex items-center text-xs text-[#7A6150] font-medium min-w-0">
+                              <MapPin className="w-3 h-3 mr-1.5 shrink-0" />
+                              {(() => {
+                                const mapsHref = getMapsUrl({
+                                  mapUrl: event.mapUrl,
+                                  location: event.location || 'Grace Community',
+                                  latitude: event.attendanceConfig?.latitude,
+                                  longitude: event.attendanceConfig?.longitude,
+                                });
+                                const label = event.location || 'Grace Community';
+                                return mapsHref ? (
+                                  <div
+                                    className="inline-flex min-w-0 flex-1 -space-x-px rounded-lg shadow-sm shadow-black/5"
+                                    onClick={(e) => e.preventDefault()}
+                                  >
+                                    <Button
+                                      asChild
+                                      variant="outline"
+                                      className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 px-2 text-[11px] font-medium text-[#1A202C] border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1]"
+                                    >
+                                      <a
+                                        href={mapsHref}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          window.open(mapsHref, '_blank');
+                                        }}
+                                      >
+                                        <span className="truncate">{label}</span>
+                                      </a>
+                                    </Button>
+                                    <Button
+                                      asChild
+                                      variant="outline"
+                                      size="icon"
+                                      className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 w-7 shrink-0 border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1] p-0 [&_img]:!size-4"
+                                      aria-label="Open directions in Maps"
+                                    >
+                                      <a
+                                        href={mapsHref}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          window.open(mapsHref, '_blank');
+                                        }}
+                                      >
+                                        <MapsPinIcon className="w-[16px] h-[16px]" />
+                                      </a>
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <span className="line-clamp-1">{label}</span>
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>
@@ -1031,10 +1095,12 @@ export function MobileHomeView() {
                   </div>
 
                   <div className="flex gap-4 overflow-x-auto pb-4 -mr-4 pr-4 snap-x no-scrollbar">
-                    {galleryAlbums.slice(0, 5).map(album => (
+                    {galleryAlbums.slice(0, 5).map(album => {
+                      const cover = album.coverImage || albumCovers[album.id];
+                      return (
                       <Link href="/gallery" key={album.id} className="min-w-[220px] w-[220px] h-[220px] rounded-3xl overflow-hidden relative shadow-sm snap-start group block">
-                        {albumCovers[album.id] ? (
-                          <img src={albumCovers[album.id]} alt={album.title} className="w-full h-full object-cover" />
+                        {cover ? (
+                          <img src={cover} alt={album.title} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full bg-[#E5D5C5] flex items-center justify-center">
                             <ImageIcon className="w-10 h-10 text-[#7A6150]/30" />
@@ -1047,7 +1113,8 @@ export function MobileHomeView() {
                           <h4 className="text-white font-bold leading-tight line-clamp-2 text-sm">{album.title}</h4>
                         </div>
                       </Link>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1190,11 +1257,6 @@ export function MobileHomeView() {
                                   <span className="text-xl font-bold text-[#8B2323] leading-none">{eventDate.getDate()}</span>
                                   <span className="text-xs font-bold text-[#8B2323] mt-1">{eventDate.toLocaleDateString('en-US', { month: 'short' })}</span>
                                 </div>
-                                {event.mapUrl && (
-                                  <button onClick={(e) => { e.preventDefault(); window.open(event.mapUrl, '_blank'); }} className="inline-flex items-center justify-center gap-1 w-full py-1 rounded-full bg-gray-200/80 hover:bg-gray-300 text-[#1A202C] text-[10px] font-semibold transition-colors px-1">
-                                    <Navigation className="w-2.5 h-2.5" /> Directions
-                                  </button>
-                                )}
                               </div>
                               <div className="flex flex-col justify-center">
                                 <h4 className="font-bold text-[#1A202C] leading-tight mb-2 line-clamp-1">{event.title}</h4>
@@ -1203,9 +1265,64 @@ export function MobileHomeView() {
                                     <Clock className="w-3 h-3 mr-1.5" />
                                     {event.time}
                                   </div>
-                                  <div className="flex items-center text-xs text-[#7A6150] font-medium">
-                                    <MapPin className="w-3 h-3 mr-1.5" />
-                                    <span className="line-clamp-1">{event.location || 'Grace Community'}</span>
+                                  <div className="flex items-center text-xs text-[#7A6150] font-medium min-w-0">
+                                    <MapPin className="w-3 h-3 mr-1.5 shrink-0" />
+                                    {(() => {
+                                      const mapsHref = getMapsUrl({
+                                        mapUrl: event.mapUrl,
+                                        location: event.location || 'Grace Community',
+                                        latitude: event.attendanceConfig?.latitude,
+                                        longitude: event.attendanceConfig?.longitude,
+                                      });
+                                      const label = event.location || 'Grace Community';
+                                      return mapsHref ? (
+                                        <div
+                                          className="inline-flex min-w-0 flex-1 -space-x-px rounded-lg shadow-sm shadow-black/5"
+                                          onClick={(e) => e.preventDefault()}
+                                        >
+                                          <Button
+                                            asChild
+                                            variant="outline"
+                                            className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 px-2 text-[11px] font-medium text-[#1A202C] border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1]"
+                                          >
+                                            <a
+                                              href={mapsHref}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                window.open(mapsHref, '_blank');
+                                              }}
+                                            >
+                                              <span className="truncate">{label}</span>
+                                            </a>
+                                          </Button>
+                                          <Button
+                                            asChild
+                                            variant="outline"
+                                            size="icon"
+                                            className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 w-7 shrink-0 border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1] p-0 [&_img]:!size-4"
+                                            aria-label="Open directions in Maps"
+                                          >
+                                            <a
+                                              href={mapsHref}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                window.open(mapsHref, '_blank');
+                                              }}
+                                            >
+                                              <MapsPinIcon className="w-[16px] h-[16px]" />
+                                            </a>
+                                          </Button>
+                                        </div>
+                                      ) : (
+                                        <span className="line-clamp-1">{label}</span>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                               </div>
@@ -1285,10 +1402,12 @@ export function MobileHomeView() {
                         </div>
 
                         <div className="flex gap-4 overflow-x-auto pb-4 -mr-4 pr-4 snap-x no-scrollbar">
-                          {galleryAlbums.slice(0, 5).map(album => (
+                          {galleryAlbums.slice(0, 5).map(album => {
+                            const cover = album.coverImage || albumCovers[album.id];
+                            return (
                             <Link href="/gallery" key={album.id} className="min-w-[220px] w-[220px] h-[220px] rounded-3xl overflow-hidden relative shadow-sm snap-start group block">
-                              {albumCovers[album.id] ? (
-                                <img src={albumCovers[album.id]} alt={album.title} className="w-full h-full object-cover" />
+                              {cover ? (
+                                <img src={cover} alt={album.title} className="w-full h-full object-cover" />
                               ) : (
                                 <div className="w-full h-full bg-[#E5D5C5] flex items-center justify-center">
                                   <ImageIcon className="w-10 h-10 text-[#7A6150]/30" />
@@ -1301,7 +1420,8 @@ export function MobileHomeView() {
                                 <h4 className="text-white font-bold leading-tight line-clamp-2 text-sm">{album.title}</h4>
                               </div>
                             </Link>
-                          ))}
+                            );
+                          })}
                         </div>
 
                       </div>

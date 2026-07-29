@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useAdminData, canPublishAllCampuses, getGroupsForCampus, getAllowedCampuses, getAllowedGroups, hasGlobalScope, type Event, type EventScheduleDay, type FormField, type FormFieldType } from '@/lib/admin-data-context';
+import { useAdminData, canPublishAllCampuses, getGroupsForCampus, getAllowedCampuses, getAllowedGroups, hasGlobalScope, isCoreTeamLeader, isFasLeader, type Event, type EventScheduleDay, type FormField, type FormFieldType } from '@/lib/admin-data-context';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,10 @@ import {
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { getMapsUrl } from '@/lib/maps';
+import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
+import { memberUnderLeaderScope } from '@/lib/leader-scope';
+import { useAdminActionLoading } from '@/components/admin/admin-action-loading';
 
 const EVENT_CATEGORIES = ['Worship', 'Prayer', 'Youth', 'Study', 'Outreach', 'Fellowship'];
 
@@ -74,6 +78,7 @@ const emptyForm = {
 
 export default function EventsPage() {
   const { events, campuses, groups, groupScopes, users, addEvent, updateEvent, deleteEvent, currentUser } = useAdminData();
+  const { withActionLoading } = useAdminActionLoading();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -199,6 +204,10 @@ export default function EventsPage() {
 
   const isCampusLeader = currentUser.role === 'campus_leader';
   const isGroupLeader = currentUser.role === 'group_leader';
+  const isCore = isCoreTeamLeader(currentUser.role, currentUser.campusId);
+  const isFas = isFasLeader(currentUser.role, currentUser.campusId);
+  const campusLocked = isCampusLeader || isFas;
+  const canAllCampusesScope = hasGlobalScope(currentUser.role, currentUser.campusId);
   const canAllCampuses = canPublishAllCampuses(currentUser.role);
 
   const filtered = events.filter(e => {
@@ -219,8 +228,9 @@ export default function EventsPage() {
     setEditingId(null);
     setForm({
       ...emptyForm,
-      targetCampuses: (isCampusLeader || isGroupLeader) ? [currentUser.campusId] : ['all'],
-      targetGroups: isGroupLeader ? currentUser.groups : ['all'],
+      targetCampuses: campusLocked ? [currentUser.campusId] : ['all'],
+      // FASL/Core: pre-select assigned groups (FASL stays in specific mode)
+      targetGroups: isGroupLeader ? [...currentUser.groups] : ['all'],
     });
     setDialogOpen(true);
   };
@@ -233,8 +243,12 @@ export default function EventsPage() {
       category: event.category, capacity: event.capacity, registered: event.registered,
       image: event.image, recurring: event.recurring, host: event.host,
       targetCampuses: event.targetCampuses ?? ['all'],
-      targetGroups: event.targetGroups ?? ['all'],
-      excludeCampuses: event.excludeCampuses ?? [],
+      targetGroups: isFas
+        ? (event.targetGroups ?? []).includes('all')
+          ? [...currentUser.groups]
+          : (event.targetGroups ?? []).filter(g => g !== 'all' && currentUser.groups.includes(g))
+        : (event.targetGroups ?? ['all']),
+      excludeCampuses: campusLocked ? [] : (event.excludeCampuses ?? []),
       excludeGroups: event.excludeGroups ?? [],
       googlePhotosUrl: event.googlePhotosUrl || '',
       allowResponseEdits: event.allowResponseEdits !== false,
@@ -264,7 +278,7 @@ export default function EventsPage() {
     setDialogOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.title || form.title.trim().length < 3) {
       import('sonner').then(({ toast }) => toast.warning('Title is required (at least 3 characters).'));
       return;
@@ -308,6 +322,8 @@ export default function EventsPage() {
       }
     }
 
+    const payload = campusLocked ? { ...form, excludeCampuses: [] as string[] } : form;
+
     if (editingId !== null) {
       if (form.recurring && form.seriesId) {
         // Need to ask the user if they want to update the whole series
@@ -315,26 +331,39 @@ export default function EventsPage() {
         setDialogOpen(false);
         return;
       } else {
-        updateEvent(editingId, form);
+        setDialogOpen(false);
+        await withActionLoading(async () => {
+          await updateEvent(editingId, payload);
+          setForm(emptyForm);
+          setEditingId(null);
+        });
+        return;
       }
     } else {
-      addEvent(form);
+      setDialogOpen(false);
+      await withActionLoading(async () => {
+        await addEvent(payload);
+        setForm(emptyForm);
+        setEditingId(null);
+      });
     }
-    setDialogOpen(false);
-    setForm(emptyForm);
-    setEditingId(null);
   };
 
-  const confirmSubmitSeries = (updateSeries: boolean) => {
-    if (updateSeriesConfirm?.action === 'put') {
-      updateEvent(updateSeriesConfirm.eventId, form, updateSeries);
-      setForm(emptyForm);
-      setEditingId(null);
-    } else if (updateSeriesConfirm?.action === 'delete') {
-      deleteEvent(updateSeriesConfirm.eventId, updateSeries);
-      setDeleteConfirmId(null);
-    }
+  const confirmSubmitSeries = async (updateSeries: boolean) => {
+    const confirm = updateSeriesConfirm;
     setUpdateSeriesConfirm(null);
+    if (!confirm) return;
+    await withActionLoading(async () => {
+      if (confirm.action === 'put') {
+        const payload = campusLocked ? { ...form, excludeCampuses: [] as string[] } : form;
+        await updateEvent(confirm.eventId, payload, updateSeries);
+        setForm(emptyForm);
+        setEditingId(null);
+      } else if (confirm.action === 'delete') {
+        await deleteEvent(confirm.eventId, updateSeries);
+        setDeleteConfirmId(null);
+      }
+    });
   };
 
   const handleDeleteClick = (event: Event) => {
@@ -345,7 +374,12 @@ export default function EventsPage() {
     }
   };
 
-  const handleDelete = (id: string) => { deleteEvent(id); setDeleteConfirmId(null); };
+  const handleDelete = async (id: string) => {
+    setDeleteConfirmId(null);
+    await withActionLoading(async () => {
+      await deleteEvent(id);
+    });
+  };
 
   const formatTime = (time: string) => {
     if (!time) return '';
@@ -361,10 +395,13 @@ export default function EventsPage() {
 
   // Audience helpers
   const campusMode = form.targetCampuses.includes('all') ? 'all' : 'specific';
-  const groupMode = form.targetGroups.includes('all') || (isGroupLeader && form.targetGroups.length === currentUser.groups.length && currentUser.groups.length > 0) ? 'all' : 'specific';
+  // FASL leaders must pick specific assigned groups — no "All" shortcut
+  const groupMode = isFas
+    ? 'specific'
+    : (form.targetGroups.includes('all') || (isGroupLeader && form.targetGroups.length === currentUser.groups.length && currentUser.groups.length > 0) ? 'all' : 'specific');
 
   const setCampusMode = (mode: 'all' | 'specific') => {
-    if (isCampusLeader || isGroupLeader) return;
+    if (campusLocked) return;
     setForm(f => ({
       ...f,
       targetCampuses: mode === 'specific' ? [] : ['all'],
@@ -372,7 +409,7 @@ export default function EventsPage() {
   };
 
   const toggleCampus = (id: string) => {
-    if (isCampusLeader || isGroupLeader) return;
+    if (campusLocked) return;
     setForm(f => {
       const has = f.targetCampuses.includes(id);
       const next = has ? f.targetCampuses.filter(c => c !== id) : [...f.targetCampuses.filter(c => c !== 'all'), id];
@@ -381,7 +418,7 @@ export default function EventsPage() {
   };
 
   const toggleExcludeCampus = (id: string) => {
-    if (isCampusLeader || isGroupLeader) return;
+    if (campusLocked) return;
     setForm(f => {
       const has = f.excludeCampuses.includes(id);
       const next = has ? f.excludeCampuses.filter(c => c !== id) : [...f.excludeCampuses, id];
@@ -390,6 +427,7 @@ export default function EventsPage() {
   };
 
   const setGroupMode = (mode: 'all' | 'specific') => {
+    if (isFas) return; // FASL is always specific
     setForm(f => {
       let nextTarget = ['all'];
       if (isGroupLeader) {
@@ -405,7 +443,10 @@ export default function EventsPage() {
     setForm(f => {
       const has = f.targetGroups.includes(g);
       const next = has ? f.targetGroups.filter(x => x !== g) : [...f.targetGroups.filter(x => x !== 'all'), g];
-      return { ...f, targetGroups: next.length === 0 ? (isGroupLeader ? currentUser.groups : ['all']) : next };
+      if (next.length === 0) {
+        return { ...f, targetGroups: isFas ? [] : (isGroupLeader ? currentUser.groups : ['all']) };
+      }
+      return { ...f, targetGroups: next };
     });
   };
 
@@ -547,80 +588,113 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-5 w-full min-w-0 max-w-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Events</h1>
-          <p className="text-muted-foreground mt-1">Manage upcoming events and registration forms</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 w-full">
+        <div className="min-w-0 w-full sm:w-auto">
+          <h1 className="text-2xl sm:text-3xl font-bold font-serif text-[#1A202C]">Events</h1>
+          <p className="text-sm sm:text-base text-[#7A6150] mt-1 font-medium">
+            Manage upcoming events and registration forms
+          </p>
         </div>
-        <Button onClick={openCreate} className="gap-2 shrink-0">
+        <Button
+          onClick={openCreate}
+          className="gap-2 w-full sm:w-auto shrink-0 justify-center bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl !px-5"
+        >
           <Plus className="w-4 h-4" /> Create Event
         </Button>
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input placeholder="Search events..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      <div className="relative w-full sm:max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <Input
+          placeholder="Search events..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9 w-full rounded-xl"
+        />
       </div>
 
       {/* Events Grid */}
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 w-full min-w-0">
         {filtered.map((event) => (
-          <Card key={event.id} className="border-border/50 hover:shadow-md transition-shadow group">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="space-y-2 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
+          <Card
+            key={event.id}
+            className="border border-[#E5D5C5]/60 bg-white hover:shadow-md transition-shadow group rounded-2xl w-full min-w-0 max-w-full overflow-hidden flex flex-col"
+          >
+            <CardHeader className="pb-2 px-3.5 pt-3.5 sm:px-6 sm:pt-6 space-y-0">
+              <div className="flex flex-col gap-2.5 w-full min-w-0">
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
                     <Badge className={`text-[10px] ${categoryColors[event.category] || 'bg-muted text-muted-foreground'}`}>
                       {event.category}
                     </Badge>
                     {event.recurring && <Badge variant="outline" className="text-[10px]">Recurring</Badge>}
                   </div>
-                  <h3 className="text-base font-semibold leading-tight">{event.title}</h3>
-                  {/* Audience tags */}
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {(event.targetCampuses ?? ['all']).includes('all') ? (
-                      <Badge variant="outline" className="text-[9px] gap-0.5 border-amber-500/30 text-amber-600">
-                        <Globe className="w-2.5 h-2.5" /> All
-                      </Badge>
-                    ) : (
-                      (event.targetCampuses ?? []).map(id => (
-                        <Badge key={id} variant="outline" className="text-[9px] gap-0.5 border-blue-500/30 text-blue-600">
-                          <Building2 className="w-2.5 h-2.5" /> {campuses.find(c => c.id === id)?.name || id}
-                        </Badge>
-                      ))
-                    )}
-                    {!(event.targetGroups ?? ['all']).includes('all') && (
-                      (event.targetGroups ?? []).map(g => (
-                        <Badge key={g} variant="outline" className="text-[9px] gap-0.5 border-purple-500/30 text-purple-600">
-                          <Users className="w-2.5 h-2.5" /> {g}
-                        </Badge>
-                      ))
-                    )}
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="!h-8 !w-8 !rounded-lg text-primary [&_svg]:!size-3.5"
+                      onClick={() => setSelectedEventForResponses(event)}
+                      title="View Responses"
+                    >
+                      <Users />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="!h-8 !w-8 !rounded-lg [&_svg]:!size-3.5"
+                      onClick={() => openEdit(event)}
+                      title="Edit"
+                    >
+                      <Pencil />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="!h-8 !w-8 !rounded-lg text-destructive hover:text-destructive [&_svg]:!size-3.5"
+                      onClick={() => handleDeleteClick(event)}
+                      title="Delete"
+                    >
+                      <Trash2 />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setSelectedEventForResponses(event)} title="View Responses">
-                    <Users className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(event)}>
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteClick(event)}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+                <h3 className="text-base font-semibold leading-snug text-[#1A202C] break-words pr-0">
+                  {event.title}
+                </h3>
+                {/* Audience tags */}
+                <div className="flex items-center gap-1 flex-wrap">
+                  {(event.targetCampuses ?? ['all']).includes('all') ? (
+                    <Badge variant="outline" className="text-[9px] gap-0.5 border-amber-500/30 text-amber-600">
+                      <Globe className="w-2.5 h-2.5" /> All
+                    </Badge>
+                  ) : (
+                    (event.targetCampuses ?? []).map(id => (
+                      <Badge key={id} variant="outline" className="text-[9px] gap-0.5 border-blue-500/30 text-blue-600">
+                        <Building2 className="w-2.5 h-2.5" /> {campuses.find(c => c.id === id)?.name || id}
+                      </Badge>
+                    ))
+                  )}
+                  {!(event.targetGroups ?? ['all']).includes('all') && (
+                    (event.targetGroups ?? []).map(g => (
+                      <Badge key={g} variant="outline" className="text-[9px] gap-0.5 border-purple-500/30 text-purple-600">
+                        <Users className="w-2.5 h-2.5" /> {g}
+                      </Badge>
+                    ))
+                  )}
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground line-clamp-2">{event.description}</p>
-              <div className="space-y-1.5 text-sm">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-3.5 h-3.5 text-primary" />
+            <CardContent className="space-y-3 px-3.5 pb-3.5 sm:px-6 sm:pb-6 flex-1">
+              <p className="text-sm text-[#7A6150] line-clamp-3 break-words">{event.description}</p>
+              <div className="space-y-2 text-sm text-[#3A2D27]">
+                <div className="flex items-start gap-2 min-w-0">
+                  <Calendar className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
                   {event.isMultiDay ? (
-                    <span>
+                    <span className="min-w-0 break-words">
                       {formatDateShort(event.date)} – {formatDateShort(event.endDate || event.date)}
                       <Badge variant="outline" className="ml-2 text-[9px]"> {(event.schedule || []).length} days</Badge>
                     </span>
@@ -629,18 +703,18 @@ export default function EventsPage() {
                   )}
                 </div>
                 {!event.isMultiDay && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-primary" />
-                    <span>{formatTime(event.time)} – {formatTime(event.endTime)}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="min-w-0 break-words">{formatTime(event.time)} – {formatTime(event.endTime)}</span>
                   </div>
                 )}
                 {event.isMultiDay && (event.schedule || []).length > 0 && (
                   <div className="pl-5 space-y-0.5">
                     {(event.schedule || []).slice(0, 3).map((day, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Clock className="w-3 h-3" />
-                        <span>{formatDateShort(day.date)}: {formatTime(day.startTime)} – {formatTime(day.endTime)}</span>
-                        {day.label && <span className="text-primary/70">({day.label})</span>}
+                      <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground min-w-0">
+                        <Clock className="w-3 h-3 shrink-0 mt-0.5" />
+                        <span className="break-words">{formatDateShort(day.date)}: {formatTime(day.startTime)} – {formatTime(day.endTime)}</span>
+                        {day.label && <span className="text-primary/70 shrink-0">({day.label})</span>}
                       </div>
                     ))}
                     {(event.schedule || []).length > 3 && (
@@ -649,33 +723,60 @@ export default function EventsPage() {
                   </div>
                 )}
                 {event.recurring && event.nextOccurrence && (
-                  <div className="flex items-center gap-2 text-violet-500">
-                    <Repeat className="w-3.5 h-3.5" />
-                    <span>Next: {new Date(event.nextOccurrence).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                  <div className="flex items-center gap-2 text-violet-500 min-w-0">
+                    <Repeat className="w-3.5 h-3.5 shrink-0" />
+                    <span className="min-w-0 break-words">Next: {new Date(event.nextOccurrence).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-primary" />
-                  {event.mapUrl ? (
-                    <a href={event.mapUrl} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
-                      {event.location}
-                    </a>
-                  ) : (
-                    <span>{event.location}</span>
-                  )}
+                <div className="flex items-center gap-2 min-w-0 w-full">
+                  <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                  {(() => {
+                    const href = getMapsUrl({
+                      mapUrl: event.mapUrl,
+                      location: event.location,
+                      latitude: event.attendanceConfig?.latitude,
+                      longitude: event.attendanceConfig?.longitude,
+                    });
+                    return href ? (
+                      <div className="inline-flex min-w-0 flex-1 max-w-full -space-x-px rounded-lg shadow-sm shadow-black/5 overflow-hidden">
+                        <Button
+                          asChild
+                          variant="outline"
+                          className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 !h-8 !px-2.5 !text-xs font-medium border-border/60"
+                        >
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="min-w-0">
+                            <span className="truncate block">{event.location}</span>
+                          </a>
+                        </Button>
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="icon"
+                          className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 !h-8 !w-8 shrink-0 border-border/60 p-0 [&_img]:!size-[18px]"
+                          aria-label="Open directions in Maps"
+                        >
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center">
+                            <MapsPinIcon className="w-[16px] h-[16px]" />
+                          </a>
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="min-w-0 break-words">{event.location}</span>
+                    );
+                  })()}
                 </div>
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-3.5 h-3.5 text-primary" />
-                    <span>{event.registered} registered</span>
+                <div className="flex items-center justify-between gap-2 w-full pt-2 border-t border-[#E5D5C5]/40">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <Users className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-sm">{event.registered} registered</span>
                     {event.attendanceConfig?.enabled && (
-                      <span className="text-muted-foreground border-l border-border/50 pl-2 ml-1">
+                      <span className="text-muted-foreground border-l border-border/50 pl-2 text-sm">
                         {(event as any).attended || 0} attended
                       </span>
                     )}
                   </div>
                   {event.capacity > 0 && (
-                    <span className="text-xs text-muted-foreground">Cap: {event.capacity}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">Cap: {event.capacity}</span>
                   )}
                 </div>
               </div>
@@ -685,10 +786,10 @@ export default function EventsPage() {
       </div>
 
       {filtered.length === 0 && (
-        <div className="text-center py-16">
+        <div className="text-center py-16 px-2">
           <Calendar className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
           <p className="text-muted-foreground">No events found</p>
-          <Button onClick={openCreate} variant="outline" className="mt-4 gap-2">
+          <Button onClick={openCreate} variant="outline" className="mt-4 gap-2 w-full sm:w-auto rounded-xl">
             <Plus className="w-4 h-4" /> Create your first event
           </Button>
         </div>
@@ -1247,20 +1348,23 @@ export default function EventsPage() {
                   {isCampusLeader && (
                     <p className="text-[10px] text-amber-500">Campus Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
                   )}
-                  {isGroupLeader && (
-                    <p className="text-[10px] text-emerald-500">FASL: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
+                  {isFas && (
+                    <p className="text-[10px] text-emerald-500">FASL Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
                   )}
-                  {hasGlobalScope(currentUser.role) && (
+                  {isCore && (
+                    <p className="text-[10px] text-emerald-500">Core Team Leader: all campuses, your assigned teams only</p>
+                  )}
+                  {canAllCampusesScope && (
                     <div className="flex items-center gap-4">
                       <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <Checkbox checked={campusMode === 'all'} onCheckedChange={() => setCampusMode('all')} disabled={isCampusLeader || isGroupLeader} /> All
+                        <Checkbox checked={campusMode === 'all'} onCheckedChange={() => setCampusMode('all')} disabled={campusLocked} /> All
                       </label>
                       <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <Checkbox checked={campusMode === 'specific'} onCheckedChange={() => setCampusMode('specific')} disabled={isCampusLeader || isGroupLeader} /> Specific
+                        <Checkbox checked={campusMode === 'specific'} onCheckedChange={() => setCampusMode('specific')} disabled={campusLocked} /> Specific
                       </label>
                     </div>
                   )}
-                  {(campusMode !== 'all' || !hasGlobalScope(currentUser.role)) && (
+                  {(campusMode !== 'all' || !canAllCampusesScope) && (
                     <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
                       {getAllowedCampuses(currentUser.role, currentUser.campusId, campuses).map(c => (
                         <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -1274,37 +1378,43 @@ export default function EventsPage() {
                     </div>
                   )}
 
-                  <div className="pt-2">
-                    <Label className="text-xs text-muted-foreground">Exclude Campuses (Optional)</Label>
-                    <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
-                      {campuses.map(c => (
-                        <label key={`ex-${c.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
-                          <Checkbox
-                            checked={form.excludeCampuses.includes(c.id)}
-                            onCheckedChange={() => toggleExcludeCampus(c.id)}
-                            disabled={(isCampusLeader || isGroupLeader) && c.id !== currentUser.campusId}
-                          />
-                          {c.name}
-                        </label>
-                      ))}
+                  {/* Campus-scoped FASL / Campus Leaders only target one campus — exclude is N/A */}
+                  {!campusLocked && (
+                    <div className="pt-2">
+                      <Label className="text-xs text-muted-foreground">Exclude Campuses (Optional)</Label>
+                      <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
+                        {campuses.map(c => (
+                          <label key={`ex-${c.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
+                            <Checkbox
+                              checked={form.excludeCampuses.includes(c.id)}
+                              onCheckedChange={() => toggleExcludeCampus(c.id)}
+                            />
+                            {c.name}
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
                 {/* Groups */}
                 <div className="space-y-2 pt-2">
                   <Label className="text-xs text-muted-foreground">Visible to Groups</Label>
                   {isGroupLeader && (
-                    <p className="text-[10px] text-emerald-500">FASL: restricted to your assigned groups</p>
+                    <p className="text-[10px] text-emerald-500">
+                      {isCore ? 'Core Team Leader: restricted to your assigned groups' : 'FASL Leader: select from your assigned groups'}
+                    </p>
                   )}
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <Checkbox checked={groupMode === 'all'} onCheckedChange={() => setGroupMode('all')} /> All
-                    </label>
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <Checkbox checked={groupMode === 'specific'} onCheckedChange={() => setGroupMode('specific')} /> Specific
-                    </label>
-                  </div>
-                  {groupMode !== 'all' && (
+                  {!isFas && (
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox checked={groupMode === 'all'} onCheckedChange={() => setGroupMode('all')} /> All
+                      </label>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox checked={groupMode === 'specific'} onCheckedChange={() => setGroupMode('specific')} /> Specific
+                      </label>
+                    </div>
+                  )}
+                  {(groupMode !== 'all' || isFas) && (
                     <div className="grid grid-cols-2 gap-1.5 pl-2 mt-2">
                       {(() => {
                         // Filter groups based on selected campuses
@@ -1336,12 +1446,13 @@ export default function EventsPage() {
                         const visibleGroups = campusMode === 'all'
                           ? groups
                           : [...new Set(selectedCampusIds.flatMap(cid => getGroupsForCampus(groupScopes, cid)))];
-                        return visibleGroups.map(g => (
+                        return getAllowedGroups(currentUser.role, currentUser.groups, groupScopes, currentUser.campusId)
+                          .filter(g => visibleGroups.includes(g))
+                          .map(g => (
                           <label key={`ex-${g}`} className="flex items-center gap-2 text-sm cursor-pointer">
                             <Checkbox 
                               checked={form.excludeGroups.includes(g)} 
                               onCheckedChange={() => toggleExcludeGroup(g)} 
-                              disabled={isGroupLeader && !currentUser.groups.includes(g)}
                             />
                             {g}
                           </label>
@@ -1357,7 +1468,7 @@ export default function EventsPage() {
                     {campusMode === 'all' ? '🌐 All Campuses' : `🏢 ${form.targetCampuses.map(id => campuses.find(c => c.id === id)?.name || id).join(', ') || 'None'}`}
                     {form.excludeCampuses.length > 0 && ` (excluding: ${form.excludeCampuses.map(id => campuses.find(c => c.id === id)?.name || id).join(', ')})`}
                     {' · '}
-                    {groupMode === 'all' ? '👥 All Groups' : `👤 ${form.targetGroups.join(', ') || 'None'}`}
+                    {groupMode === 'all' && !isFas ? '👥 All Groups' : `👤 ${form.targetGroups.join(', ') || 'None'}`}
                     {form.excludeGroups.length > 0 && ` (excluding: ${form.excludeGroups.join(', ')})`}
                   </p>
                   {(() => {
@@ -1693,7 +1804,26 @@ export default function EventsPage() {
             </DialogHeader>
             <div className="py-4 space-y-6">
               {(() => {
-                const regs = getEventRegistrations(selectedEventForResponses.id);
+                const allRegs = getEventRegistrations(selectedEventForResponses.id);
+                // FASL / Core: only responses from members under this leader
+                const regs = isGroupLeader
+                  ? allRegs.filter((reg) => {
+                      const u = users.find(
+                        (x) =>
+                          (reg.userId && x.id === reg.userId) ||
+                          x.email?.toLowerCase() === reg.userEmail?.toLowerCase()
+                      );
+                      if (!u) return false;
+                      return memberUnderLeaderScope(
+                        { campusId: u.campusId, groups: u.groups },
+                        {
+                          role: currentUser.role,
+                          campusId: currentUser.campusId,
+                          groups: currentUser.groups,
+                        }
+                      );
+                    })
+                  : allRegs;
                 if (regs.length === 0) {
                   return (
                     <div className="text-center py-12 text-muted-foreground">

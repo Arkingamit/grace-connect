@@ -1,5 +1,5 @@
 import { AdminPageSkeleton } from '@/components/admin/admin-action-loading';
 
-export default function AdminLoading() {
+export default function EventsLoading() {
   return <AdminPageSkeleton variant="cards" />;
 }

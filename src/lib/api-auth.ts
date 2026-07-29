@@ -70,8 +70,8 @@ export async function requireAdminWithScope() {
 /**
  * Enforce campus scope on targetCampuses.
  * - admin/super_admin: any targets allowed
- * - campus_leader: only their own campusId
- * - group_leader: only their own campusId
+ * - Core Team Leader (group_leader + global): any campuses / default 'all'
+ * - campus_leader / FASL Leader: only their own campusId
  * Returns the sanitized targetCampuses array.
  */
 export function enforceCampusScope(
@@ -82,7 +82,12 @@ export function enforceCampusScope(
   if (role === 'admin' || role === 'super_admin') {
     return requestedCampuses || ['all'];
   }
-  // campus_leader and group_leader can only target their own campus
+  // Core Team Leader: cross-campus for their groups
+  if (role === 'group_leader' && campusId === 'global') {
+    if (!requestedCampuses || requestedCampuses.length === 0) return ['all'];
+    return requestedCampuses;
+  }
+  // campus_leader and FASL Leader can only target their own campus
   return [campusId];
 }
 

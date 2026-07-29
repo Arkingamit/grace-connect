@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, Plus, Pencil, Trash2, RefreshCw, ExternalLink, Link2, X } from 'lucide-react';
+import { FileText, Plus, Pencil, Trash2, RefreshCw, Link2, X, SquareArrowOutUpRight } from 'lucide-react';
 import { useAdminData, getAllowedCampuses, hasGlobalScope } from '@/lib/admin-data-context';
 import { toast } from 'sonner';
 
@@ -117,44 +117,64 @@ export default function AdminBroadcastsPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-[#1A202C]">Note Share</h1>
-          <p className="text-muted-foreground mt-1">Share notes, materials, and resources with your community</p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-3xl font-bold font-serif text-[#1A202C]">Note Share</h1>
+          <p className="text-[#7A6150] mt-1 font-medium">
+            Share notes, materials, and resources with your community
+          </p>
         </div>
-        <Button onClick={openCreate} className="bg-[#8B2323] hover:bg-[#721515]">
-          <Plus className="w-4 h-4 mr-2" />
+        <Button
+          onClick={openCreate}
+          className="gap-2 bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl shrink-0 w-full sm:w-auto"
+        >
+          <Plus className="w-4 h-4" />
           New Note Share
         </Button>
       </div>
 
       {loading ? (
-        <div className="flex justify-center p-12"><RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" /></div>
+        <div className="flex justify-center p-12">
+          <RefreshCw className="w-8 h-8 animate-spin text-[#7A6150]" />
+        </div>
       ) : broadcasts.length === 0 ? (
-        <Card className="p-12 text-center border-dashed">
-          <FileText className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No Notes Shared Yet</h3>
-          <p className="text-muted-foreground mb-4">Publish your first note to share notes and materials.</p>
-          <Button onClick={() => setDialogOpen(true)} variant="outline">Create Note Share</Button>
+        <Card className="border border-dashed border-[#E5D5C5] bg-[#FAF7F2]/60 rounded-2xl">
+          <CardContent className="p-10 sm:p-12 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-[#E5D5C5]/40 flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-7 h-7 text-[#8B2323]/70" />
+            </div>
+            <h3 className="text-lg font-serif font-bold text-[#1A202C] mb-1.5">No Notes Shared Yet</h3>
+            <p className="text-sm text-[#7A6150] mb-5 max-w-sm mx-auto">
+              Publish your first note to share notes and materials with the community.
+            </p>
+            <Button
+              onClick={openCreate}
+              className="gap-2 bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl"
+            >
+              <Plus className="w-4 h-4" />
+              Create Note Share
+            </Button>
+          </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {broadcasts.map(b => (
-            <Card key={b._id} className="overflow-hidden group hover:shadow-lg transition-shadow">
+            <Card key={b._id} className="overflow-hidden group hover:shadow-md transition-shadow border-[#E5D5C5]/60 bg-white rounded-2xl">
               <CardHeader className="bg-gradient-to-br from-[#8B2323]/5 to-transparent pb-3">
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start gap-2">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-lg truncate">{b.title}</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <h3 className="font-bold text-lg text-[#1A202C] truncate">{b.title}</h3>
+                    <p className="text-xs text-[#7A6150] mt-0.5">
                       By {b.createdByName || 'Unknown'} • {new Date(b.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-muted-foreground hover:text-foreground hover:bg-muted"
+                      className="h-8 w-8 text-[#7A6150] hover:text-[#3A2D27] hover:bg-[#F3EAE1]"
                       onClick={() => openEdit(b)}
                     >
                       <Pencil className="w-4 h-4" />
@@ -162,7 +182,7 @@ export default function AdminBroadcastsPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                       onClick={() => handleDelete(b._id)}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -171,22 +191,52 @@ export default function AdminBroadcastsPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-4 space-y-3">
-                <p className="text-sm text-muted-foreground line-clamp-3">{b.description}</p>
+                <p className="text-sm text-[#7A6150] line-clamp-3">{b.description}</p>
                 {b.materialLinks && b.materialLinks.length > 0 && (
-                  <div className="space-y-2 pt-2 border-t">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Materials</p>
-                    {b.materialLinks.map((link: any, idx: number) => (
-                      <a
-                        key={idx}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm text-[#8B2323] hover:underline p-2 rounded-lg bg-[#F3EAE1]/50 hover:bg-[#F3EAE1]"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">{link.label}</span>
-                      </a>
-                    ))}
+                  <div className="space-y-2 pt-2 border-t border-[#E5D5C5]/50">
+                    <p className="text-[10px] font-bold text-[#7A6150] uppercase tracking-wider">Materials</p>
+                    {b.materialLinks.map((link: any, idx: number) => {
+                      const href = (() => {
+                        const trimmed = (link.url || '').trim();
+                        if (!trimmed) return null;
+                        if (/^https?:\/\//i.test(trimmed)) return trimmed;
+                        if (/^\/\//.test(trimmed)) return `https:${trimmed}`;
+                        return `https://${trimmed.replace(/^\/+/, '')}`;
+                      })();
+                      if (!href) {
+                        return (
+                          <div key={idx} className="flex items-center gap-2 text-sm text-[#7A6150] p-2 rounded-xl bg-[#F3EAE1]/50">
+                            <FileText className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{link.label}</span>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={idx} className="inline-flex w-full -space-x-px rounded-xl shadow-sm shadow-black/5">
+                          <Button
+                            asChild
+                            variant="outline"
+                            className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-xl last:rounded-e-xl focus-visible:z-10 h-9 px-3 text-sm font-medium text-[#8B2323] border-[#E5D5C5]/60 bg-[#F3EAE1]/50 hover:bg-[#F3EAE1]"
+                          >
+                            <a href={href} target="_blank" rel="noopener noreferrer">
+                              <FileText className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                              <span className="truncate">{link.label}</span>
+                            </a>
+                          </Button>
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="icon"
+                            className="rounded-none shadow-none first:rounded-s-xl last:rounded-e-xl focus-visible:z-10 h-9 w-9 shrink-0 border-[#E5D5C5]/60 bg-[#F3EAE1]/50 hover:bg-[#F3EAE1] text-[#8B2323]"
+                            aria-label={`Open ${link.label || 'material'}`}
+                          >
+                            <a href={href} target="_blank" rel="noopener noreferrer">
+                              <SquareArrowOutUpRight size={16} strokeWidth={2} aria-hidden="true" />
+                            </a>
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -199,17 +249,19 @@ export default function AdminBroadcastsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? 'Edit Note Share' : 'New Note Share'}</DialogTitle>
+            <DialogTitle className="font-serif text-[#1A202C]">
+              {editingId ? 'Edit Note Share' : 'New Note Share'}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="space-y-2">
               <Label>Title</Label>
-              <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Sunday Service Notes" />
+              <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Sunday Service Notes" className="rounded-xl" />
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
               <textarea
-                className="w-full border rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#8B2323]/30 min-h-[100px]"
+                className="w-full border border-[#E5D5C5]/60 rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#8B2323]/30 min-h-[100px] bg-background"
                 value={form.description}
                 onChange={e => setForm({ ...form, description: e.target.value })}
                 placeholder="Write your notes, message summary, or any instructions here..."
@@ -221,9 +273,9 @@ export default function AdminBroadcastsPage() {
               <div className="space-y-2">
                 <Label>Target Campus</Label>
                 <Select value={form.targetCampuses[0] || 'all'} onValueChange={(val) => setForm({ ...form, targetCampuses: [val] })}>
-                  <SelectTrigger><SelectValue placeholder="Select campus" /></SelectTrigger>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select campus" /></SelectTrigger>
                   <SelectContent>
-                    {hasGlobalScope(currentUser?.role) && <SelectItem value="all">All Campuses</SelectItem>}
+                    {hasGlobalScope(currentUser?.role, currentUser?.campusId) && <SelectItem value="all">All Campuses</SelectItem>}
                     {getAllowedCampuses(currentUser?.role, currentUser?.campusId, campuses).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -232,26 +284,26 @@ export default function AdminBroadcastsPage() {
 
             {/* Material Links */}
             <div className="space-y-3">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-2">
                 <Label className="font-bold flex items-center gap-2"><Link2 className="w-4 h-4" /> Material Links</Label>
-                <Button type="button" variant="ghost" size="sm" onClick={addLink} className="text-xs">
+                <Button type="button" variant="ghost" size="sm" onClick={addLink} className="text-xs text-[#8B2323] hover:text-[#721515] hover:bg-[#FBE8E8]">
                   <Plus className="w-3 h-3 mr-1" /> Add Link
                 </Button>
               </div>
               {form.materialLinks.map((link, idx) => (
-                <div key={idx} className="flex gap-2 items-start bg-muted/30 p-3 rounded-lg">
+                <div key={idx} className="flex gap-2 items-start bg-[#FAF7F2] border border-[#E5D5C5]/50 p-3 rounded-xl">
                   <div className="flex-1 space-y-2">
                     <Input
                       placeholder="Label (e.g. Canva Slides)"
                       value={link.label}
                       onChange={e => updateLink(idx, 'label', e.target.value)}
-                      className="h-8 text-xs"
+                      className="h-8 text-xs rounded-lg"
                     />
                     <Input
                       placeholder="https://..."
                       value={link.url}
                       onChange={e => updateLink(idx, 'url', e.target.value)}
-                      className="h-8 text-xs"
+                      className="h-8 text-xs rounded-lg"
                     />
                   </div>
                   {form.materialLinks.length > 1 && (
@@ -264,8 +316,10 @@ export default function AdminBroadcastsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} className="bg-[#8B2323] hover:bg-[#721515]">Publish</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="rounded-xl">Cancel</Button>
+            <Button onClick={handleSave} className="bg-[#8B2323] hover:bg-[#721515] rounded-xl">
+              {editingId ? 'Save Changes' : 'Publish'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

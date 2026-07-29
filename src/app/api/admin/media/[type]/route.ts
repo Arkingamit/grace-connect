@@ -5,6 +5,7 @@ import { Sermon, SermonSeries, WorshipVideo, GalleryAlbum, LiveStream } from '@/
 import Notification from '@/models/Notification';
 import { sendPushToTargeted } from '@/lib/push-utils';
 import { serverCache, CACHE_TTL } from '@/lib/cache';
+import { fetchGooglePhotosCover } from '@/lib/google-photos';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,6 +71,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
     } else if (type === 'livestreams') {
       if (admin.role === 'campus_leader' || admin.role === 'group_leader') {
         body.campusId = admin.campusId;
+      }
+    }
+
+    // Auto-fetch and store cover image so clients can show it immediately
+    if (type === 'gallery' && body.url && !body.coverImage) {
+      try {
+        const cover = await fetchGooglePhotosCover(body.url);
+        if (cover) body.coverImage = cover;
+      } catch (e) {
+        console.warn('Could not auto-fetch gallery cover on create:', e);
       }
     }
 

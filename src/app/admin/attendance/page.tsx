@@ -17,8 +17,12 @@ import { toast } from 'sonner';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 
+const DEFAULT_ABSENT_MESSAGE = 'We missed you at church today! Hope you are doing well.';
+
 export default function AdminAttendancePage() {
   const { campuses, currentUser } = useAdminData();
+  const isGroupLeader = currentUser?.role === 'group_leader';
+  const canManageSessions = !isGroupLeader;
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -27,6 +31,7 @@ export default function AdminAttendancePage() {
   const [loadingRecords, setLoadingRecords] = useState(false);
   const [activeRecordsTab, setActiveRecordsTab] = useState('insights');
   const [searchQuery, setSearchQuery] = useState('');
+  const [defaultAbsentMessage, setDefaultAbsentMessage] = useState(DEFAULT_ABSENT_MESSAGE);
   const [messageText, setMessageText] = useState<{ [key: string]: string }>({});
   const [sendingMessage, setSendingMessage] = useState<{ [key: string]: boolean }>({});
   const [updatingStatus, setUpdatingStatus] = useState<{ [key: string]: boolean }>({});
@@ -148,9 +153,15 @@ export default function AdminAttendancePage() {
     }
   };
 
+  const getMemberMessage = (userId: string) => {
+    const custom = messageText[userId];
+    if (custom !== undefined) return custom;
+    return defaultAbsentMessage;
+  };
+
   const handleSendMessage = async (userId: string) => {
     if (!viewingSessionId) return;
-    const text = messageText[userId];
+    const text = getMemberMessage(userId).trim();
     if (!text) {
       toast.error('Please enter a message');
       return;
@@ -164,7 +175,6 @@ export default function AdminAttendancePage() {
       });
       if (res.ok) {
         toast.success('Message sent successfully!');
-        setMessageText(prev => ({ ...prev, [userId]: '' }));
       } else {
         throw new Error('Failed to send');
       }
@@ -175,10 +185,14 @@ export default function AdminAttendancePage() {
     }
   };
 
-  const openWhatsApp = (whatsapp?: string, name?: string) => {
+  const openWhatsApp = (whatsapp?: string, userId?: string) => {
     if (!whatsapp) return;
-    const defaultMsg = `Hi ${name || ''}, we missed you today at church!`;
-    const encoded = encodeURIComponent(defaultMsg);
+    const text = (userId ? getMemberMessage(userId) : defaultAbsentMessage).trim();
+    if (!text) {
+      toast.error('Please enter a message');
+      return;
+    }
+    const encoded = encodeURIComponent(text);
     const number = whatsapp.replace(/\D/g, '');
     window.open(`https://wa.me/${number}?text=${encoded}`, '_blank');
   };
@@ -215,12 +229,18 @@ export default function AdminAttendancePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-[#1A202C]">Attendance Tracking</h1>
-          <p className="text-muted-foreground mt-1">Configure geolocation attendance sessions</p>
+          <p className="text-muted-foreground mt-1">
+            {isGroupLeader
+              ? 'View attendance for members in your assigned groups'
+              : 'Configure geolocation attendance sessions'}
+          </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)} className="bg-[#8B2323] hover:bg-[#721515] w-full sm:w-auto">
-          <Plus className="w-4 h-4 mr-2" />
-          Create Session
-        </Button>
+        {canManageSessions && (
+          <Button onClick={() => setDialogOpen(true)} className="bg-[#8B2323] hover:bg-[#721515] w-full sm:w-auto">
+            <Plus className="w-4 h-4 mr-2" />
+            Create Session
+          </Button>
+        )}
       </div>
 
       {loading ? (
@@ -229,8 +249,14 @@ export default function AdminAttendancePage() {
         <Card className="p-12 text-center border-dashed">
           <MapPin className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">No Active Sessions</h3>
-          <p className="text-muted-foreground mb-4">Create an attendance session to allow members to check in.</p>
-          <Button onClick={() => setDialogOpen(true)} variant="outline">Create Session</Button>
+          <p className="text-muted-foreground mb-4">
+            {isGroupLeader
+              ? 'No attendance sessions are available for your campus yet.'
+              : 'Create an attendance session to allow members to check in.'}
+          </p>
+          {canManageSessions && (
+            <Button onClick={() => setDialogOpen(true)} variant="outline">Create Session</Button>
+          )}
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -271,12 +297,16 @@ export default function AdminAttendancePage() {
                   <Button variant="outline" className="w-full sm:flex-1" onClick={() => viewRecords(s._id)}>
                     <Users className="w-4 h-4 sm:mr-2 mr-1 shrink-0" /> <span className="truncate text-xs sm:text-sm">Records</span>
                   </Button>
-                  <Button variant="outline" className="w-full sm:flex-1" onClick={() => { setSelectedSessionForQr(s); setQrDialogOpen(true); }}>
-                    <QrCode className="w-4 h-4 sm:mr-2 mr-1 shrink-0" /> <span className="truncate text-xs sm:text-sm">Show QR</span>
-                  </Button>
-                  <Button variant="outline" className="col-span-2 w-full sm:w-auto sm:px-3 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDelete(s._id)}>
-                    <Trash2 className="w-4 h-4 sm:mr-0 mr-2 shrink-0" /> <span className="sm:hidden text-xs">Delete Session</span>
-                  </Button>
+                  {canManageSessions && (
+                    <>
+                      <Button variant="outline" className="w-full sm:flex-1" onClick={() => { setSelectedSessionForQr(s); setQrDialogOpen(true); }}>
+                        <QrCode className="w-4 h-4 sm:mr-2 mr-1 shrink-0" /> <span className="truncate text-xs sm:text-sm">Show QR</span>
+                      </Button>
+                      <Button variant="outline" className="col-span-2 w-full sm:w-auto sm:px-3 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDelete(s._id)}>
+                        <Trash2 className="w-4 h-4 sm:mr-0 mr-2 shrink-0" /> <span className="sm:hidden text-xs">Delete Session</span>
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -707,9 +737,9 @@ export default function AdminAttendancePage() {
                             <div className="flex flex-col gap-2">
                               <Label className="text-xs text-muted-foreground">Send Message to Member</Label>
                               <Textarea
-                                placeholder="We missed you at church today!"
+                                placeholder={defaultAbsentMessage}
                                 className="text-sm min-h-[60px] rounded-xl"
-                                value={messageText[r.userId] !== undefined ? messageText[r.userId] : "We missed you at church today! Hope you are doing well."}
+                                value={getMemberMessage(r.userId)}
                                 onChange={(e) => setMessageText(prev => ({ ...prev, [r.userId]: e.target.value }))}
                               />
                               <div className="flex gap-2 mt-1">
@@ -728,7 +758,7 @@ export default function AdminAttendancePage() {
                                     size="sm"
                                     className="rounded-full hover:opacity-90"
                                     style={{ backgroundColor: '#25D366', color: 'white' }}
-                                    onClick={() => openWhatsApp(r.user.whatsapp, r.user.firstName || r.user.name)}
+                                    onClick={() => openWhatsApp(r.user.whatsapp, r.userId)}
                                   >
                                     <MessageCircle className="w-4 h-4 mr-1" />
                                     WhatsApp
@@ -753,6 +783,17 @@ export default function AdminAttendancePage() {
                           <TabsTrigger value="all">All Members</TabsTrigger>
                         </TabsList>
                         <TabsContent value="undetected" className="space-y-3">
+                          <div className="rounded-xl border bg-muted/30 p-3 space-y-2">
+                            <Label className="text-xs text-muted-foreground">Default message (edit for all, or customise per member below)</Label>
+                            <Textarea
+                              className="text-sm min-h-[60px] rounded-xl bg-background"
+                              value={defaultAbsentMessage}
+                              onChange={(e) => {
+                                setDefaultAbsentMessage(e.target.value);
+                                setMessageText({});
+                              }}
+                            />
+                          </div>
                           {filteredBySearch.filter((r: any) => r.status === 'absent' || r.status === 'unmarked').length === 0 ? (
                             <p className="text-center text-muted-foreground py-8 text-sm">No undetected members found.</p>
                           ) : (

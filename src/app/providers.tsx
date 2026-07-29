@@ -11,6 +11,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { VersionGate } from "@/components/ui/version-gate";
 import { NotificationProvider } from "@/components/ui/notification-provider";
+import { NativeBackHandler } from "@/components/ui/native-back-handler";
 
 // QueryClient created OUTSIDE the component to prevent recreation on re-render
 const queryClient = new QueryClient({
@@ -47,6 +48,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
                 <Toaster />
                 <Sonner />
                 <NotificationProvider>
+                  <NativeBackHandler />
                   <VersionGate>
                     {children}
                   </VersionGate>
