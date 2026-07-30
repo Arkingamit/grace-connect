@@ -1212,9 +1212,14 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                       {!user.email.startsWith('linked_') ? (
                         <span className="truncate">{user.email}</span>
-                      ) : (
-                        <span className="truncate italic text-muted-foreground/60">Linked Profile</span>
-                      )}
+                      ) : (() => {
+                        const parentUser = user.parentAccountId ? users.find(u => u.id === user.parentAccountId) : null;
+                        return (
+                          <span className="truncate italic text-muted-foreground/60">
+                            Linked to {parentUser ? parentUser.name : 'Parent Account'}
+                          </span>
+                        );
+                      })()}
                       {userCampus && (
                         <Badge variant="outline" className="text-[9px] shrink-0">
                           {userCampus.name}
