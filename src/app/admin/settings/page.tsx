@@ -31,7 +31,6 @@ import {
   Trash2,
   Shield,
   Church,
-  Tag,
   Search,
   UserPlus,
   UserMinus,
