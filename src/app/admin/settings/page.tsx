@@ -39,8 +39,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAdminActionLoading } from '@/components/admin/admin-action-loading';
+import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { campuses, groupScopes, groups, currentUser, addCampus, updateCampus, deleteCampus, addGroup, deleteGroup, users, updateUser, systemSettings, updateSystemSettings } = useAdminData();
   const { withActionLoading } = useAdminActionLoading();
 
@@ -756,11 +758,25 @@ export default function SettingsPage() {
             </div>
 
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCampusDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCampusSubmit} disabled={!campusForm.name}>
-              {editingCampusId ? 'Save' : 'Create Campus'}
-            </Button>
+          <DialogFooter className="flex justify-between w-full sm:justify-between items-center mt-4">
+            {editingCampusId ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setCampusDialogOpen(false);
+                  router.push(`/admin/users?campus=${editingCampusId}&action=add`);
+                }}
+                className="gap-2 bg-muted text-muted-foreground hover:bg-muted/80"
+              >
+                <UserPlus className="w-4 h-4" /> Add Members
+              </Button>
+            ) : <div />}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setCampusDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleCampusSubmit} disabled={!campusForm.name}>
+                {editingCampusId ? 'Save' : 'Create Campus'}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

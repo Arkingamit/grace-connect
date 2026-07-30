@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import {
   useAdminData,
@@ -92,6 +93,8 @@ const emptyForm = {
 export default function UsersPage() {
   const { users, campuses, groupScopes, currentUser, addUser, updateUser, deleteUser } = useAdminData();
   const { withActionLoading } = useAdminActionLoading();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -99,6 +102,22 @@ export default function UsersPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [visitorFilter, setVisitorFilter] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'add' && searchParams.get('campus')) {
+      const targetCampusId = searchParams.get('campus')!;
+      setEditingId(null);
+      setForm({ 
+        ...emptyForm, 
+        role: 'member',
+        campusId: targetCampusId,
+        groups: [],
+      });
+      setDialogOpen(true);
+      // Remove query params to prevent re-opening on refresh
+      router.replace('/admin/users', { scroll: false });
+    }
+  }, [searchParams, router]);
 
   if (!canViewUsers(currentUser.role)) {
     return (
