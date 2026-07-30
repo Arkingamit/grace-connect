@@ -97,6 +97,7 @@ export default function UsersPage() {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewingUser, setViewingUser] = useState<UserProfile | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [search, setSearch] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -461,7 +462,6 @@ export default function UsersPage() {
       <div className="space-y-3">
         {filtered.map(user => {
           const Icon = roleIcons[user.role];
-          const campus = campuses.find(c => c.id === user.campusId);
           const canEditAsLeader =
             isGroupLeader &&
             user.role === 'member' &&
@@ -470,53 +470,17 @@ export default function UsersPage() {
             canEditAsLeader ||
             (canManage && (canAppointRole(currentUser.role, user.role) || user.id === currentUser.id));
           const canDelete = canManage && user.id !== currentUser.id && canAppointRole(currentUser.role, user.role);
-          const isLinkedEmail = !!user.email && (user.email.startsWith('linked_') || user.email.endsWith('@family.internal'));
-          const isLinked = !!user.isLinkedProfile || isLinkedEmail || !!user.parentAccountId;
-          const parentFromList = user.parentAccountId
-            ? scopedUsers.find(u => String(u.id) === String(user.parentAccountId) || String(u._id) === String(user.parentAccountId))
-            : undefined;
-          const parentDisplayName = user.parentName || parentFromList?.name;
-          const secondaryLine = isLinked
-            ? (parentDisplayName ? `Family linked to ${parentDisplayName}` : 'Family linked profile')
-            : user.email;
 
           return (
-            <Card key={user.id} className="border-[#E5D5C5]/60 bg-white hover:shadow-md transition-shadow group rounded-2xl">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${roleColors[user.role]}`}>
-                  <Icon className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-[#1A202C] truncate">{user.name}</p>
-                    <Badge variant="outline" className={`text-[10px] border-[#E5D5C5]/60 font-semibold ${roleColors[user.role]}`}>
-                      {getRoleLabel(user.role, user.campusId)}
-                    </Badge>
-                    {user.status === 'pending' && (
-                      <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 font-semibold bg-amber-50">
-                        <Clock className="w-2.5 h-2.5 mr-1" />Visitor
-                      </Badge>
-                    )}
-                    {user.id === currentUser.id && (
-                      <Badge variant="outline" className="text-[10px] border-[#8B2323]/30 text-[#8B2323] font-semibold bg-[#FBE8E8]/50">You</Badge>
-                    )}
-                    {isLinked && (
-                      <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 font-semibold bg-blue-50">Linked Profile</Badge>
-                    )}
+            <Card key={user.id} className="border-[#E5D5C5]/60 bg-white hover:shadow-md transition-shadow group rounded-2xl cursor-pointer" onClick={() => setViewingUser(user)}>
+              <CardContent className="p-4 flex items-center gap-4 justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${roleColors[user.role]}`}>
+                    <Icon className="w-5 h-5" />
                   </div>
-                  <p className="text-sm text-[#7A6150] truncate">{secondaryLine}</p>
-                  <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    <span className="text-xs text-[#7A6150] font-medium flex items-center gap-1">
-                      <Building2 className="w-3 h-3" /> {user.campusId === 'global' ? 'Core' : (campus?.name || user.campusId)}
-                    </span>
-                    {user.groups.length > 0 && (
-                      <span className="text-xs text-[#7A6150] font-medium flex items-center gap-1">
-                        <Users className="w-3 h-3" /> {user.groups.join(', ')}
-                      </span>
-                    )}
-                  </div>
+                  <p className="font-semibold text-[#1A202C] truncate">{user.name}</p>
                 </div>
-                <div className="flex gap-1 shrink-0">
+                <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                   {canEdit && (
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-[#7A6150] hover:text-[#3A2D27] hover:bg-[#F3EAE1]" onClick={() => openEdit(user)}>
                       <Pencil className="w-3.5 h-3.5" />
@@ -544,6 +508,78 @@ export default function UsersPage() {
           <p className="text-[#7A6150] font-medium">No members found</p>
         </div>
       )}
+
+      {/* View Details Dialog */}
+      <Dialog open={!!viewingUser} onOpenChange={(o) => !o && setViewingUser(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Member Details</DialogTitle>
+          </DialogHeader>
+          {viewingUser && (() => {
+            const Icon = roleIcons[viewingUser.role];
+            const campus = campuses.find(c => c.id === viewingUser.campusId);
+            const isLinkedEmail = !!viewingUser.email && (viewingUser.email.startsWith('linked_') || viewingUser.email.endsWith('@family.internal'));
+            const isLinked = !!viewingUser.isLinkedProfile || isLinkedEmail || !!viewingUser.parentAccountId;
+            const parentFromList = viewingUser.parentAccountId
+              ? scopedUsers.find(u => String(u.id) === String(viewingUser.parentAccountId) || String(u._id) === String(viewingUser.parentAccountId))
+              : undefined;
+            const parentDisplayName = viewingUser.parentName || parentFromList?.name;
+            const secondaryLine = isLinked
+              ? (parentDisplayName ? `Linked to ${parentDisplayName}` : 'Linked Profile')
+              : viewingUser.email;
+              
+            return (
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center gap-4">
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${roleColors[viewingUser.role]}`}>
+                    <Icon className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-xl text-[#1A202C]">{viewingUser.name}</p>
+                    <div className="flex gap-1.5 flex-wrap mt-1.5">
+                      <Badge variant="outline" className={`text-[10px] border-[#E5D5C5]/60 font-semibold ${roleColors[viewingUser.role]}`}>
+                        {getRoleLabel(viewingUser.role, viewingUser.campusId)}
+                      </Badge>
+                      {viewingUser.status === 'pending' && (
+                        <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 font-semibold bg-amber-50">
+                          <Clock className="w-2.5 h-2.5 mr-1" />Visitor
+                        </Badge>
+                      )}
+                      {viewingUser.id === currentUser.id && (
+                        <Badge variant="outline" className="text-[10px] border-[#8B2323]/30 text-[#8B2323] font-semibold bg-[#FBE8E8]/50">You</Badge>
+                      )}
+                      {isLinked && (
+                        <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 font-semibold bg-blue-50">Linked Profile</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-muted/30 p-4 rounded-xl space-y-3 text-sm border border-border/50">
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-muted-foreground text-[10px] uppercase tracking-wider block">Contact Info</span>
+                    <span className="text-[#1A202C] font-medium">{secondaryLine}</span>
+                    {viewingUser.phone && <span className="block mt-0.5 font-medium">{viewingUser.phone}</span>}
+                    {viewingUser.whatsapp && <span className="block mt-0.5 font-medium">{viewingUser.whatsapp} (WhatsApp)</span>}
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-muted-foreground text-[10px] uppercase tracking-wider block">Campus</span>
+                    <span className="text-[#1A202C] font-medium flex items-center gap-1.5 mt-1">
+                      <Building2 className="w-4 h-4 text-muted-foreground/70" /> {viewingUser.campusId === 'global' ? 'Core (All Campuses)' : (campus?.name || viewingUser.campusId)}
+                    </span>
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-muted-foreground text-[10px] uppercase tracking-wider block">Groups</span>
+                    <span className="text-[#1A202C] font-medium flex items-center gap-1.5 mt-1">
+                      <Users className="w-4 h-4 text-muted-foreground/70" /> {viewingUser.groups.length > 0 ? viewingUser.groups.join(', ') : 'No groups'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
