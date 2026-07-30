@@ -119,9 +119,7 @@ export default function SettingsPage() {
     const scope = effectiveGroupScope;
     return users
       .filter((u) => {
-        // Linked profiles (children) cannot log in, so they cannot be leaders.
-        if (u.isLinkedProfile || (u.email && (u.email.startsWith('linked_') || u.email.endsWith('@family.internal'))) || u.parentAccountId) return false;
-        
+        // Allow linked profiles to be selected as requested by user.
         if (scope === 'global') return true;
         return u.campusId === scope || u.campusId === 'global';
       })
