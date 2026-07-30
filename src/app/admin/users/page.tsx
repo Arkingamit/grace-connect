@@ -101,6 +101,8 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [campusFilter, setCampusFilter] = useState<string>('all');
+  const [groupFilter, setGroupFilter] = useState<string>('all');
   const [visitorFilter, setVisitorFilter] = useState(false);
 
   useEffect(() => {
@@ -160,7 +162,9 @@ export default function UsersPage() {
       return matchesSearch && (u as any).status === 'pending';
     }
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-    return matchesSearch && matchesRole;
+    const matchesCampus = campusFilter === 'all' || u.campusId === campusFilter;
+    const matchesGroup = groupFilter === 'all' || u.groups.includes(groupFilter);
+    return matchesSearch && matchesRole && matchesCampus && matchesGroup;
   });
 
   // Counts for stat cards (scoped)
@@ -396,23 +400,54 @@ export default function UsersPage() {
 
 
       {/* Search & Filter */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7A6150]" />
           <Input placeholder="Search members..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-[#FAF7F2] border-[#E5D5C5]/60 focus-visible:ring-[#8B2323] text-[#3A2D27] rounded-xl h-11" />
         </div>
-        {!visitorFilter && (currentUser.role === 'admin' || currentUser.role === 'super_admin') && (
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-[180px] bg-[#FAF7F2] border-[#E5D5C5]/60 text-[#3A2D27] rounded-xl h-11 font-medium">
-              <SelectValue placeholder="Filter by role" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Roles</SelectItem>
-              {(['super_admin', 'admin', 'campus_leader', 'group_leader', 'member'] as UserRole[]).map(r => (
-                <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {!visitorFilter && (
+          <div className="flex flex-wrap gap-2 w-full">
+            {(currentUser.role === 'admin' || currentUser.role === 'super_admin') && (
+              <>
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="w-[140px] bg-[#FAF7F2] border-[#E5D5C5]/60 text-[#3A2D27] rounded-xl h-11 font-medium">
+                    <SelectValue placeholder="Filter by role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    {(['super_admin', 'admin', 'campus_leader', 'group_leader', 'member'] as UserRole[]).map(r => (
+                      <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={campusFilter} onValueChange={(val) => { setCampusFilter(val); setGroupFilter('all'); }}>
+                  <SelectTrigger className="w-[160px] bg-[#FAF7F2] border-[#E5D5C5]/60 text-[#3A2D27] rounded-xl h-11 font-medium">
+                    <SelectValue placeholder="Filter by campus" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Campuses</SelectItem>
+                    <SelectItem value="global">Core (Global)</SelectItem>
+                    {campuses.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+
+            <Select value={groupFilter} onValueChange={setGroupFilter}>
+              <SelectTrigger className="w-[160px] bg-[#FAF7F2] border-[#E5D5C5]/60 text-[#3A2D27] rounded-xl h-11 font-medium">
+                <SelectValue placeholder="Filter by group" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Groups</SelectItem>
+                {Array.from(new Set(groupScopes.filter(g => campusFilter === 'all' || g.scope === campusFilter || g.scope === 'global').map(g => g.name))).map(g => (
+                  <SelectItem key={g} value={g}>{g}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
         {visitorFilter && (
           <div className="flex items-center gap-2 px-3 h-11 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm font-semibold">
