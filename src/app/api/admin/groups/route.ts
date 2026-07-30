@@ -61,7 +61,7 @@ export async function POST(req: Request) {
           { status: 409 }
         );
       }
-      name = core.name;
+      name = name || core.name;
       coreGroupId = String(core._id);
     }
 
