@@ -483,39 +483,16 @@ export default function SettingsPage() {
               return (
                 <div
                   key={`${group.name}-${group.scope}`}
-                  className="flex items-center flex-wrap gap-2 px-3 py-2 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors group/item cursor-pointer"
+                  className="flex items-center justify-between w-full sm:w-auto px-4 py-2.5 rounded-xl border border-border/50 bg-white hover:border-primary/30 hover:shadow-sm transition-all group/item cursor-pointer"
                   onClick={() => { setManagingGroup(group.name); setMemberSearch(''); }}
                 >
-                  <Tag className="w-3.5 h-3.5 text-primary shrink-0" />
-                  <span className="text-sm font-medium">{group.name}</span>
-                  <Badge variant="outline" className="text-[10px] ml-1 border-primary/20 bg-primary/5 text-primary truncate max-w-[120px] sm:max-w-none">
-                    {group.scope === 'global'
-                      ? 'Core (All Campuses)'
-                      : campuses.find(c => c.id === group.scope)?.name || group.scope}
-                  </Badge>
-                  {group.scope !== 'global' && (
-                    <Badge
-                      variant="outline"
-                      className={`text-[9px] ${
-                        group.coreGroupId
-                          ? 'border-emerald-500/30 text-emerald-700 bg-emerald-50'
-                          : 'border-amber-500/30 text-amber-700 bg-amber-50'
-                      }`}
-                    >
-                      {group.coreGroupId ? 'Linked to Core' : 'No Core link'}
-                    </Badge>
-                  )}
-                  {leaders.slice(0, 1).map((l) => (
-                    <Badge key={l.id} variant="outline" className="text-[9px] border-[#8B2323]/25 text-[#8B2323] bg-[#FBE8E8]/50">
-                      {getRoleLabel(l.role, l.campusId)}: {l.name}
-                    </Badge>
-                  ))}
-                  <Badge variant="outline" className="text-[9px] gap-1 shrink-0">
-                    <Users className="w-2.5 h-2.5" />{memberCount}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-primary shrink-0" />
+                    <span className="text-sm font-semibold">{group.name}</span>
+                  </div>
                   <Button
                     variant="ghost" size="icon"
-                    className="h-6 w-6 opacity-100 sm:opacity-0 sm:group-hover/item:opacity-100 transition-opacity text-destructive hover:text-destructive ml-auto"
+                    className="h-7 w-7 opacity-100 sm:opacity-0 sm:group-hover/item:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10 ml-3"
                     onClick={(e) => {
                       e.stopPropagation();
                       setDeleteGroupConfirm({
@@ -525,7 +502,7 @@ export default function SettingsPage() {
                       });
                     }}
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
               );
@@ -989,16 +966,42 @@ export default function SettingsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
-              {managingGroup} — Members
+              {managingGroup}
             </DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              {groupMembers.members.length} member{groupMembers.members.length !== 1 ? 's' : ''}
-              {managingGroupScope !== 'global'
-                ? ` · Showing only ${campuses.find(c => c.id === managingGroupScope)?.name || managingGroupScope} members`
-                : ' · Showing all campuses'}
-              {' · '}Click to add or remove
-            </p>
           </DialogHeader>
+
+          {/* Group Info Section */}
+          {managingGroup && (
+            <div className="grid grid-cols-2 gap-3 text-sm bg-muted/20 p-4 rounded-xl border border-border/50">
+              {(() => {
+                const groupObj = groupScopes.find(g => g.name === managingGroup);
+                const scopeName = groupObj?.scope === 'global' ? 'Core (All Campuses)' : (campuses.find(c => c.id === groupObj?.scope)?.name || groupObj?.scope);
+                const leaders = users.filter(u => u.role === 'group_leader' && u.groups.includes(managingGroup));
+                return (
+                  <>
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Campus Scope</p>
+                      <p className="font-medium text-[#1A202C]">{scopeName}</p>
+                    </div>
+                    {groupObj?.scope !== 'global' && (
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Core Link</p>
+                        <p className="font-medium text-[#1A202C]">{groupObj?.coreGroupId ? 'Linked to Core Group' : 'Standalone Campus Group'}</p>
+                      </div>
+                    )}
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Group Leader(s)</p>
+                      <p className="font-medium text-[#1A202C]">{leaders.length > 0 ? leaders.map(l => l.name).join(', ') : 'No leader assigned'}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Total Members</p>
+                      <p className="font-medium text-[#1A202C]">{groupMembers.members.length}</p>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
 
           {/* Search */}
           <div className="relative">
