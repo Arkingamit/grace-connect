@@ -35,6 +35,7 @@ import {
   UserPlus,
   UserMinus,
   Check,
+  Edit2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAdminActionLoading } from '@/components/admin/admin-action-loading';
