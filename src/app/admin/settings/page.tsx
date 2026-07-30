@@ -497,7 +497,6 @@ export default function SettingsPage() {
                   }}
                 >
                   <div className="flex items-center gap-2">
-                    <Tag className="w-4 h-4 text-primary shrink-0" />
                     <span className="text-sm font-semibold">{group.name}</span>
                   </div>
                   <Button
