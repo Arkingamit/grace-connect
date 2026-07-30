@@ -292,6 +292,7 @@ interface AdminDataContextType {
   updateCampus: (id: string, updates: Partial<Campus>) => void;
   deleteCampus: (id: string) => void;
   addGroup: (name: string, scope?: string, leaderId?: string, coreGroupId?: string) => Promise<{ success: boolean; error?: string; group?: any; leader?: any } | void>;
+  updateGroup: (id: string, updates: { name?: string; scope?: string }) => Promise<{ success: boolean; error?: string; group?: any }>;
   deleteGroup: (name: string, scope: string, id?: string) => Promise<{ success: boolean; error?: string } | void>;
   updateGroupScope: (name: string, scope: string) => void;
   updateFlipCardConfig: (config: FlipCardConfig) => void;
@@ -468,6 +469,33 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [groupScopes]);
 
+  const updateGroup = useCallback(async (id: string, updates: { name?: string; scope?: string }) => {
+    const res = await fetch(`/api/admin/groups/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { success: false, error: data.error || 'Failed to update group' };
+    }
+    const updated = await res.json();
+    setGroupScopes(prev => prev.map(g => (g as any).id === id ? { ...g, name: updated.name, scope: updated.scope } : g));
+    if (updates.name) {
+      setGroups(prev => prev.map(n => {
+        const oldGroup = groupScopes.find(g => (g as any).id === id);
+        return oldGroup && n === oldGroup.name ? updated.name : n;
+      }));
+      setUsers(prev => prev.map(u => ({
+        ...u,
+        groups: u.groups.map(gName => {
+          const oldGroup = groupScopes.find(g => (g as any).id === id);
+          return oldGroup && gName === oldGroup.name ? updated.name : gName;
+        })
+      })));
+    }
+    return { success: true, group: updated };
+  }, [groupScopes]);
+
   const updateSystemSettings = useCallback(async (s: Partial<SystemSettings>) => {
     const res = await fetch('/api/admin/settings', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -510,7 +538,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
         addWorshipVideo, updateWorshipVideo, deleteWorshipVideo,
         addSermon, updateSermon, deleteSermon, reorderSermons,
         addSermonSeries, updateSermonSeries, deleteSermonSeries,
-        addCampus, updateCampus, deleteCampus, addGroup, deleteGroup, updateGroupScope, updateFlipCardConfig,
+        addCampus, updateCampus, deleteCampus, addGroup, updateGroup, deleteGroup, updateGroupScope, updateFlipCardConfig,
         approvePrayerRequest, deletePrayerRequest, getPendingPrayerRequests,
         getVisibleAnnouncements, getVisibleEvents, getVisibleGalleryAlbums, getVisibleSermons,
         updateSystemSettings,

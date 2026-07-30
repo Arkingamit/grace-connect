@@ -43,7 +43,7 @@ import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { campuses, groupScopes, groups, currentUser, addCampus, updateCampus, deleteCampus, addGroup, deleteGroup, users, updateUser, systemSettings, updateSystemSettings } = useAdminData();
+  const { campuses, groupScopes, groups, currentUser, addCampus, updateCampus, deleteCampus, addGroup, updateGroup, deleteGroup, users, updateUser, systemSettings, updateSystemSettings } = useAdminData();
   const { withActionLoading } = useAdminActionLoading();
 
   const canManageCampuses = canManageCampusesAndGroups(currentUser.role);
@@ -69,6 +69,11 @@ export default function SettingsPage() {
   const [campusGroupMode, setCampusGroupMode] = useState<'link_core' | 'standalone'>('link_core');
   const [linkedCoreGroupId, setLinkedCoreGroupId] = useState<string>('');
   const [deleteGroupConfirm, setDeleteGroupConfirm] = useState<{ name: string; scope: string; id?: string } | null>(null);
+
+  // Group editing state
+  const [isEditingGroup, setIsEditingGroup] = useState(false);
+  const [editingGroupName, setEditingGroupName] = useState('');
+  const [isSavingGroup, setIsSavingGroup] = useState(false);
 
   // Group member management state
   const [managingGroup, setManagingGroup] = useState<string | null>(null);
@@ -159,7 +164,7 @@ export default function SettingsPage() {
     const members = scopeFilteredUsers.filter(u => u.groups.includes(managingGroup));
     const nonMembers = scopeFilteredUsers.filter(u => !u.groups.includes(managingGroup));
     return { members, nonMembers };
-  }, [managingGroup, scopeFilteredUsers]);
+  }, [managingGroup, scopeFilteredUsers, users]);
 
   const filteredUsers = useMemo(() => {
     if (!managingGroup) return [];
@@ -484,7 +489,12 @@ export default function SettingsPage() {
                 <div
                   key={`${group.name}-${group.scope}`}
                   className="flex items-center justify-between w-full sm:w-auto px-4 py-2.5 rounded-xl border border-border/50 bg-white hover:border-primary/30 hover:shadow-sm transition-all group/item cursor-pointer"
-                  onClick={() => { setManagingGroup(group.name); setMemberSearch(''); }}
+                  onClick={() => { 
+                    setManagingGroup(group.name); 
+                    setMemberSearch(''); 
+                    setIsEditingGroup(false);
+                    setEditingGroupName(group.name);
+                  }}
                 >
                   <div className="flex items-center gap-2">
                     <Tag className="w-4 h-4 text-primary shrink-0" />
@@ -966,20 +976,76 @@ export default function SettingsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
-              {managingGroup}
+              {isEditingGroup ? 'Edit Group' : managingGroup}
             </DialogTitle>
           </DialogHeader>
 
           {/* Group Info Section */}
           {managingGroup && (
-            <div className="grid grid-cols-2 gap-3 text-sm bg-muted/20 p-4 rounded-xl border border-border/50">
+            <div className="relative grid grid-cols-2 gap-3 text-sm bg-muted/20 p-4 rounded-xl border border-border/50">
+              {!isEditingGroup && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsEditingGroup(true)}
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </Button>
+              )}
+
               {(() => {
                 const groupObj = groupScopes.find(g => g.name === managingGroup);
                 const scopeName = groupObj?.scope === 'global' ? 'Core (All Campuses)' : (campuses.find(c => c.id === groupObj?.scope)?.name || groupObj?.scope);
                 const leaders = users.filter(u => u.role === 'group_leader' && u.groups.includes(managingGroup));
+                
+                if (isEditingGroup) {
+                  return (
+                    <div className="col-span-2 space-y-3">
+                      <div className="space-y-1">
+                        <Label>Group Name</Label>
+                        <Input 
+                          value={editingGroupName} 
+                          onChange={(e) => setEditingGroupName(e.target.value)} 
+                          disabled={isSavingGroup}
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end mt-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => { setIsEditingGroup(false); setEditingGroupName(managingGroup); }}
+                          disabled={isSavingGroup}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          disabled={isSavingGroup || !editingGroupName.trim() || editingGroupName.trim() === managingGroup}
+                          onClick={async () => {
+                            if (!groupObj || !(groupObj as any).id) return;
+                            setIsSavingGroup(true);
+                            const res = await updateGroup((groupObj as any).id, { name: editingGroupName.trim() });
+                            setIsSavingGroup(false);
+                            if (res.success) {
+                              setManagingGroup(res.group.name);
+                              setIsEditingGroup(false);
+                              toast.success('Group updated successfully');
+                            } else {
+                              toast.error(res.error || 'Failed to update group');
+                            }
+                          }}
+                        >
+                          {isSavingGroup ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <>
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 pr-6">
                       <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Campus Scope</p>
                       <p className="font-medium text-[#1A202C]">{scopeName}</p>
                     </div>

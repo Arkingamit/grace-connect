@@ -23,12 +23,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Forbidden: Different campus' }, { status: 403 });
     }
 
+    const oldName = group.name;
     group.name = body.name || group.name;
     if (admin.role !== 'campus_leader') {
       group.scope = body.scope || group.scope;
     }
     
     await group.save();
+
+    if (oldName !== group.name) {
+      const User = (await import('@/models/User')).default;
+      await User.updateMany(
+        { groups: oldName },
+        { $set: { "groups.$": group.name } }
+      );
+    }
+
     return NextResponse.json(group);
   } catch (error: any) {
     if (error.code === 11000) {
