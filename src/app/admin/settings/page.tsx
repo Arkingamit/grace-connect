@@ -119,8 +119,9 @@ export default function SettingsPage() {
     const scope = effectiveGroupScope;
     return users
       .filter((u) => {
-        if (u.role !== 'member' && u.role !== 'group_leader') return false;
-        if (u.isLinkedProfile) return false;
+        // Linked profiles (children) cannot log in, so they cannot be leaders.
+        if (u.isLinkedProfile || (u.email && (u.email.startsWith('linked_') || u.email.endsWith('@family.internal'))) || u.parentAccountId) return false;
+        
         if (scope === 'global') return true;
         return u.campusId === scope || u.campusId === 'global';
       })
@@ -295,11 +296,20 @@ export default function SettingsPage() {
     if (newGroupLeaderId) {
       const leader = users.find((u) => u.id === newGroupLeaderId);
       const nextGroups = Array.from(new Set([...(leader?.groups || []), name]));
-      await updateUser(newGroupLeaderId, {
-        role: 'group_leader',
-        campusId: scope === 'global' ? 'global' : scope,
-        groups: nextGroups,
-      });
+      const updates: Partial<UserProfile> = { groups: nextGroups };
+      
+      // Only upgrade to group_leader if they are currently just a regular member
+      if (leader?.role === 'member') {
+        updates.role = 'group_leader';
+      }
+      
+      // Only change their campus scope if they are a member or group leader.
+      // We don't want to accidentally change an Admin's campus scope just because they lead a local group.
+      if (leader?.role === 'member' || leader?.role === 'group_leader') {
+        updates.campusId = scope === 'global' ? 'global' : scope;
+      }
+
+      await updateUser(newGroupLeaderId, updates);
     }
 
     toast.success(
