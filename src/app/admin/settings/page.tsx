@@ -73,6 +73,9 @@ export default function SettingsPage() {
   // Group editing state
   const [isEditingGroup, setIsEditingGroup] = useState(false);
   const [editingGroupName, setEditingGroupName] = useState('');
+  const [editingGroupScope, setEditingGroupScope] = useState('');
+  const [editingCoreLink, setEditingCoreLink] = useState(''); // id or 'standalone'
+  const [editingLeaderId, setEditingLeaderId] = useState('');
   const [isSavingGroup, setIsSavingGroup] = useState(false);
 
   // Group member management state
@@ -494,6 +497,10 @@ export default function SettingsPage() {
                     setMemberSearch(''); 
                     setIsEditingGroup(false);
                     setEditingGroupName(group.name);
+                    setEditingGroupScope(group.scope);
+                    setEditingCoreLink(group.coreGroupId ? String(group.coreGroupId) : 'standalone');
+                    const groupLeaders = users.filter(u => u.role === 'group_leader' && u.groups.includes(group.name));
+                    setEditingLeaderId(groupLeaders.length > 0 ? groupLeaders[0].id : '');
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -999,8 +1006,24 @@ export default function SettingsPage() {
                 const leaders = users.filter(u => u.role === 'group_leader' && u.groups.includes(managingGroup));
                 
                 if (isEditingGroup) {
+                  const availableEditCoreGroups = coreGroups.filter(g => {
+                    if (g.id === groupObj?.coreGroupId) return true; // Can keep current
+                    // Otherwise check if available for this campus
+                    const linkedIds = new Set(
+                      groupScopes.filter(gs => gs.scope === editingGroupScope && gs.coreGroupId).map(gs => String(gs.coreGroupId))
+                    );
+                    return g.id && !linkedIds.has(String(g.id));
+                  });
+
+                  const editLeaderCandidates = users
+                    .filter((u) => {
+                      if (editingGroupScope === 'global') return true;
+                      return u.campusId === editingGroupScope || u.campusId === 'global';
+                    })
+                    .sort((a, b) => a.name.localeCompare(b.name));
+
                   return (
-                    <div className="col-span-2 space-y-3">
+                    <div className="col-span-2 space-y-4">
                       <div className="space-y-1">
                         <Label>Group Name</Label>
                         <Input 
@@ -1009,22 +1032,107 @@ export default function SettingsPage() {
                           disabled={isSavingGroup}
                         />
                       </div>
-                      <div className="flex gap-2 justify-end mt-2">
+                      
+                      {!isCampusLeaderOnly && (
+                        <div className="space-y-1">
+                          <Label>Campus Scope</Label>
+                          <Select 
+                            value={editingGroupScope} 
+                            onValueChange={(val) => {
+                              setEditingGroupScope(val);
+                              if (val === 'global') setEditingCoreLink('standalone');
+                            }}
+                            disabled={isSavingGroup}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="global">Core (All Campuses)</SelectItem>
+                              {campuses.map(c => (
+                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {editingGroupScope !== 'global' && (
+                        <div className="space-y-1">
+                          <Label>Core Group Link</Label>
+                          <Select
+                            value={editingCoreLink}
+                            onValueChange={setEditingCoreLink}
+                            disabled={isSavingGroup}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="standalone">Standalone Campus Group</SelectItem>
+                              {availableEditCoreGroups.map(g => (
+                                <SelectItem key={g.id} value={String(g.id)}>
+                                  Link to: {g.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      <div className="space-y-1">
+                        <Label>Assign Leader</Label>
+                        <Select
+                          value={editingLeaderId}
+                          onValueChange={setEditingLeaderId}
+                          disabled={isSavingGroup}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="No leader assigned" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No leader assigned</SelectItem>
+                            {editLeaderCandidates.map(u => (
+                              <SelectItem key={u.id} value={u.id}>
+                                {u.name} {u.role === 'member' ? '' : `(${u.role.replace('_', ' ')})`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-[10px] text-muted-foreground">Assigning a new leader will give them the leader role and add them to this group.</p>
+                      </div>
+
+                      <div className="flex gap-2 justify-end mt-4">
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          onClick={() => { setIsEditingGroup(false); setEditingGroupName(managingGroup); }}
+                          onClick={() => { 
+                            setIsEditingGroup(false); 
+                            setEditingGroupName(managingGroup); 
+                          }}
                           disabled={isSavingGroup}
                         >
                           Cancel
                         </Button>
                         <Button 
                           size="sm" 
-                          disabled={isSavingGroup || !editingGroupName.trim() || editingGroupName.trim() === managingGroup}
+                          disabled={isSavingGroup || !editingGroupName.trim()}
                           onClick={async () => {
                             if (!groupObj || !(groupObj as any).id) return;
                             setIsSavingGroup(true);
-                            const res = await updateGroup((groupObj as any).id, { name: editingGroupName.trim() });
+                            
+                            const updates: any = { 
+                              name: editingGroupName.trim(),
+                              scope: editingGroupScope
+                            };
+                            
+                            if (editingGroupScope !== 'global') {
+                              updates.coreGroupId = editingCoreLink === 'standalone' ? null : editingCoreLink;
+                            } else {
+                              updates.coreGroupId = null;
+                            }
+                            
+                            if (editingLeaderId !== 'none' && editingLeaderId !== '') {
+                              updates.leaderId = editingLeaderId;
+                            }
+
+                            const res = await updateGroup((groupObj as any).id, updates);
                             setIsSavingGroup(false);
                             if (res.success) {
                               setManagingGroup(res.group.name);
@@ -1102,7 +1210,11 @@ export default function SettingsPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{user.name}</p>
                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                      <span className="truncate">{user.email}</span>
+                      {!user.email.startsWith('linked_') ? (
+                        <span className="truncate">{user.email}</span>
+                      ) : (
+                        <span className="truncate italic text-muted-foreground/60">Linked Profile</span>
+                      )}
                       {userCampus && (
                         <Badge variant="outline" className="text-[9px] shrink-0">
                           {userCampus.name}
