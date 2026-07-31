@@ -31,10 +31,10 @@ export async function decrypt(session: string | undefined = '') {
   }
 }
 
-/** Create a session cookie embedding userId, email, name AND role (avoids DB lookup on every request) */
-export async function createSession(userId: string, email: string, name: string, role: string = 'member') {
+/** Create a session cookie embedding userId, email, name, role AND permissions (avoids DB lookup on every request) */
+export async function createSession(userId: string, email: string, name: string, role: string = 'member', permissions: string[] = []) {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-  const session = await encrypt({ userId, email, name, role, expiresAt });
+  const session = await encrypt({ userId, email, name, role, permissions, expiresAt });
 
   (await cookies()).set('session', session, {
     httpOnly: true,
@@ -49,18 +49,19 @@ export async function deleteSession() {
   (await cookies()).delete('session');
 }
 
-/** Returns isAuth, userId and role — no DB query needed */
+/** Returns isAuth, userId, role and permissions — no DB query needed */
 export async function verifySession() {
   const cookie = (await cookies()).get('session')?.value;
   const session = await decrypt(cookie);
 
   if (!session?.userId) {
-    return { isAuth: false, userId: null, role: 'guest' as string };
+    return { isAuth: false, userId: null, role: 'guest' as string, permissions: [] as string[] };
   }
 
   return {
     isAuth: true,
     userId: session.userId as string,
     role: (session.role as string) || 'member',
+    permissions: (session.permissions as string[]) || [],
   };
 }

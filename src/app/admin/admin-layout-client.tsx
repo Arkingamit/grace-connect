@@ -6,8 +6,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   useAdminData,
   canAccessAdmin,
+  hasPermission,
   ROLE_LABELS,
   getRoleLabel,
+  ROLE_HIERARCHY,
   type UserRole,
 } from '@/lib/admin-data-context';
 import { useAuth } from '@/lib/auth-context';
@@ -28,6 +30,7 @@ import {
   UserPlus,
   QrCode,
   Music,
+  Tv,
   UserCheck,
   Heart,
   BookOpen,
@@ -78,6 +81,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
       role: sessionMember.role as UserRole,
       campusId: sessionMember.campusId || 'main',
       groups: sessionMember.groups || [],
+      permissions: sessionMember.permissions || [],
     });
   }, [getSessionMember, setCurrentUser]);
 
@@ -100,26 +104,30 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
   const sidebarItems = [
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard, minRole: 'group_leader' as UserRole },
     { label: 'Events', href: '/admin/events', icon: Calendar, minRole: 'group_leader' as UserRole },
-    { label: 'Announcements', href: '/admin/announcements', icon: Megaphone, minRole: 'group_leader' as UserRole },
-    { label: 'Note Share', href: '/admin/broadcasts', icon: FileText, minRole: 'group_leader' as UserRole },
-    { label: 'Worship Videos', href: '/admin/worship', icon: Music, minRole: 'admin' as UserRole },
-    { label: 'Prayer Wall', href: '/admin/prayers', icon: Heart, minRole: 'campus_leader' as UserRole, badge: pendingPrayersCount },
-    { label: 'Greetings', href: '/admin/greetings', icon: Gift, minRole: 'campus_leader' as UserRole },
+    { label: 'Announcements', href: '/admin/announcements', icon: Megaphone, minRole: 'group_leader' as UserRole, module: 'announcements' },
+    { label: 'Note Share', href: '/admin/broadcasts', icon: FileText, minRole: 'group_leader' as UserRole, module: 'broadcasts' },
+    { label: 'Sermons', href: '/admin/sermons', icon: Tv, minRole: 'admin' as UserRole, module: 'sermons' },
+    { label: 'Worship Videos', href: '/admin/worship', icon: Music, minRole: 'admin' as UserRole, module: 'worship' },
+    { label: 'Prayer Wall', href: '/admin/prayers', icon: Heart, minRole: 'campus_leader' as UserRole },
+    { label: 'Greetings', href: '/admin/greetings', icon: Gift, minRole: 'campus_leader' as UserRole, module: 'greetings' },
     { label: 'Daily Verses', href: '/admin/verses', icon: BookOpen, minRole: 'admin' as UserRole },
     { label: 'Highlights Cards', href: '/admin/hero-cards', icon: FlipHorizontal, minRole: 'admin' as UserRole },
-    { label: 'Requests', href: '/admin/requests', icon: UserPlus, minRole: 'campus_leader' as UserRole, badge: pendingCount },
-    { label: 'Attendance', href: '/admin/attendance', icon: MapPin, minRole: 'group_leader' as UserRole },
-    { label: 'ePass Scanner', href: '/admin/scanner', icon: Camera, minRole: 'group_leader' as UserRole },
+    { label: 'Requests', href: '/admin/requests', icon: UserPlus, minRole: 'campus_leader' as UserRole, badge: pendingCount, module: 'members' },
+    { label: 'Attendance', href: '/admin/attendance', icon: MapPin, minRole: 'group_leader' as UserRole, module: 'attendance' },
+    { label: 'ePass Scanner', href: '/admin/scanner', icon: Camera, minRole: 'group_leader' as UserRole, module: 'attendance' },
     { label: 'QR Codes', href: '/admin/qr-codes', icon: QrCode, minRole: 'campus_leader' as UserRole },
-    { label: 'Members', href: '/admin/users', icon: Users, minRole: 'group_leader' as UserRole },
+    { label: 'Members', href: '/admin/users', icon: Users, minRole: 'group_leader' as UserRole, module: 'members' },
     { label: 'Settings', href: '/admin/settings', icon: Settings, minRole: 'campus_leader' as UserRole },
   ];
 
-  const roleHierarchy: Record<UserRole, number> = { member: 0, group_leader: 1, campus_leader: 2, admin: 3, super_admin: 4 };
-  const visibleItems = sidebarItems.filter(item => roleHierarchy[currentUser.role] >= roleHierarchy[item.minRole]);
+  const visibleItems = sidebarItems.filter(item => {
+    if (ROLE_HIERARCHY[currentUser.role] >= ROLE_HIERARCHY[item.minRole]) return true;
+    if (item.module && hasPermission(currentUser, item.module)) return true;
+    return false;
+  });
 
-  // Access denied for members
-  if (!canAccessAdmin(currentUser.role)) {
+  // Access denied for members without permissions
+  if (!canAccessAdmin(currentUser)) {
     return (
       <div className="min-h-screen bg-transparent flex items-center justify-center">
         <div className="text-center space-y-4 max-w-md mx-auto p-6">

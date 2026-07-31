@@ -30,11 +30,11 @@ export async function requireAdmin() {
 
   // Role is embedded in the JWT — no DB round-trip needed
   const allowedRoles = ['admin', 'super_admin', 'campus_leader', 'group_leader'];
-  if (!allowedRoles.includes(session.role)) {
+  if (!allowedRoles.includes(session.role) && (!session.permissions || session.permissions.length === 0)) {
     return null;
   }
 
-  return { userId: session.userId, role: session.role };
+  return { userId: session.userId, role: session.role, permissions: session.permissions };
 }
 
 /**
@@ -50,12 +50,12 @@ export async function requireAdminWithScope() {
   }
 
   const allowedRoles = ['admin', 'super_admin', 'campus_leader', 'group_leader'];
-  if (!allowedRoles.includes(session.role)) {
+  if (!allowedRoles.includes(session.role) && (!session.permissions || session.permissions.length === 0)) {
     return null;
   }
 
   await connectToDatabase();
-  const user = await User.findById(session.userId).select('role campusId groups name').lean();
+  const user = await User.findById(session.userId).select('role campusId groups name permissions').lean();
   if (!user) return null;
 
   return {
@@ -64,6 +64,7 @@ export async function requireAdminWithScope() {
     campusId: user.campusId as string,
     groups: (user.groups || []) as string[],
     name: user.name as string,
+    permissions: (user.permissions || []) as string[],
   };
 }
 
@@ -77,11 +78,30 @@ export async function requireAdminWithScope() {
 export function enforceCampusScope(
   role: string,
   campusId: string,
-  requestedCampuses: string[] | undefined
+  requestedCampuses: string[] | undefined,
+  permissions?: string[],
+  moduleName?: string
 ): string[] {
   if (role === 'admin' || role === 'super_admin') {
     return requestedCampuses || ['all'];
   }
+
+  // Check module-specific permissions
+  if (moduleName && permissions) {
+    if (permissions.includes(`${moduleName}:global`)) {
+      return requestedCampuses || ['all'];
+    }
+    const modulePrefix = `${moduleName}:`;
+    const allowedCampusPerms = permissions
+      .filter(p => p.startsWith(modulePrefix) && p !== `${moduleName}:global`)
+      .map(p => p.split(':')[1]);
+      
+    if (allowedCampusPerms.length > 0) {
+      if (!requestedCampuses || requestedCampuses.length === 0) return allowedCampusPerms;
+      return requestedCampuses.filter(c => allowedCampusPerms.includes(c));
+    }
+  }
+
   // Core Team Leader: cross-campus for their groups
   if (role === 'group_leader' && campusId === 'global') {
     if (!requestedCampuses || requestedCampuses.length === 0) return ['all'];
@@ -100,11 +120,21 @@ export function enforceCampusScope(
 export function enforceGroupScope(
   role: string,
   userGroups: string[],
-  requestedGroups: string[] | undefined
+  requestedGroups: string[] | undefined,
+  permissions?: string[],
+  moduleName?: string
 ): string[] {
   if (role === 'admin' || role === 'super_admin' || role === 'campus_leader') {
     return requestedGroups || [];
   }
+  
+  if (moduleName && permissions) {
+    const hasModulePerm = permissions.some(p => p.startsWith(`${moduleName}:`));
+    if (hasModulePerm) {
+      return requestedGroups || [];
+    }
+  }
+
   // group_leader can only target their own groups
   if (!requestedGroups || requestedGroups.length === 0) {
     return userGroups; // default to all their groups

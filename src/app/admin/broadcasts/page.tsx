@@ -151,7 +151,7 @@ export default function AdminBroadcastsPage() {
             </p>
             <Button
               onClick={openCreate}
-              className="gap-2 bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl"
+              className="gap-2 bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl w-full sm:w-auto"
             >
               <Plus className="w-4 h-4" />
               Create Note Share
@@ -275,8 +275,8 @@ export default function AdminBroadcastsPage() {
                 <Select value={form.targetCampuses[0] || 'all'} onValueChange={(val) => setForm({ ...form, targetCampuses: [val] })}>
                   <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select campus" /></SelectTrigger>
                   <SelectContent>
-                    {hasGlobalScope(currentUser?.role, currentUser?.campusId) && <SelectItem value="all">All Campuses</SelectItem>}
-                    {getAllowedCampuses(currentUser?.role, currentUser?.campusId, campuses).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    {hasGlobalScope(currentUser, 'broadcasts') && <SelectItem value="all">All Campuses</SelectItem>}
+                    {getAllowedCampuses(currentUser, campuses, 'broadcasts').map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

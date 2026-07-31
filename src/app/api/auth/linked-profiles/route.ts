@@ -71,6 +71,7 @@ export async function POST(req: Request) {
       groups: [],
       isLinkedProfile: true,
       parentAccountId: userId,
+      parentRelation: body.parentRelation || '',
     });
 
     const profileObj = newProfile.toObject();

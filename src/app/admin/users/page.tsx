@@ -88,6 +88,7 @@ const emptyForm = {
   marriageDate: '',
   phone: '',
   whatsapp: '',
+  permissions: [] as string[],
 };
 
 export default function UsersPage() {
@@ -176,7 +177,7 @@ export default function UsersPage() {
     : isCore
       ? 'Core Team Leader · your groups across all campuses'
       : isCampusLeader
-        ? `Campus Leader · ${campuses.find(c => c.id === currentUser.campusId)?.name || 'your campus'} only`
+        ? `Campus Pastor · ${campuses.find(c => c.id === currentUser.campusId)?.name || 'your campus'} only`
         : 'Manage members and assign roles';
 
   const openCreate = () => {
@@ -206,6 +207,7 @@ export default function UsersPage() {
       role: user.role,
       campusId: user.campusId,
       groups: user.groups,
+      permissions: user.permissions || [],
     });
     setDialogOpen(true);
   };
@@ -335,17 +337,16 @@ export default function UsersPage() {
           <h1 className="text-3xl font-bold font-serif text-[#1A202C]">Members</h1>
           <p className="text-[#7A6150] mt-1 font-medium">{scopeSubtitle}</p>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex w-full sm:w-auto gap-2 shrink-0">
           <Button
             onClick={exportToExcel}
-            variant="outline"
-            className="gap-2 border-[#8B2323]/30 text-[#8B2323] hover:bg-[#8B2323] hover:text-white rounded-xl transition-colors"
+            className="flex-1 sm:flex-none gap-2 bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl transition-colors"
           >
             <FileDown className="w-4 h-4" />
             Export Excel
           </Button>
           {canManage && (
-            <Button onClick={openCreate} className="gap-2 bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl">
+            <Button onClick={openCreate} className="flex-1 sm:flex-none gap-2 bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl">
               <UserPlus className="w-4 h-4" />
               Add Member
             </Button>
@@ -578,6 +579,28 @@ export default function UsersPage() {
               </div>
             );
           })()}
+          {viewingUser && (
+            <DialogFooter className="mt-4 sm:justify-between flex-row-reverse">
+              {(() => {
+                const isAdmin = currentUser.role === 'admin' || currentUser.role === 'super_admin';
+                const isCampusLeader = currentUser.role === 'campus_leader';
+                const isSelf = viewingUser.id === currentUser.id;
+                const canEdit = isAdmin || (isCampusLeader && viewingUser.campusId === currentUser.campusId) || isSelf;
+                
+                return canEdit ? (
+                  <Button 
+                    className="w-full sm:w-auto bg-[#8B2323] hover:bg-[#7A1D1D] text-white gap-2"
+                    onClick={() => {
+                      setViewingUser(null);
+                      openEdit(viewingUser);
+                    }}
+                  >
+                    <Pencil className="w-4 h-4" /> Edit Profile
+                  </Button>
+                ) : <div />;
+              })()}
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -588,7 +611,7 @@ export default function UsersPage() {
             <DialogTitle>{editingId ? 'Edit Member' : 'Add Member'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-2">
               <div className="space-y-2">
                 <Label>First Name *</Label>
                 <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="First" />
@@ -602,7 +625,7 @@ export default function UsersPage() {
                 <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="Last" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-2">
                 <Label>Email *</Label>
                 <Input
@@ -631,7 +654,7 @@ export default function UsersPage() {
                 <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1..." />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-2">
               <div className="space-y-2">
                 <Label>WhatsApp</Label>
                 <Input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} placeholder="+1..." />
@@ -651,7 +674,7 @@ export default function UsersPage() {
                 <Input type="date" value={form.birthday} onChange={(e) => setForm({ ...form, birthday: e.target.value })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-2">
                 <Label>Marital Status</Label>
                 <Select value={form.maritalStatus} onValueChange={(v) => setForm({ ...form, maritalStatus: v as 'single' | 'married' })}>
@@ -669,7 +692,7 @@ export default function UsersPage() {
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-2">
                 <Label>Role</Label>
                 <Select
@@ -698,7 +721,7 @@ export default function UsersPage() {
                     {(currentUser.role === 'admin' || currentUser.role === 'super_admin') && (
                       <SelectItem value="global">Core (All Campuses FASL)</SelectItem>
                     )}
-                    {getAllowedCampuses(currentUser.role, currentUser.campusId, campuses).map(c => (
+                    {getAllowedCampuses(currentUser, campuses, 'members').map(c => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -748,7 +771,7 @@ export default function UsersPage() {
                   return <p className="text-sm text-muted-foreground">No groups available for this campus.</p>;
                 }
                 return (
-                  <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-border/50 p-3 bg-muted/20">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-1.5 rounded-lg border border-border/50 p-3 bg-muted/20">
                     {availableGroups.map(g => (
                       <label key={g} className="flex items-center gap-2 text-sm cursor-pointer">
                         <input
@@ -766,6 +789,61 @@ export default function UsersPage() {
               {form.role === 'group_leader' && form.groups.length === 0 && (
                 <p className="text-xs text-rose-600">Select at least one group for this leader.</p>
               )}
+            </div>
+            
+            <div className="w-full h-px bg-border/80 my-2" />
+            
+            {/* Permissions Section */}
+            <div className="space-y-4 pt-2">
+              <div>
+                <Label className="text-base font-semibold text-primary">Module Permissions (Optional)</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Grant access to specific admin modules. This can elevate a member's access or grant global access to leaders.
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                {[
+                  { id: 'members', label: 'Members (Accepting forms)' },
+                  { id: 'broadcasts', label: 'Broadcasts (Notes)' },
+                  { id: 'sermons', label: 'Sermons' },
+                  { id: 'worship', label: 'Worship Videos' },
+                  { id: 'greetings', label: 'Greetings' },
+                  { id: 'attendance', label: 'Attendance' },
+                  { id: 'announcements', label: 'Announcements' },
+                ].map(module => {
+                  const currentPerm = form.permissions.find(p => p.startsWith(`${module.id}:`));
+                  const currentScope = currentPerm ? currentPerm.split(':')[1] : 'none';
+                  
+                  return (
+                    <div key={module.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-4">
+                      <Label className="text-sm font-medium">{module.label}</Label>
+                      <Select
+                        value={currentScope}
+                        onValueChange={(val) => {
+                          const newPerms = form.permissions.filter(p => !p.startsWith(`${module.id}:`));
+                          if (val !== 'none') {
+                            newPerms.push(`${module.id}:${val}`);
+                          }
+                          setForm({ ...form, permissions: newPerms });
+                        }}
+                      >
+                        <SelectTrigger className="w-full sm:w-[180px] h-8 text-xs">
+                          <SelectValue placeholder="No Access / Default" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Default Role Access</SelectItem>
+                          {(currentUser.role === 'admin' || currentUser.role === 'super_admin') && (
+                            <SelectItem value="global">Global (All Campuses)</SelectItem>
+                          )}
+                          {getAllowedCampuses(currentUser, campuses, 'members').map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
           <DialogFooter>

@@ -33,6 +33,8 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
   const [phone, setPhone] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [whatsappSame, setWhatsappSame] = useState(false);
+  const [relation, setRelation] = useState('');
+  const [otherRelation, setOtherRelation] = useState('');
   
   const [submitting, setSubmitting] = useState(false);
 
@@ -54,6 +56,8 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
     setPhone('');
     setWhatsapp('');
     setWhatsappSame(false);
+    setRelation('');
+    setOtherRelation('');
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -70,6 +74,7 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
       campusId,
       phone,
       whatsapp: whatsappSame ? phone : whatsapp,
+      parentRelation: relation === 'other' ? otherRelation : relation,
     });
     setSubmitting(false);
     if (res.success) {
@@ -81,7 +86,7 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
   };
 
   const canProceedStep1 = firstName && lastName && gender && birthday;
-  const canProceedStep2 = campusId && maritalStatus;
+  const canProceedStep2 = campusId && maritalStatus && relation && (relation !== 'other' || otherRelation.trim() !== '');
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
@@ -154,6 +159,31 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
 
           {step === 2 && (
             <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="space-y-2">
+                <Label>Relation to You *</Label>
+                <Select value={relation} onValueChange={setRelation}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue placeholder="Select relation" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="father">Father</SelectItem>
+                    <SelectItem value="mother">Mother</SelectItem>
+                    <SelectItem value="son">Son</SelectItem>
+                    <SelectItem value="daughter">Daughter</SelectItem>
+                    <SelectItem value="grandfather">Grandfather</SelectItem>
+                    <SelectItem value="grandmother">Grandmother</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {relation === 'other' && (
+                <div className="space-y-2 animate-in slide-in-from-top-2">
+                  <Label>Specify Relation *</Label>
+                  <Input value={otherRelation} onChange={e => setOtherRelation(e.target.value)} className="rounded-xl" placeholder="e.g. Uncle, Cousin" />
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label>Campus *</Label>
                 <Select value={campusId} onValueChange={setCampusId}>
@@ -238,7 +268,7 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
               
               <div className="rounded-lg bg-amber-50 p-3 mt-4">
                 <p className="text-xs text-amber-800 leading-relaxed">
-                  By submitting this, the profile will be sent to the Campus Leader for approval.
+                  By submitting this, the profile will be sent to the Campus Pastor for approval.
                 </p>
               </div>
 

@@ -283,6 +283,7 @@ export interface UserProfile {
   parentAccountId?: string;
   parentName?: string;
   isLinkedProfile?: boolean;
+  permissions?: string[];
 }
 
 export interface ChurchMember {
@@ -310,6 +311,7 @@ export interface ChurchMember {
   isLinkedProfile?: boolean;
   role?: string;
   createdBy?: string;
+  permissions?: string[];
 }
 
 export interface AuthSession {
@@ -317,4 +319,5 @@ export interface AuthSession {
   email: string;
   name: string;
   role: string;
+  permissions?: string[];
 }

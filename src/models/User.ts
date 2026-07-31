@@ -21,7 +21,9 @@ export interface IUser extends Document {
   qrCode?: string;
   familyMemberId?: mongoose.Types.ObjectId;
   parentAccountId?: mongoose.Types.ObjectId;
+  parentRelation?: string;
   isLinkedProfile: boolean;
+  permissions: string[];
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -56,7 +58,9 @@ const UserSchema = new Schema<IUser>(
     qrCode: { type: String },
     familyMemberId: { type: Schema.Types.ObjectId, ref: 'User' },
     parentAccountId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    parentRelation: { type: String, default: '' },
     isLinkedProfile: { type: Boolean, default: false },
+    permissions: [{ type: String }],
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

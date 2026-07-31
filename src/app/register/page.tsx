@@ -70,7 +70,7 @@ export default function RegisterEntryPage() {
               <div className="space-y-2">
                 <h2 className="text-lg font-semibold">Ready to Join?</h2>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Please scan the QR code located at your local campus registration desk or provided by a campus leader.
+                  Please scan the QR code located at your local campus registration desk or provided by a campus pastor.
                 </p>
               </div>
 

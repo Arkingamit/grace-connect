@@ -2,11 +2,13 @@ import { z } from 'zod';
 
 // Authentication Schemas
 export const loginSchema = z.object({
-  credential: z.string().min(1, 'Google credential is required'),
+  credential: z.string().min(1, 'Authentication credential is required'),
+  provider: z.enum(['google', 'apple']).default('google'),
 });
 
 export const registerSchema = z.object({
-  credential: z.string().min(1, 'Google credential is required'),
+  credential: z.string().min(1, 'Authentication credential is required'),
+  provider: z.enum(['google', 'apple']).default('google'),
   firstName: z.string().min(2, 'First name is required'),
   middleName: z.string().optional(),
   lastName: z.string().min(2, 'Last name is required'),

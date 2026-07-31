@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
 import { OAuth2Client } from 'google-auth-library';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { registerSchema } from '@/lib/validations';
+
+const googleClient = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
+const appleJWKS = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
 
 export async function POST(req: Request) {
   try {
@@ -11,21 +15,31 @@ export async function POST(req: Request) {
     if (!parseResult.success) {
       return NextResponse.json({ error: parseResult.error.errors[0].message }, { status: 400 });
     }
-    const { credential, firstName, middleName, lastName, gender, birthday, maritalStatus, marriageDate, campusId, phone, whatsapp, familyMemberId } = parseResult.data;
+    const { credential, provider, firstName, middleName, lastName, gender, birthday, maritalStatus, marriageDate, campusId, phone, whatsapp, familyMemberId } = parseResult.data;
 
-    // Verify Google token
-    const client = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
-    const ticket = await client.verifyIdToken({
-      idToken: credential,
-      audience: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return NextResponse.json({ error: 'Invalid Google token or missing email' }, { status: 400 });
+    let email = '';
+
+    if (provider === 'apple') {
+      const { payload } = await jwtVerify(credential, appleJWKS, {
+        issuer: 'https://appleid.apple.com',
+      });
+      if (!payload || !payload.email || typeof payload.email !== 'string') {
+        return NextResponse.json({ error: 'Invalid Apple token or missing email' }, { status: 400 });
+      }
+      email = payload.email.toLowerCase();
+    } else {
+      // Verify Google token
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+      });
+      
+      const payload = ticket.getPayload();
+      if (!payload || !payload.email) {
+        return NextResponse.json({ error: 'Invalid Google token or missing email' }, { status: 400 });
+      }
+      email = payload.email.toLowerCase();
     }
-
-    const email = payload.email.toLowerCase();
 
     await connectToDatabase();
     

@@ -57,7 +57,7 @@ export const VideoCarousel: React.FC<VideoCarouselProps> = ({ className }) => {
   const swiperRef = useRef<any>(null);
 
   const getThumbnailUrl = (videoId: string) => {
-    return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
   };
 
   const handleThumbnailClick = (videoId: string) => {

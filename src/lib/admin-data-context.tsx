@@ -64,7 +64,7 @@ import { mapId } from './hooks/utils';
 export const ROLE_LABELS: Record<UserRole, string> = {
   member: 'Member',
   group_leader: 'FASL Leader',
-  campus_leader: 'Campus Leader',
+  campus_leader: 'Campus Pastor',
   admin: 'Admin',
   super_admin: 'IT Team',
 };
@@ -100,8 +100,15 @@ export const ROLE_HIERARCHY: Record<UserRole, number> = {
   super_admin: 4,
 };
 
-export function canAccessAdmin(role: UserRole): boolean {
-  return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY.group_leader;
+export function hasPermission(user: UserProfile, module: string): boolean {
+  if (ROLE_HIERARCHY[user.role] >= ROLE_HIERARCHY.admin) return true;
+  if (!user.permissions) return false;
+  return user.permissions.some(p => p.startsWith(`${module}:`));
+}
+
+export function canAccessAdmin(user: UserProfile): boolean {
+  if (ROLE_HIERARCHY[user.role] >= ROLE_HIERARCHY.group_leader) return true;
+  return user.permissions ? user.permissions.length > 0 : false;
 }
 
 export function canPublish(role: UserRole): boolean {
@@ -160,46 +167,57 @@ export function getGroupsForCampus(groupScopes: Group[], campusId: string): stri
 }
 
 /**
- * Returns the campuses a user is allowed to target based on their role.
- * - admin/super_admin: all campuses
- * - Core Team Leader (group_leader + global): all campuses
- * - campus_leader / FASL Leader: only their own campus
+ * Returns the campuses a user is allowed to target based on their role and permissions.
  */
-export function getAllowedCampuses(role: UserRole, campusId: string, campuses: Campus[]): Campus[] {
-  if (role === 'admin' || role === 'super_admin' || isCoreTeamLeader(role, campusId)) {
+export function getAllowedCampuses(user: UserProfile, campuses: Campus[], moduleName?: string): Campus[] {
+  if (user.role === 'admin' || user.role === 'super_admin' || isCoreTeamLeader(user.role, user.campusId)) {
     return campuses;
   }
-  return campuses.filter(c => c.id === campusId);
+  if (moduleName && user.permissions) {
+    if (user.permissions.includes(`${moduleName}:global`)) {
+      return campuses;
+    }
+    const modulePrefix = `${moduleName}:`;
+    const allowedCampusPerms = user.permissions
+      .filter(p => p.startsWith(modulePrefix) && p !== `${moduleName}:global`)
+      .map(p => p.split(':')[1]);
+      
+    if (allowedCampusPerms.length > 0) {
+      return campuses.filter(c => allowedCampusPerms.includes(c.id));
+    }
+  }
+  return campuses.filter(c => c.id === user.campusId);
 }
 
 /**
  * Returns the group names a user is allowed to target.
- * - admin/super_admin: all groups
- * - campus_leader: all groups within their campus
- * - group_leader (FASL or Core): only their own assigned groups
  */
 export function getAllowedGroups(
-  role: UserRole,
-  userGroups: string[],
+  user: UserProfile,
   groupScopes: Group[],
-  campusId: string
+  moduleName?: string
 ): string[] {
-  if (role === 'admin' || role === 'super_admin') {
+  if (user.role === 'admin' || user.role === 'super_admin') {
     return groupScopes.map(g => g.name);
   }
-  if (role === 'campus_leader') {
-    return getGroupsForCampus(groupScopes, campusId);
+  if (user.role === 'campus_leader') {
+    return getGroupsForCampus(groupScopes, user.campusId);
   }
   // group_leader: only their own groups
-  return userGroups;
+  return user.groups || [];
 }
 
 /**
- * Whether the user has global (all-campus) broadcast scope.
- * Core Team Leaders can target all campuses (groups still restricted).
+ * Whether the user has global (all-campus) scope for a module.
  */
-export function hasGlobalScope(role: UserRole, campusId?: string): boolean {
-  return role === 'admin' || role === 'super_admin' || isCoreTeamLeader(role, campusId);
+export function hasGlobalScope(user: UserProfile, moduleName?: string): boolean {
+  if (user.role === 'admin' || user.role === 'super_admin' || isCoreTeamLeader(user.role, user.campusId)) {
+    return true;
+  }
+  if (moduleName && user.permissions?.includes(`${moduleName}:global`)) {
+    return true;
+  }
+  return false;
 }
 
 // ── Default Groups (kept client-side for now) ──────────────────────────
@@ -469,7 +487,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [groupScopes]);
 
-  const updateGroup = useCallback(async (id: string, updates: { name?: string; scope?: string }) => {
+  const updateGroup = useCallback(async (id: string, updates: { name?: string; scope?: string; coreGroupId?: string | null; leaderId?: string }) => {
     const res = await fetch(`/api/admin/groups/${id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
@@ -479,7 +497,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
       return { success: false, error: data.error || 'Failed to update group' };
     }
     const updated = await res.json();
-    setGroupScopes(prev => prev.map(g => (g as any).id === id ? { ...g, name: updated.name, scope: updated.scope } : g));
+    setGroupScopes(prev => prev.map(g => (g as any).id === id ? { ...g, name: updated.name, scope: updated.scope, coreGroupId: updated.coreGroupId } : g));
     if (updates.name) {
       setGroups(prev => prev.map(n => {
         const oldGroup = groupScopes.find(g => (g as any).id === id);
@@ -493,8 +511,24 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
         })
       })));
     }
+    if (updates.leaderId) {
+      setUsers(prev => prev.map(u => {
+        if (u.id === updates.leaderId) {
+          const nextGroups = Array.from(new Set([...u.groups, updated.name]));
+          let newRole = u.role;
+          let newCampusId = u.campusId;
+          if (u.role === 'member') {
+            newRole = 'group_leader';
+            newCampusId = updated.scope === 'global' ? 'global' : updated.scope;
+          }
+          return { ...u, groups: nextGroups, role: newRole, campusId: newCampusId };
+        }
+        return u;
+      }));
+    }
     return { success: true, group: updated };
   }, [groupScopes]);
+
 
   const updateSystemSettings = useCallback(async (s: Partial<SystemSettings>) => {
     const res = await fetch('/api/admin/settings', {

@@ -21,20 +21,24 @@ export async function GET() {
 
     let query: any = {};
 
-    if (admin.role === 'campus_leader') {
-      // Campus leaders see announcements targeting their campus or 'all'
-      query.$or = [
-        { targetCampuses: { $in: [admin.campusId, 'all'] } },
-      ];
-    } else if (admin.role === 'group_leader') {
-      // Group leaders see announcements targeting their campus/all AND their groups
-      query.$or = [
-        { targetCampuses: { $in: [admin.campusId, 'all'] }, targetGroups: { $in: [...admin.groups, 'all'] } },
-        { targetCampuses: { $in: [admin.campusId, 'all'] }, targetGroups: { $size: 0 } },
-        { targetCampuses: { $in: [admin.campusId, 'all'] }, targetGroups: { $exists: false } },
-      ];
+    const allowedCampuses = enforceCampusScope(admin.role, admin.campusId, undefined, admin.permissions, 'announcements');
+    const hasModulePerm = admin.permissions?.some((p: string) => p.startsWith('announcements:'));
+
+    if (!allowedCampuses.includes('all')) {
+      if (admin.role === 'group_leader' && !hasModulePerm) {
+        // Group leaders see announcements targeting their campus/all AND their groups
+        query.$or = [
+          { targetCampuses: { $in: [...allowedCampuses, 'all'] }, targetGroups: { $in: [...admin.groups, 'all'] } },
+          { targetCampuses: { $in: [...allowedCampuses, 'all'] }, targetGroups: { $size: 0 } },
+          { targetCampuses: { $in: [...allowedCampuses, 'all'] }, targetGroups: { $exists: false } },
+        ];
+      } else {
+        // Campus leaders or members with module permission see announcements targeting their allowed campuses or 'all'
+        query.$or = [
+          { targetCampuses: { $in: [...allowedCampuses, 'all'] } },
+        ];
+      }
     }
-    // admin/super_admin: no filter — see everything
 
     const announcements = await Announcement.find(query)
       .sort({ isPinned: -1, createdAt: -1 })
@@ -54,8 +58,8 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     // Enforce scope restrictions
-    body.targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses);
-    body.targetGroups = enforceGroupScope(admin.role, admin.groups, body.targetGroups);
+    body.targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses, admin.permissions, 'announcements');
+    body.targetGroups = enforceGroupScope(admin.role, admin.groups, body.targetGroups, admin.permissions, 'announcements');
 
     // Auto-calculate nextOccurrence for recurring announcements
     if (body.isRecurring) {

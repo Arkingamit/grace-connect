@@ -66,8 +66,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
 
     // Enforce scope for models that support it
     if (type === 'gallery' || type === 'sermons') {
-      body.targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses);
-      body.targetGroups = enforceGroupScope(admin.role, admin.groups, body.targetGroups);
+      body.targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses, admin.permissions, type);
+      body.targetGroups = enforceGroupScope(admin.role, admin.groups, body.targetGroups, admin.permissions, type);
     } else if (type === 'livestreams') {
       if (admin.role === 'campus_leader' || admin.role === 'group_leader') {
         body.campusId = admin.campusId;

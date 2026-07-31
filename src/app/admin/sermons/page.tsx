@@ -90,7 +90,7 @@ export default function SermonManagementPage() {
   const isCore = isCoreTeamLeader(currentUser?.role || 'member', currentUser?.campusId);
   const isFas = isFasLeader(currentUser?.role || 'member', currentUser?.campusId);
   const campusLocked = isCampusLeader || isFas;
-  const canAllCampusesScope = hasGlobalScope(currentUser?.role || 'member', currentUser?.campusId);
+  const canAllCampusesScope = hasGlobalScope(currentUser, 'sermons');
 
   const setCampusMode = (mode: 'all' | 'specific') => {
     if (campusLocked) return;
@@ -301,11 +301,11 @@ export default function SermonManagementPage() {
           <h1 className="text-3xl font-bold">Sermon & Series Management</h1>
           <p className="text-muted-foreground mt-1">Manage playlists and individual sermon videos</p>
         </div>
-        <div className="flex gap-2 shrink-0">
-          <Button variant="outline" onClick={openAddSeries} className="gap-2">
+        <div className="flex w-full sm:w-auto gap-2 shrink-0">
+          <Button onClick={openAddSeries} className="flex-1 sm:flex-none gap-2 bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl">
             <FolderPlus className="w-4 h-4" /> New Series
           </Button>
-          <Button onClick={openAddSermon} className="gap-2">
+          <Button onClick={openAddSermon} className="flex-1 sm:flex-none gap-2 bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl">
             <Plus className="w-4 h-4" /> Add Sermon
           </Button>
         </div>
@@ -629,7 +629,7 @@ export default function SermonManagementPage() {
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Broadcast to Campuses</Label>
                   {isCampusLeader && (
-                    <p className="text-[10px] text-amber-500">Campus Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
+                    <p className="text-[10px] text-amber-500">Campus Pastor: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
                   )}
                   {isFas && (
                     <p className="text-[10px] text-emerald-500">FASL Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
@@ -649,7 +649,7 @@ export default function SermonManagementPage() {
                   )}
                   {(campusMode !== 'all' || !canAllCampusesScope) && (
                     <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
-                      {getAllowedCampuses(currentUser.role, currentUser.campusId, campuses).map(c => (
+                      {getAllowedCampuses(currentUser, campuses, 'sermons').map(c => (
                         <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
                           <Checkbox
                             checked={(sermonForm.targetCampuses || []).includes(c.id)}
@@ -703,7 +703,7 @@ export default function SermonManagementPage() {
                         const visibleGroups = campusMode === 'all'
                           ? groups
                           : [...new Set(selectedCampusIds.flatMap(cid => getGroupsForCampus(groupScopes, cid)))];
-                        return getAllowedGroups(currentUser.role, currentUser.groups, groupScopes, currentUser.campusId)
+                        return getAllowedGroups(currentUser, groupScopes, 'sermons')
                           .filter(g => visibleGroups.includes(g))
                           .map(g => (
                           <label key={g} className="flex items-center gap-2 text-sm cursor-pointer">

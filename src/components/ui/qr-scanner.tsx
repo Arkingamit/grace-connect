@@ -279,7 +279,7 @@ export function QRScanner({ onClose }: QRScannerProps) {
       {/* Hint */}
       {!error && !scannedCampus && (
         <p className="text-white/40 text-xs mt-6 text-center max-w-xs">
-          Ask your campus leader for the QR code, or select your campus manually on the registration page.
+          Ask your campus pastor for the QR code, or select your campus manually on the registration page.
         </p>
       )}
     </div>

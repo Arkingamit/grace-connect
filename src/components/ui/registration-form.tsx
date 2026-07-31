@@ -18,6 +18,10 @@ import {
 } from 'lucide-react';
 import { QRScanner } from '@/components/ui/qr-scanner';
 import { GoogleLogin } from '@react-oauth/google';
+import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+import { SignInWithApple } from '@capacitor-community/apple-sign-in';
+import AppleLogin from 'react-apple-signin-auth';
 
 interface RegistrationFormProps {
   /** When set, the campus is pre-selected and cannot be changed (QR flow) */
@@ -50,6 +54,20 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [isNative, setIsNative] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+    const initNative = () => {
+      const isCap = typeof window !== 'undefined' && (window as any).Capacitor?.isNative;
+      const isWebView = typeof window !== 'undefined' && /wv|Nexus|Android.*AppleWebKit/i.test(navigator.userAgent);
+      if (isCap || isWebView) {
+        setIsNative(true);
+      }
+    };
+    initNative();
+  }, []);
 
   // Family linking state
   const [hasFamilyMember, setHasFamilyMember] = useState(false);
@@ -90,6 +108,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
 
     const result = await register({
       credential: credentialResponse.credential,
+      provider: 'google',
       firstName: form.firstName,
       middleName: form.middleName,
       lastName: form.lastName,
@@ -107,6 +126,103 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
       setSubmitted(true);
     } else {
       setError(result.error || 'Registration failed');
+    }
+  };
+
+  const handleNativeGoogleRegister = async () => {
+    try {
+      setError('');
+      const user = await GoogleAuth.signIn();
+      if (!user.authentication.idToken) {
+        setError('Google authentication failed. No ID Token received.');
+        return;
+      }
+      handleGoogleRegister({ credential: user.authentication.idToken });
+    } catch (err: any) {
+      console.error(err);
+      setError('Native Google login failed or was canceled.');
+    }
+  };
+
+  const handleNativeAppleRegister = async () => {
+    try {
+      setError('');
+      const result = await SignInWithApple.authorize({
+        clientId: 'com.graceconnect.app',
+        scopes: 'email name',
+        redirectURI: 'https://graceconnect.graceahmedabad.org/register',
+      });
+      if (result.response && result.response.identityToken) {
+        const authResult = await register({
+          credential: result.response.identityToken,
+          provider: 'apple',
+          firstName: result.response.givenName || form.firstName, // Use Apple's provided name if available
+          middleName: form.middleName,
+          lastName: result.response.familyName || form.lastName,
+          gender: form.gender as 'male' | 'female',
+          birthday: form.birthday,
+          maritalStatus: form.maritalStatus as 'single' | 'married',
+          marriageDate: form.marriageDate,
+          campusId: form.campusId,
+          phone: form.phone,
+          whatsapp: whatsappSame ? form.phone : form.whatsapp,
+          ...(selectedFamily ? { familyMemberId: selectedFamily.id } : {}),
+        });
+        if (authResult.success) {
+          setSubmitted(true);
+        } else {
+          setError(authResult.error || 'Registration failed');
+        }
+      } else {
+        setError('Apple authentication failed. No ID token received.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError('Native Apple login failed or was canceled.');
+    }
+  };
+
+  const handleAppleWebRegister = async (response: any) => {
+    setError('');
+    if (response.error) {
+      setError('Apple authentication failed or was canceled.');
+      return;
+    }
+    const idToken = response.authorization?.id_token;
+    if (!idToken) {
+      setError('Apple authentication failed. No ID token received.');
+      return;
+    }
+
+    let appleFirstName = form.firstName;
+    let appleLastName = form.lastName;
+    if (response.user) {
+      try {
+        const userObj = typeof response.user === 'string' ? JSON.parse(response.user) : response.user;
+        appleFirstName = userObj.name?.firstName || appleFirstName;
+        appleLastName = userObj.name?.lastName || appleLastName;
+      } catch (e) {}
+    }
+
+    const authResult = await register({
+      credential: idToken,
+      provider: 'apple',
+      firstName: appleFirstName,
+      middleName: form.middleName,
+      lastName: appleLastName,
+      gender: form.gender as 'male' | 'female',
+      birthday: form.birthday,
+      maritalStatus: form.maritalStatus as 'single' | 'married',
+      marriageDate: form.marriageDate,
+      campusId: form.campusId,
+      phone: form.phone,
+      whatsapp: whatsappSame ? form.phone : form.whatsapp,
+      ...(selectedFamily ? { familyMemberId: selectedFamily.id } : {}),
+    });
+    if (authResult.success) {
+      setSubmitted(true);
+    } else {
+      setError(authResult.error || 'Registration failed');
     }
   };
 
@@ -206,7 +322,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
               </div>
               <h2 className="text-xl font-bold">Registration Submitted!</h2>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                Your registration is pending approval from your campus leader.
+                Your registration is pending approval from your campus pastor.
                 You&apos;ll be able to sign in once your request is approved.
               </p>
               <div className="bg-muted/30 rounded-lg p-4 text-left space-y-1">
@@ -534,16 +650,67 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                 {canProceedStep3 && (
                   <div className="mt-6 pt-6 border-t border-border/50 animate-in fade-in flex flex-col items-center space-y-4">
                     <p className="text-sm font-medium">Verify & Register</p>
-                    <GoogleLogin
-                      onSuccess={handleGoogleRegister}
-                      onError={handleGoogleError}
-                      useOneTap={false}
-                      theme="outline"
-                      size="large"
-                      shape="rectangular"
-                      text="signup_with"
-                      width="100%"
-                    />
+                    
+                    {!mounted ? (
+                      <div className="w-full space-y-3">
+                        <div className="w-full h-[44px] animate-pulse bg-[#F3EAE1]/50 rounded-lg"></div>
+                        <div className="w-full h-[44px] animate-pulse bg-[#F3EAE1]/50 rounded-lg"></div>
+                      </div>
+                    ) : isNative ? (
+                      <>
+                        <button
+                          onClick={handleNativeGoogleRegister}
+                          className="w-full bg-white text-gray-700 border border-gray-300 font-medium text-sm rounded-md py-2.5 px-4 flex items-center justify-center gap-3 hover:bg-gray-50 transition-colors shadow-sm"
+                        >
+                          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                          Register with Google
+                        </button>
+                        <button
+                          onClick={handleNativeAppleRegister}
+                          className="w-full bg-black text-white border border-black font-medium text-sm rounded-md py-2.5 px-4 flex items-center justify-center gap-3 hover:bg-gray-900 transition-colors shadow-sm"
+                        >
+                          <svg viewBox="0 0 384 512" className="w-5 h-5 fill-white"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.1-44.6-35.9-2.8-74.3 22.7-93.1 22.7-18.9 0-50.1-22.1-78.8-22.1-41.1 0-79.6 23.3-100.9 61.2-42.9 76.5-11 190.2 30.6 248.9 20.4 28.7 44.5 61.2 75.3 60 30.3-1.2 41.5-19.6 77.9-19.6 36.1 0 46.5 19.3 78.2 19.3 32.5-.2 53.6-29.6 73.8-59 23.2-34 32.4-67.1 33-68.8-1-1-61.9-23.7-61.9-113.2zM250.7 77.7c16.5-20.1 27.6-47.8 24.6-75.7-24 1-52 14.1-69 32.2-15.1 16-27.9 44-24.3 71.1 26.6 2 52.2-14.8 68.7-27.6z"/></svg>
+                          Register with Apple
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-full flex justify-center [&>div]:!w-full [&>div>div]:!w-full [&_iframe]:!w-full">
+                          <GoogleLogin
+                            onSuccess={handleGoogleRegister}
+                            onError={handleGoogleError}
+                            useOneTap={false}
+                            theme="outline"
+                            size="large"
+                            shape="rectangular"
+                            text="signup_with"
+                            width="100%"
+                          />
+                        </div>
+                        <div className="w-full flex justify-center">
+                          <AppleLogin
+                            authOptions={{
+                              clientId: process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || 'com.graceconnect.web',
+                              redirectURI: typeof window !== 'undefined' ? `${window.location.origin}/register` : '',
+                              usePopup: true,
+                              scope: 'email name'
+                            }}
+                            uiType="dark"
+                            onSuccess={handleAppleWebRegister}
+                            onError={(error: any) => handleAppleWebRegister({ error })}
+                            render={(renderProps) => (
+                              <button
+                                onClick={renderProps.onClick}
+                                className="w-full bg-black text-white border border-black font-medium text-sm rounded-md py-2.5 px-4 flex items-center justify-center gap-3 hover:bg-gray-900 transition-colors shadow-sm"
+                              >
+                                <svg viewBox="0 0 384 512" className="w-5 h-5 fill-white"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.1-44.6-35.9-2.8-74.3 22.7-93.1 22.7-18.9 0-50.1-22.1-78.8-22.1-41.1 0-79.6 23.3-100.9 61.2-42.9 76.5-11 190.2 30.6 248.9 20.4 28.7 44.5 61.2 75.3 60 30.3-1.2 41.5-19.6 77.9-19.6 36.1 0 46.5 19.3 78.2 19.3 32.5-.2 53.6-29.6 73.8-59 23.2-34 32.4-67.1 33-68.8-1-1-61.9-23.7-61.9-113.2zM250.7 77.7c16.5-20.1 27.6-47.8 24.6-75.7-24 1-52 14.1-69 32.2-15.1 16-27.9 44-24.3 71.1 26.6 2 52.2-14.8 68.7-27.6z"/></svg>
+                                Register with Apple
+                              </button>
+                            )}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </>

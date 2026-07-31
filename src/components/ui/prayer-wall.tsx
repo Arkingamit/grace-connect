@@ -106,7 +106,7 @@ function PrayerWallWidgetLayout() {
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        toast.success('Prayer request submitted! It will appear once approved by your campus leader.');
+        toast.success('Prayer request submitted! It will appear once approved by your campus pastor.');
         setShowForm(false);
         setNewRequest({ title: '', content: '', campusId: '' });
         fetchPrayers();
@@ -211,7 +211,7 @@ function PrayerWallWidgetLayout() {
                         </select>
                         <p className="text-xs text-muted-foreground mt-1">
                           <Building2 className="w-3 h-3 inline mr-1" />
-                          Required so we can route your request to the correct campus leader for approval.
+                          Required so we can route your request to the correct campus pastor for approval.
                         </p>
                       </div>
                     )}

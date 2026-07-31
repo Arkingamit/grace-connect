@@ -15,8 +15,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const body = await req.json();
 
     // Enforce scope restrictions on update
-    body.targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses);
-    body.targetGroups = enforceGroupScope(admin.role, admin.groups, body.targetGroups);
+    body.targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses, admin.permissions, 'events');
+    body.targetGroups = enforceGroupScope(admin.role, admin.groups, body.targetGroups, admin.permissions, 'events');
 
     const url = new URL(req.url);
     const updateSeries = url.searchParams.get('updateSeries') === 'true';

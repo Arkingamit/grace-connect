@@ -10,8 +10,8 @@ interface AuthContextType {
   session: AuthSession | null;
   members: ChurchMember[];
   isLoading: boolean;
-  register: (data: Partial<ChurchMember> & { credential?: string }) => Promise<{ success: boolean; error?: string }>;
-  login: (credential: string) => Promise<{ success: boolean; error?: string }>;
+  register: (data: Partial<ChurchMember> & { credential?: string; provider?: 'google' | 'apple' }) => Promise<{ success: boolean; error?: string }>;
+  login: (credential: string, provider?: 'google' | 'apple') => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   getMember: (id: string) => ChurchMember | undefined;
   getSessionMember: () => ChurchMember | undefined;
@@ -126,12 +126,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const login = useCallback(async (credential: string) => {
+  const login = useCallback(async (credential: string, provider: 'google' | 'apple' = 'google') => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential }),
+        body: JSON.stringify({ credential, provider }),
       });
       const result = await res.json();
       if (!res.ok) return { success: false, error: result.error || 'Login failed' };

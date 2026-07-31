@@ -29,6 +29,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       group.scope = body.scope || group.scope;
     }
     
+    if (body.coreGroupId !== undefined) {
+      if (body.coreGroupId === null || body.coreGroupId === '') {
+        group.coreGroupId = null;
+      } else {
+        const coreGroup = await Group.findById(body.coreGroupId);
+        if (!coreGroup || coreGroup.scope !== 'global') {
+          return NextResponse.json({ error: 'Invalid core group' }, { status: 400 });
+        }
+        group.coreGroupId = body.coreGroupId;
+      }
+    }
+    
     await group.save();
 
     if (oldName !== group.name) {
@@ -37,6 +49,24 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         { groups: oldName },
         { $set: { "groups.$": group.name } }
       );
+    }
+    
+    if (body.leaderId) {
+      const User = (await import('@/models/User')).default;
+      const leader = await User.findById(body.leaderId);
+      if (leader) {
+        const canElevate = leader.role === 'member' || leader.role === 'group_leader';
+        const leaderCampusId = group.scope === 'global' ? 'global' : group.scope;
+        const nextGroups = Array.from(new Set([...(leader.groups || []), group.name]));
+        
+        const update: Record<string, unknown> = { groups: nextGroups };
+        if (canElevate && leader.role === 'member') {
+          update.role = 'group_leader';
+          update.campusId = leaderCampusId;
+        }
+        
+        await User.findByIdAndUpdate(body.leaderId, update);
+      }
     }
 
     return NextResponse.json(group);

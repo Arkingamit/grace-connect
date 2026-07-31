@@ -23,6 +23,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import {
   Building2,
   Users,
@@ -36,6 +39,7 @@ import {
   UserMinus,
   Check,
   Edit2,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAdminActionLoading } from '@/components/admin/admin-action-loading';
@@ -64,6 +68,7 @@ export default function SettingsPage() {
     isCampusLeaderOnly ? (currentUser.campusId || 'main') : 'global'
   );
   const [newGroupLeaderId, setNewGroupLeaderId] = useState<string>('');
+  const [newLeaderComboboxOpen, setNewLeaderComboboxOpen] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
   /** Campus FASL create mode: link to an existing Core group, or standalone campus group */
   const [campusGroupMode, setCampusGroupMode] = useState<'link_core' | 'standalone'>('link_core');
@@ -76,6 +81,7 @@ export default function SettingsPage() {
   const [editingGroupScope, setEditingGroupScope] = useState('');
   const [editingCoreLink, setEditingCoreLink] = useState(''); // id or 'standalone'
   const [editingLeaderId, setEditingLeaderId] = useState('');
+  const [editLeaderComboboxOpen, setEditLeaderComboboxOpen] = useState(false);
   const [isSavingGroup, setIsSavingGroup] = useState(false);
 
   // Group member management state
@@ -222,7 +228,7 @@ export default function SettingsPage() {
         <Shield className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
         <p className="text-lg font-semibold">Access Restricted</p>
         <p className="text-muted-foreground mt-1">
-          Only Campus Leaders, Admins, and IT Team can manage groups.
+          Only Campus Pastors, Admins, and IT Team can manage groups.
         </p>
       </div>
     );
@@ -408,7 +414,7 @@ export default function SettingsPage() {
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">{campuses.length} campuses</p>
           </div>
-          <Button onClick={openCreateCampus} size="sm" className="gap-2 w-full sm:w-auto">
+          <Button onClick={openCreateCampus} size="sm" className="gap-2 w-full sm:w-auto bg-[#8B2323] hover:bg-[#721515] text-white">
             <Plus className="w-4 h-4" /> Add Campus
           </Button>
         </CardHeader>
@@ -471,7 +477,7 @@ export default function SettingsPage() {
               {groupScopes.length} groups · Assign FASL / Core Team Leaders when creating
             </p>
           </div>
-          <Button onClick={openCreateGroup} size="sm" className="gap-2 w-full">
+          <Button onClick={openCreateGroup} size="sm" className="gap-2 w-full sm:w-auto bg-[#8B2323] hover:bg-[#721515] text-white">
             <Plus className="w-4 h-4" /> Add Group
           </Button>
         </CardHeader>
@@ -793,7 +799,7 @@ export default function SettingsPage() {
                 <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm">
                   {campuses.find((c) => c.id === currentUser.campusId)?.name || currentUser.campusId}
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Campus Leaders create FASL groups for their campus only.
+                    Campus Pastors create FASL groups for their campus only.
                   </p>
                 </div>
               ) : (
@@ -914,22 +920,62 @@ export default function SettingsPage() {
 
             <div className="space-y-2">
               <Label>Assign {leaderRoleLabel}</Label>
-              <Select value={newGroupLeaderId || 'none'} onValueChange={(v) => setNewGroupLeaderId(v === 'none' ? '' : v)}>
-                <SelectTrigger><SelectValue placeholder="Select a leader (optional)" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No leader yet</SelectItem>
-                  {leaderCandidates.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.name}
-                      {u.role === 'group_leader'
-                        ? ` · ${getRoleLabel(u.role, u.campusId)}`
-                        : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={newLeaderComboboxOpen} onOpenChange={setNewLeaderComboboxOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={newLeaderComboboxOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {newGroupLeaderId
+                      ? (newGroupLeaderId === 'none' 
+                          ? 'No leader yet' 
+                          : leaderCandidates.find(u => u.id === newGroupLeaderId)?.name || 'Select a leader...')
+                      : 'Select a leader (optional)'}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput placeholder="Search leader..." />
+                    <CommandList>
+                      <CommandEmpty>No leader found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          key="none"
+                          value="none"
+                          onSelect={() => {
+                            setNewGroupLeaderId('none');
+                            setNewLeaderComboboxOpen(false);
+                          }}
+                        >
+                          <Check className={cn('mr-2 h-4 w-4', newGroupLeaderId === 'none' || newGroupLeaderId === '' ? 'opacity-100' : 'opacity-0')} />
+                          No leader yet
+                        </CommandItem>
+                        {leaderCandidates.map((u) => (
+                          <CommandItem
+                            key={u.id}
+                            value={u.id}
+                            onSelect={(currentValue) => {
+                              setNewGroupLeaderId(currentValue === newGroupLeaderId ? '' : currentValue);
+                              setNewLeaderComboboxOpen(false);
+                            }}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4', newGroupLeaderId === u.id ? 'opacity-100' : 'opacity-0')} />
+                            {u.name}
+                            {u.role === 'group_leader'
+                              ? ` · ${getRoleLabel(u.role, u.campusId)}`
+                              : ''}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               <p className="text-[10px] text-muted-foreground">
-                Admin, Campus Leader, or IT Team can appoint who will lead this group.
+                Admin, Campus Pastor, or IT Team can appoint who will lead this group.
               </p>
             </div>
           </div>
@@ -1076,25 +1122,58 @@ export default function SettingsPage() {
                         </div>
                       )}
 
-                      <div className="space-y-1">
+                      <div className="space-y-1 flex flex-col">
                         <Label>Assign Leader</Label>
-                        <Select
-                          value={editingLeaderId}
-                          onValueChange={setEditingLeaderId}
-                          disabled={isSavingGroup}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="No leader assigned" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">No leader assigned</SelectItem>
-                            {editLeaderCandidates.map(u => (
-                              <SelectItem key={u.id} value={u.id}>
-                                {u.name} {u.role === 'member' ? '' : `(${u.role.replace('_', ' ')})`}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover open={editLeaderComboboxOpen} onOpenChange={setEditLeaderComboboxOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              disabled={isSavingGroup}
+                              aria-expanded={editLeaderComboboxOpen}
+                              className="w-full justify-between font-normal"
+                            >
+                              {editingLeaderId && editingLeaderId !== 'none'
+                                ? editLeaderCandidates.find(u => u.id === editingLeaderId)?.name || 'No leader assigned'
+                                : 'No leader assigned'}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-full p-0">
+                            <Command>
+                              <CommandInput placeholder="Search leader..." />
+                              <CommandList>
+                                <CommandEmpty>No leader found.</CommandEmpty>
+                                <CommandGroup>
+                                  <CommandItem
+                                    key="none"
+                                    value="none"
+                                    onSelect={() => {
+                                      setEditingLeaderId('none');
+                                      setEditLeaderComboboxOpen(false);
+                                    }}
+                                  >
+                                    <Check className={cn('mr-2 h-4 w-4', editingLeaderId === 'none' || editingLeaderId === '' ? 'opacity-100' : 'opacity-0')} />
+                                    No leader assigned
+                                  </CommandItem>
+                                  {editLeaderCandidates.map((u) => (
+                                    <CommandItem
+                                      key={u.id}
+                                      value={u.id}
+                                      onSelect={(currentValue) => {
+                                        setEditingLeaderId(currentValue === editingLeaderId ? '' : currentValue);
+                                        setEditLeaderComboboxOpen(false);
+                                      }}
+                                    >
+                                      <Check className={cn('mr-2 h-4 w-4', editingLeaderId === u.id ? 'opacity-100' : 'opacity-0')} />
+                                      {u.name} {u.role === 'member' ? '' : `(${u.role.replace('_', ' ')})`}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                         <p className="text-[10px] text-muted-foreground">Assigning a new leader will give them the leader role and add them to this group.</p>
                       </div>
 

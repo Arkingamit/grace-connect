@@ -76,8 +76,8 @@ export async function POST(req: Request) {
     const eventData = parseResult.data as any;
 
     // Enforce scope restrictions
-    eventData.targetCampuses = enforceCampusScope(admin.role, admin.campusId, eventData.targetCampuses);
-    eventData.targetGroups = enforceGroupScope(admin.role, admin.groups, eventData.targetGroups);
+    eventData.targetCampuses = enforceCampusScope(admin.role, admin.campusId, eventData.targetCampuses, admin.permissions, 'events');
+    eventData.targetGroups = enforceGroupScope(admin.role, admin.groups, eventData.targetGroups, admin.permissions, 'events');
 
     if (eventData.recurring) {
       // Ahead-of-time duplication

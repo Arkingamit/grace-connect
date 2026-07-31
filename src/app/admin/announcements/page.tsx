@@ -94,7 +94,7 @@ export default function AnnouncementsPage() {
   const isCore = isCoreTeamLeader(currentUser.role, currentUser.campusId);
   const isFas = isFasLeader(currentUser.role, currentUser.campusId);
   const campusLocked = isCampusLeader || isFas;
-  const canAllCampusesScope = hasGlobalScope(currentUser.role, currentUser.campusId);
+  const canAllCampusesScope = hasGlobalScope(currentUser, 'announcements');
 
   const filtered = announcements.filter(a => {
     const matchesSearch = a.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -295,7 +295,7 @@ export default function AnnouncementsPage() {
           <h1 className="text-3xl font-bold">Announcements</h1>
           <p className="text-muted-foreground mt-1">Publish and manage church announcements</p>
         </div>
-        <Button onClick={openCreate} className="gap-2 shrink-0">
+        <Button onClick={openCreate} className="w-full sm:w-auto gap-2 shrink-0 bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl">
           <Plus className="w-4 h-4" />
           New Announcement
         </Button>
@@ -409,7 +409,7 @@ export default function AnnouncementsPage() {
         <div className="text-center py-16">
           <Megaphone className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
           <p className="text-muted-foreground">No announcements found</p>
-          <Button onClick={openCreate} variant="outline" className="mt-4 gap-2">
+          <Button onClick={openCreate} className="mt-4 gap-2 w-full sm:w-auto bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl">
             <Plus className="w-4 h-4" /> Create your first announcement
           </Button>
         </div>
@@ -655,7 +655,7 @@ export default function AnnouncementsPage() {
                 <Label className="text-xs text-muted-foreground">Broadcast to Campuses</Label>
                 {isCampusLeader && (
                   <p className="text-[10px] text-amber-500">
-                    As a Campus Leader, you can only broadcast to your campus: {campuses.find(c => c.id === currentUser.campusId)?.name}
+                    As a Campus Pastor, you can only broadcast to your campus: {campuses.find(c => c.id === currentUser.campusId)?.name}
                   </p>
                 )}
                 {isFas && (
@@ -690,7 +690,7 @@ export default function AnnouncementsPage() {
                 )}
                 {(campusMode !== 'all' || !canAllCampusesScope) && (
                   <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
-                    {getAllowedCampuses(currentUser.role, currentUser.campusId, campuses).map(campus => (
+                    {getAllowedCampuses(currentUser, campuses, 'announcements').map(campus => (
                       <label key={campus.id} className="flex items-center gap-2 text-sm cursor-pointer">
                         <Checkbox
                           checked={form.targetCampuses.includes(campus.id)}
@@ -749,7 +749,7 @@ export default function AnnouncementsPage() {
                       const visibleGroups = campusMode === 'all'
                         ? groups
                         : [...new Set(selectedCampusIds.flatMap(cid => getGroupsForCampus(groupScopes, cid)))];
-                      return getAllowedGroups(currentUser.role, currentUser.groups, groupScopes, currentUser.campusId)
+                      return getAllowedGroups(currentUser, groupScopes, 'announcements')
                         .filter(g => visibleGroups.includes(g))
                         .map(group => (
                         <label key={group} className="flex items-center gap-2 text-sm cursor-pointer">

@@ -14,9 +14,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params;
     const body = await req.json();
 
-    // Enforce scope on update
-    body.targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses);
-    body.targetGroups = enforceGroupScope(admin.role, admin.groups, body.targetGroups);
+    // Enforce scope restrictions
+    body.targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses, admin.permissions, 'announcements');
+    body.targetGroups = enforceGroupScope(admin.role, admin.groups, body.targetGroups, admin.permissions, 'announcements');
 
     // Auto-calculate nextOccurrence when updating to recurring
     if (body.isRecurring) {

@@ -61,7 +61,7 @@ export default function GalleryManagementPage() {
   const isCore = isCoreTeamLeader(currentUser.role, currentUser.campusId);
   const isFas = isFasLeader(currentUser.role, currentUser.campusId);
   const campusLocked = isCampusLeader || isFas;
-  const canAllCampusesScope = hasGlobalScope(currentUser.role, currentUser.campusId);
+  const canAllCampusesScope = hasGlobalScope(currentUser, 'gallery');
 
   // ── Audience helpers ──
   const campusMode = form.targetCampuses?.includes('all') ? 'all' : 'specific';
@@ -268,7 +268,7 @@ export default function GalleryManagementPage() {
             });
             setEditingId(null);
             setIsAdding(true);
-          }} className="rounded-full px-6 hover-lift">
+          }} className="w-full sm:w-auto rounded-full px-6 hover-lift bg-[#8B2323] hover:bg-[#721515] text-white">
             <Plus className="w-4 h-4 mr-2" /> New Album
           </Button>
         )}
@@ -349,7 +349,7 @@ export default function GalleryManagementPage() {
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Broadcast to Campuses</Label>
                   {isCampusLeader && (
-                    <p className="text-[10px] text-amber-500">Campus Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
+                    <p className="text-[10px] text-amber-500">Campus Pastor: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
                   )}
                   {isFas && (
                     <p className="text-[10px] text-emerald-500">FASL Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
@@ -369,7 +369,7 @@ export default function GalleryManagementPage() {
                   )}
                   {(campusMode !== 'all' || !canAllCampusesScope) && (
                     <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
-                      {getAllowedCampuses(currentUser.role, currentUser.campusId, campuses).map(c => (
+                      {getAllowedCampuses(currentUser, campuses, 'gallery').map(c => (
                         <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
                           <Checkbox
                             checked={(form.targetCampuses || []).includes(c.id)}
@@ -424,7 +424,7 @@ export default function GalleryManagementPage() {
                         const visibleGroups = campusMode === 'all'
                           ? groups
                           : [...new Set(selectedCampusIds.flatMap(cid => getGroupsForCampus(groupScopes, cid)))];
-                        return getAllowedGroups(currentUser.role, currentUser.groups, groupScopes, currentUser.campusId)
+                        return getAllowedGroups(currentUser, groupScopes, 'gallery')
                           .filter(g => visibleGroups.includes(g))
                           .map(g => (
                           <label key={g} className="flex items-center gap-2 text-sm cursor-pointer">

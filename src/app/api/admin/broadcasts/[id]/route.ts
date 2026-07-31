@@ -7,22 +7,21 @@ import { apiSuccess, apiError, withErrorHandler } from '@/lib/api-helpers';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   return withErrorHandler(async () => {
-    const { id } = await params;
-    await connectToDatabase();
     const admin = await requireAdminWithScope();
     if (!admin) return apiError('Unauthorized', 401);
 
+    await connectToDatabase();
+    const { id } = await params;
+    const body = await req.json();
+
     const broadcast = await Broadcast.findById(id);
-    if (!broadcast) {
-      return apiError('Not found', 404);
-    }
+    if (!broadcast) return apiError('Not found', 404);
 
     // Only creator or higher roles can edit
     if (broadcast.createdBy !== admin.userId && !['admin', 'super_admin'].includes(admin.role)) {
       return apiError('Forbidden', 403);
     }
 
-    const body = await req.json();
     const { title, description, materialLinks } = body;
 
     const updateData: any = {};
@@ -31,10 +30,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (materialLinks !== undefined) updateData.materialLinks = materialLinks;
 
     if (body.targetCampuses !== undefined) {
-      updateData.targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses);
+      updateData.targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses, admin.permissions, 'broadcasts');
     }
     if (body.targetGroups !== undefined) {
-      updateData.targetGroups = enforceGroupScope(admin.role, admin.groups, body.targetGroups);
+      updateData.targetGroups = enforceGroupScope(admin.role, admin.groups, body.targetGroups, admin.permissions, 'broadcasts');
     }
 
     const updated = await Broadcast.findByIdAndUpdate(id, { $set: updateData }, { new: true });

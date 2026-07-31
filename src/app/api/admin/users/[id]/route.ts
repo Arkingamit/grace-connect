@@ -45,11 +45,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       if (!inScope) {
         return NextResponse.json({ error: 'You can only edit members in your groups' }, { status: 403 });
       }
-      // FASL / Core: edit members only — no role changes, no campus changes
+      // FASL / Core: edit members only — no role changes, no campus changes, no permission changes
       if (targetUser.role !== 'member' && String(targetUser._id) !== String(admin.userId)) {
         return NextResponse.json({ error: 'You can only edit members in your groups' }, { status: 403 });
       }
       body.role = targetUser.role;
+      body.permissions = targetUser.permissions;
       if (admin.campusId !== 'global') {
         body.campusId = admin.campusId;
       } else {
@@ -60,6 +61,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         const outside = (targetUser.groups || []).filter((g: string) => !admin.groups.includes(g));
         const allowed = body.groups.filter((g: string) => admin.groups.includes(g));
         body.groups = [...new Set([...outside, ...allowed])];
+      }
+    }
+
+    // Enforce permission scopes
+    if (body.permissions && Array.isArray(body.permissions)) {
+      if (admin.role === 'campus_leader') {
+        // Campus leader can only assign permissions for their own campus
+        const invalidPerms = body.permissions.filter((p: string) => !p.endsWith(`:${admin.campusId}`));
+        if (invalidPerms.length > 0) {
+          return NextResponse.json({ error: 'You can only grant module permissions for your own campus.' }, { status: 403 });
+        }
       }
     }
 

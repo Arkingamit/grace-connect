@@ -13,18 +13,22 @@ export async function GET() {
 
     let query: any = {};
 
-    if (admin.role === 'campus_leader') {
-      query.$or = [
-        { targetCampuses: { $in: [admin.campusId, 'all'] } },
-        { createdBy: admin.userId },
-      ];
-    } else if (admin.role === 'group_leader') {
-      query.$or = [
-        { targetCampuses: { $in: [admin.campusId, 'all'] }, targetGroups: { $in: [...admin.groups] } },
-        { createdBy: admin.userId },
-      ];
+    const allowedCampuses = enforceCampusScope(admin.role, admin.campusId, undefined, admin.permissions, 'broadcasts');
+    const hasModulePerm = admin.permissions?.some((p: string) => p.startsWith('broadcasts:'));
+
+    if (!allowedCampuses.includes('all')) {
+      if (admin.role === 'group_leader' && !hasModulePerm) {
+        query.$or = [
+          { targetCampuses: { $in: [...allowedCampuses, 'all'] }, targetGroups: { $in: [...admin.groups] } },
+          { createdBy: admin.userId },
+        ];
+      } else {
+        query.$or = [
+          { targetCampuses: { $in: [...allowedCampuses, 'all'] } },
+          { createdBy: admin.userId },
+        ];
+      }
     }
-    // admin/super_admin: no filter — see everything
 
     const broadcasts = await Broadcast.find(query).sort({ createdAt: -1 }).lean();
     return apiSuccess(broadcasts);
@@ -45,8 +49,8 @@ export async function POST(req: Request) {
     }
 
     // Enforce scope restrictions
-    const targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses);
-    const targetGroups = enforceGroupScope(admin.role, admin.groups, body.targetGroups);
+    const targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses, admin.permissions, 'broadcasts');
+    const targetGroups = enforceGroupScope(admin.role, admin.groups, body.targetGroups, admin.permissions, 'broadcasts');
 
     const broadcast = await Broadcast.create({
       title,

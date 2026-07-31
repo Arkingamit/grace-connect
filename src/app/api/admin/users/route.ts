@@ -114,6 +114,16 @@ export async function POST(req: Request) {
     body.status = 'pending';
     body.createdBy = admin.userId;
 
+    // Enforce permission scopes
+    if (body.permissions && Array.isArray(body.permissions)) {
+      if (admin.role === 'campus_leader') {
+        const invalidPerms = body.permissions.filter((p: string) => !p.endsWith(`:${admin.campusId}`));
+        if (invalidPerms.length > 0) {
+          return NextResponse.json({ error: 'You can only grant module permissions for your own campus.' }, { status: 403 });
+        }
+      }
+    }
+
     // Hash password if provided
     if (body.password) {
       const salt = await bcrypt.genSalt(10);

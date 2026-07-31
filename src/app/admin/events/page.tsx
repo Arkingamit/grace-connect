@@ -207,7 +207,7 @@ export default function EventsPage() {
   const isCore = isCoreTeamLeader(currentUser.role, currentUser.campusId);
   const isFas = isFasLeader(currentUser.role, currentUser.campusId);
   const campusLocked = isCampusLeader || isFas;
-  const canAllCampusesScope = hasGlobalScope(currentUser.role, currentUser.campusId);
+  const canAllCampusesScope = hasGlobalScope(currentUser, 'events');
   const canAllCampuses = canPublishAllCampuses(currentUser.role);
 
   const filtered = events.filter(e => {
@@ -789,7 +789,7 @@ export default function EventsPage() {
         <div className="text-center py-16 px-2">
           <Calendar className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
           <p className="text-muted-foreground">No events found</p>
-          <Button onClick={openCreate} variant="outline" className="mt-4 gap-2 w-full sm:w-auto rounded-xl">
+          <Button onClick={openCreate} className="mt-4 gap-2 w-full sm:w-auto rounded-xl bg-[#8B2323] hover:bg-[#721515] text-white">
             <Plus className="w-4 h-4" /> Create your first event
           </Button>
         </div>
@@ -1346,7 +1346,7 @@ export default function EventsPage() {
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Broadcast to Campuses</Label>
                   {isCampusLeader && (
-                    <p className="text-[10px] text-amber-500">Campus Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
+                    <p className="text-[10px] text-amber-500">Campus Pastor: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
                   )}
                   {isFas && (
                     <p className="text-[10px] text-emerald-500">FASL Leader: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
@@ -1366,7 +1366,7 @@ export default function EventsPage() {
                   )}
                   {(campusMode !== 'all' || !canAllCampusesScope) && (
                     <div className="grid grid-cols-1 gap-1.5 pl-2 mt-2">
-                      {getAllowedCampuses(currentUser.role, currentUser.campusId, campuses).map(c => (
+                      {getAllowedCampuses(currentUser, campuses, 'events').map(c => (
                         <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
                           <Checkbox
                             checked={form.targetCampuses.includes(c.id)}
@@ -1378,7 +1378,7 @@ export default function EventsPage() {
                     </div>
                   )}
 
-                  {/* Campus-scoped FASL / Campus Leaders only target one campus — exclude is N/A */}
+                  {/* Campus-scoped FASL / Campus Pastors only target one campus — exclude is N/A */}
                   {!campusLocked && (
                     <div className="pt-2">
                       <Label className="text-xs text-muted-foreground">Exclude Campuses (Optional)</Label>
@@ -1422,7 +1422,7 @@ export default function EventsPage() {
                         const visibleGroups = campusMode === 'all'
                           ? groups
                           : [...new Set(selectedCampusIds.flatMap(cid => getGroupsForCampus(groupScopes, cid)))];
-                        return getAllowedGroups(currentUser.role, currentUser.groups, groupScopes, currentUser.campusId)
+                        return getAllowedGroups(currentUser, groupScopes, 'events')
                           .filter(g => visibleGroups.includes(g))
                           .map(g => (
                           <label key={g} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -1446,7 +1446,7 @@ export default function EventsPage() {
                         const visibleGroups = campusMode === 'all'
                           ? groups
                           : [...new Set(selectedCampusIds.flatMap(cid => getGroupsForCampus(groupScopes, cid)))];
-                        return getAllowedGroups(currentUser.role, currentUser.groups, groupScopes, currentUser.campusId)
+                        return getAllowedGroups(currentUser, groupScopes, 'events')
                           .filter(g => visibleGroups.includes(g))
                           .map(g => (
                           <label key={`ex-${g}`} className="flex items-center gap-2 text-sm cursor-pointer">
