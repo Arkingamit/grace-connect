@@ -39,6 +39,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Users,
   Plus,
@@ -55,6 +57,7 @@ import {
   UserRound,
   Clock,
   FileDown,
+  ChevronsUpDown,
 } from 'lucide-react';
 
 const roleIcons: Record<UserRole, React.ElementType> = {
@@ -811,35 +814,88 @@ export default function UsersPage() {
                   { id: 'attendance', label: 'Attendance' },
                   { id: 'announcements', label: 'Announcements' },
                 ].map(module => {
-                  const currentPerm = form.permissions.find(p => p.startsWith(`${module.id}:`));
-                  const currentScope = currentPerm ? currentPerm.split(':')[1] : 'none';
+                  const currentScopes = form.permissions
+                    .filter(p => p.startsWith(`${module.id}:`))
+                    .map(p => p.split(':')[1]);
                   
+                  const handleToggle = (scopeId: string, checked: boolean) => {
+                    const otherPerms = form.permissions.filter(p => !p.startsWith(`${module.id}:`));
+                    let current = [...currentScopes];
+
+                    if (scopeId === 'none') {
+                      current = [];
+                    } else if (scopeId === 'global') {
+                      current = checked ? ['global'] : [];
+                    } else {
+                      current = current.filter(s => s !== 'global'); // remove global if present
+                      if (checked) {
+                        if (!current.includes(scopeId)) current.push(scopeId);
+                      } else {
+                        current = current.filter(s => s !== scopeId);
+                      }
+                    }
+
+                    const newPerms = [...otherPerms, ...current.map(s => `${module.id}:${s}`)];
+                    setForm({ ...form, permissions: newPerms });
+                  };
+
                   return (
                     <div key={module.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-4">
                       <Label className="text-sm font-medium">{module.label}</Label>
-                      <Select
-                        value={currentScope}
-                        onValueChange={(val) => {
-                          const newPerms = form.permissions.filter(p => !p.startsWith(`${module.id}:`));
-                          if (val !== 'none') {
-                            newPerms.push(`${module.id}:${val}`);
-                          }
-                          setForm({ ...form, permissions: newPerms });
-                        }}
-                      >
-                        <SelectTrigger className="w-full sm:w-[180px] h-8 text-xs">
-                          <SelectValue placeholder="No Access / Default" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Default Role Access</SelectItem>
-                          {(currentUser.role === 'admin' || currentUser.role === 'super_admin') && (
-                            <SelectItem value="global">Global (All Campuses)</SelectItem>
-                          )}
-                          {getAllowedCampuses(currentUser, campuses, 'members').map(c => (
-                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="w-full sm:w-[220px] justify-between h-8 text-xs font-normal"
+                          >
+                            {currentScopes.length === 0 
+                              ? "Default Role Access" 
+                              : currentScopes.includes('global')
+                              ? "Global (All Campuses)"
+                              : `${currentScopes.length} selected`}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[220px] p-3" align="start">
+                          <div className="space-y-3">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                id={`none-${module.id}`} 
+                                checked={currentScopes.length === 0}
+                                onCheckedChange={() => handleToggle('none', true)}
+                              />
+                              <Label htmlFor={`none-${module.id}`} className="text-sm font-medium leading-none cursor-pointer">Default Role Access</Label>
+                            </div>
+                            
+                            {(currentUser.role === 'admin' || currentUser.role === 'super_admin') && (
+                              <div className="flex items-center space-x-2">
+                                <Checkbox 
+                                  id={`global-${module.id}`} 
+                                  checked={currentScopes.includes('global')}
+                                  onCheckedChange={(checked) => handleToggle('global', !!checked)}
+                                />
+                                <Label htmlFor={`global-${module.id}`} className="text-sm font-medium leading-none cursor-pointer">Global (All Campuses)</Label>
+                              </div>
+                            )}
+                            
+                            <div className="w-full h-px bg-border/80 my-1" />
+                            
+                            <div className="max-h-[150px] overflow-y-auto space-y-2 pr-1">
+                              {getAllowedCampuses(currentUser, campuses, 'members').map(c => (
+                                <div key={c.id} className="flex items-center space-x-2">
+                                  <Checkbox 
+                                    id={`${c.id}-${module.id}`}
+                                    checked={currentScopes.includes(c.id)}
+                                    onCheckedChange={(checked) => handleToggle(c.id, !!checked)}
+                                  />
+                                  <Label htmlFor={`${c.id}-${module.id}`} className="text-sm font-normal leading-none cursor-pointer">{c.name}</Label>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   );
                 })}
