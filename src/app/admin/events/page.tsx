@@ -948,76 +948,7 @@ export default function EventsPage() {
                 )}
               </div>
 
-              {/* ── Custom Reminders ── */}
-              <div className="space-y-3 pt-4 border-t border-border/50">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="flex items-center gap-2">
-                      <Megaphone className="w-4 h-4 text-primary" />
-                      Push Notification Reminders
-                    </Label>
-                    <p className="text-[10px] text-muted-foreground">Automatically push notifications before this event occurs.</p>
-                  </div>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-8 text-xs gap-1"
-                    onClick={() => {
-                      setForm(f => ({
-                        ...f, 
-                        customReminders: [...(f.customReminders || []), { daysBefore: 0, hoursBefore: 1, minutesBefore: 0 }]
-                      }));
-                    }}
-                  >
-                    <Plus className="w-3 h-3" /> Add Reminder
-                  </Button>
-                </div>
-                
-                {(form.customReminders || []).map((rem, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-muted/30 p-2 rounded-lg border border-border/50 animate-in fade-in slide-in-from-top-2">
-                    <div className="grid grid-cols-3 gap-2 flex-1">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">Days Before</Label>
-                        <Input type="number" min="0" value={rem.daysBefore} onChange={e => {
-                          const newRem = [...form.customReminders];
-                          newRem[i].daysBefore = parseInt(e.target.value) || 0;
-                          setForm({ ...form, customReminders: newRem });
-                        }} className="h-7 text-xs" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">Hours</Label>
-                        <Input type="number" min="0" max="23" value={rem.hoursBefore} onChange={e => {
-                          const newRem = [...form.customReminders];
-                          newRem[i].hoursBefore = parseInt(e.target.value) || 0;
-                          setForm({ ...form, customReminders: newRem });
-                        }} className="h-7 text-xs" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">Minutes</Label>
-                        <Input type="number" min="0" max="59" value={rem.minutesBefore} onChange={e => {
-                          const newRem = [...form.customReminders];
-                          newRem[i].minutesBefore = parseInt(e.target.value) || 0;
-                          setForm({ ...form, customReminders: newRem });
-                        }} className="h-7 text-xs" />
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0 mt-4"
-                      onClick={() => {
-                        const newRem = [...form.customReminders];
-                        newRem.splice(i, 1);
-                        setForm({ ...form, customReminders: newRem });
-                      }}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+
               <div className="flex items-center gap-3 pt-4">
                 <Switch checked={form.recurring} onCheckedChange={(c) => setForm({ ...form, recurring: c })} />
                 <div className="space-y-0.5">

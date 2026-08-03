@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAdminData } from '@/lib/admin-data-context';
+import { useNavigationHistory } from '@/components/ui/navigation-history-provider';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ import {
 
 export default function SermonsPage() {
   const { sermonSeries, sermons, getVisibleSermons, currentUser } = useAdminData();
+  const { goBack } = useNavigationHistory();
   const [search, setSearch] = useState('');
   const [activePastor, setActivePastor] = useState('All');
   const [activeCampusId, setActiveCampusId] = useState('global');
@@ -54,12 +56,10 @@ export default function SermonsPage() {
     <div className="min-h-screen pb-20">
       {/* Header with Back Button */}
       <div className="container mx-auto px-6 pt-12 pb-6">
-        <Link href="/">
-          <Button variant="ghost" className="pl-0 gap-2 hover:bg-transparent text-muted-foreground hover:text-primary transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium text-lg">Back</span>
-          </Button>
-        </Link>
+        <Button onClick={() => goBack("/")} variant="ghost" className="pl-0 gap-2 hover:bg-transparent text-muted-foreground hover:text-primary transition-colors">
+          <ArrowLeft className="w-5 h-5" />
+          <span className="font-medium text-lg">Back</span>
+        </Button>
       </div>
 
       {/* Filter & Search Bar */}

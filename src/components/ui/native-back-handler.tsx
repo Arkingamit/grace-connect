@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Capacitor } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import { toast } from "sonner";
+import { useNavigationHistory } from "./navigation-history-provider";
 
 /** Primary tab / shell routes where Android back should exit (not browser-history). */
 const ROOT_ROUTES = new Set([
@@ -84,6 +85,12 @@ export function NativeBackHandler() {
   const router = useRouter();
   const pathnameRef = useRef(pathname);
   const lastBackAt = useRef(0);
+  const { goBack } = useNavigationHistory();
+  const goBackRef = useRef(goBack);
+
+  useEffect(() => {
+    goBackRef.current = goBack;
+  }, [goBack]);
 
   useEffect(() => {
     pathnameRef.current = pathname;
@@ -114,9 +121,9 @@ export function NativeBackHandler() {
           return;
         }
 
-        // 3) Nested screen → jump to parent section (replace, not history stack)
+        // 3) Nested screen → use global history stack (fallback to parentRoute)
         lastBackAt.current = 0;
-        router.replace(parentRoute(path));
+        goBackRef.current(parentRoute(path));
       });
     };
 

@@ -2,7 +2,9 @@
 
 import React, { useState, use } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useAdminData } from '@/lib/admin-data-context';
+import { useNavigationHistory } from '@/components/ui/navigation-history-provider';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,12 +21,15 @@ import {
   Tv,
   FileText,
   MonitorPlay,
-  Link as LinkIcon
+  Link as LinkIcon,
+  CheckCircle2,
+  MoreVertical
 } from 'lucide-react';
 
-export default function SeriesDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const { sermonSeries, sermons, getVisibleSermons, currentUser } = useAdminData();
+export default function SeriesDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const { sermonSeries, getVisibleSermons, currentUser } = useAdminData();
+  const { goBack } = useNavigationHistory();
   const [activeCampusId, setActiveCampusId] = useState('global');
 
   React.useEffect(() => {
@@ -57,10 +62,8 @@ export default function SeriesDetailPage({ params }: { params: Promise<{ id: str
     <div className="min-h-screen pb-20">
       {/* Header */}
       <div className="container mx-auto px-6 pt-10 pb-6">
-        <Button variant="ghost" asChild className="mb-6 hover:bg-primary/10">
-          <Link href="/sermons" className="flex items-center gap-2">
-            <ArrowLeft className="w-4 h-4" /> Back to All Series
-          </Link>
+        <Button variant="ghost" onClick={() => goBack("/sermons")} className="mb-6 hover:bg-primary/10 gap-2">
+          <ArrowLeft className="w-4 h-4" /> Back to All Series
         </Button>
         
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-border/50">

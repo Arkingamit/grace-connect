@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useNavigationHistory } from '@/components/ui/navigation-history-provider';
 import { useAuth } from '@/lib/auth-context';
 import { useAdminData } from '@/lib/admin-data-context';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +17,7 @@ import { toast } from 'sonner';
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { goBack } = useNavigationHistory();
   const { session, logout, getSessionMember, linkedProfiles, activeProfileId, switchProfile } = useAuth();
   const { campuses } = useAdminData();
 
@@ -61,7 +63,7 @@ export default function ProfilePage() {
       <header className="sticky top-0 z-50 bg-[#FAF7F2]/80 dark:bg-background/80 backdrop-blur-md border-b border-border/40">
         <div className="flex items-center px-4 h-16 w-full max-w-xl mx-auto">
           <button
-            onClick={() => router.back()}
+            onClick={() => goBack("/")}
             className="flex items-center justify-center w-10 h-10 -ml-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all active:scale-95 text-[#8B2323] dark:text-primary"
             title="Go Back"
           >

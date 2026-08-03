@@ -934,9 +934,10 @@ export function MobileHomeView() {
               </div>
 
               {/* Events */}
-              <div className="mt-8">
-                <div className="flex justify-between items-end mb-4">
-                  <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">Upcoming Events</h2>
+              {upcomingEvents && upcomingEvents.length > 0 && (
+                <div className="mt-8">
+                  <div className="flex justify-between items-end mb-4">
+                    <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">Upcoming Events</h2>
                   <Link href="/events" className="text-[#8B2323] text-sm font-bold flex items-center">
                     See all <ChevronRight className="w-4 h-4 ml-1" />
                   </Link>
@@ -1026,6 +1027,7 @@ export function MobileHomeView() {
                   })}
                 </div>
               </div>
+              )}
 
               {/* 5. Latest Sermons */}
               {sermons && sermons.length > 0 && (
@@ -1059,9 +1061,10 @@ export function MobileHomeView() {
 
 
               {/* 6. Worship Focus */}
-              <div>
-                <div className="flex justify-between items-end mb-4">
-                  <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">Worship Focus</h2>
+              {recentWorship && recentWorship.length > 0 && (
+                <div>
+                  <div className="flex justify-between items-end mb-4">
+                    <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">Worship Focus</h2>
                   <Link href="/music" className="text-[#8B2323] text-sm font-bold flex items-center">
                     See all <ChevronRight className="w-4 h-4 ml-1" />
                   </Link>
@@ -1081,6 +1084,7 @@ export function MobileHomeView() {
                   ))}
                 </div>
               </div>
+              )}
 
 
 
@@ -1180,9 +1184,10 @@ export function MobileHomeView() {
 
 
               {/* 6. Worship Focus */}
-              <div>
-                <div className="flex justify-between items-end mb-4">
-                  <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">Worship Focus</h2>
+              {recentWorship && recentWorship.length > 0 && (
+                <div>
+                  <div className="flex justify-between items-end mb-4">
+                    <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">Worship Focus</h2>
                   <Link href="/music" className="text-[#8B2323] text-sm font-bold flex items-center">
                     See all <ChevronRight className="w-4 h-4 ml-1" />
                   </Link>
@@ -1202,6 +1207,7 @@ export function MobileHomeView() {
                   ))}
                 </div>
               </div>
+              )}
 
 
 
@@ -1238,10 +1244,11 @@ export function MobileHomeView() {
 
 
                     {/* 3. Upcoming Events */}
-                    <div>
+                    {upcomingEvents && upcomingEvents.length > 0 && (
+                      <div>
 
-                      <div className="flex justify-between items-end mb-4">
-                        <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">Upcoming Events</h2>
+                        <div className="flex justify-between items-end mb-4">
+                          <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">Upcoming Events</h2>
                         <Link href="/events" className="text-[#8B2323] text-sm font-bold flex items-center">
                           See all <ChevronRight className="w-4 h-4 ml-1" />
                         </Link>
@@ -1332,6 +1339,7 @@ export function MobileHomeView() {
                       </div>
 
                     </div>
+                    )}
 
 
                     {/* Community Prayers Section */}

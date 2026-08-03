@@ -3,7 +3,8 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, SquareArrowOutUpRight } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { FileText, SquareArrowOutUpRight, Search } from 'lucide-react';
 import { useAdminData } from '@/lib/admin-data-context';
 
 function normalizeExternalUrl(url: string): string | null {
@@ -57,6 +58,16 @@ export function NoteShareSection({ variant = 'default' }: { variant?: 'default' 
   const { broadcasts: contextBroadcasts } = useAdminData();
   const [broadcasts, setBroadcasts] = React.useState<any[]>(contextBroadcasts || []);
   const [loading, setLoading] = React.useState(!contextBroadcasts || contextBroadcasts.length === 0);
+  const [searchQuery, setSearchQuery] = React.useState('');
+
+  const filteredBroadcasts = React.useMemo(() => {
+    if (!searchQuery.trim()) return broadcasts;
+    const q = searchQuery.toLowerCase();
+    return broadcasts.filter(b => 
+      (b.title?.toLowerCase().includes(q)) || 
+      (b.description?.toLowerCase().includes(q))
+    );
+  }, [broadcasts, searchQuery]);
 
   React.useEffect(() => {
     // If context didn't have the data (e.g., loaded before login), fetch it directly
@@ -100,8 +111,23 @@ export function NoteShareSection({ variant = 'default' }: { variant?: 'default' 
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {broadcasts.map(b => (
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input 
+          placeholder="Search notes..." 
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9 bg-card border-border/60"
+        />
+      </div>
+
+      {filteredBroadcasts.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground text-sm bg-muted/20 rounded-xl border border-border/40">
+          No notes match your search.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredBroadcasts.map(b => (
           <Card key={b._id} className="overflow-hidden group hover:shadow-md transition-shadow bg-card border-border">
             <div className="p-3 pb-2 border-b border-border/50 bg-muted/20">
               <div className="flex justify-between items-start">
@@ -125,8 +151,9 @@ export function NoteShareSection({ variant = 'default' }: { variant?: 'default' 
               )}
             </div>
           </Card>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
