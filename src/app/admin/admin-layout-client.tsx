@@ -15,6 +15,7 @@ import {
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/components/ui/use-toast';
 import {
   LayoutDashboard,
   Calendar,
@@ -65,6 +66,8 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
   const router = useRouter();
   const { currentUser, setCurrentUser, campuses } = useAdminData();
   const { getPendingRequests, refreshMembers, getSessionMember } = useAuth();
+  const { toast } = useToast();
+  const hasShownRoleToast = React.useRef(false);
 
   React.useEffect(() => {
     refreshMembers();
@@ -89,6 +92,16 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
     currentUser.role === 'group_leader'
       ? (currentUser.campusId === 'global' ? 'Core Team Leader' : 'FASL Leader')
       : getRoleLabel(currentUser.role, currentUser.campusId);
+
+  React.useEffect(() => {
+    if (hasShownRoleToast.current || !currentUser.id || !canAccessAdmin(currentUser)) return;
+    hasShownRoleToast.current = true;
+    
+    toast({
+      title: 'Welcome to Admin Panel',
+      description: `You are logged in as: ${roleBadgeLabel}`,
+    });
+  }, [currentUser.id, roleBadgeLabel, toast]);
 
   const isCampusLeader = currentUser.role === 'campus_leader';
   const pendingCount = isCampusLeader

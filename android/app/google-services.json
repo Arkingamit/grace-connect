@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "641349616597-594420uenhvct5lh6f9ehmktkqftn577.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.graceconnect.app",
+            "certificate_hash": "d547bc9da72dc3a62a6d2daa50c91e6235159ba5"
+          }
+        },
+        {
           "client_id": "641349616597-i769rj34s7j08odnfurq27quo5f0jv7k.apps.googleusercontent.com",
           "client_type": 3
         }
