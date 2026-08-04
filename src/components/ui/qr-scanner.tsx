@@ -60,15 +60,15 @@ export function QRScanner({ onClose }: QRScannerProps) {
       // Try to parse as URL
       const url = new URL(text);
       const pathParts = url.pathname.split('/').filter(Boolean);
-      // Expected: /register/<campusId>
-      if (pathParts.length >= 2 && pathParts[0] === 'register') {
-        return pathParts[1];
+      const registerIdx = pathParts.indexOf('register');
+      if (registerIdx !== -1 && pathParts.length > registerIdx + 1) {
+        return decodeURIComponent(pathParts[registerIdx + 1]).toLowerCase().trim();
       }
     } catch {
       // Not a URL — maybe just a campus ID
-      const campus = campuses.find(c => c.id === text.toLowerCase().trim());
-      if (campus) return campus.id;
     }
+    const campus = campuses.find(c => c.id.toLowerCase().trim() === text.toLowerCase().trim());
+    if (campus) return campus.id;
     return null;
   }, [campuses]);
 
@@ -113,17 +113,17 @@ export function QRScanner({ onClose }: QRScannerProps) {
           },
           (decodedText: string) => {
             // On successful scan
-            const campusId = extractCampusId(decodedText);
-            if (campusId) {
-              const campus = campuses.find(c => c.id === campusId);
+            const extractedId = extractCampusId(decodedText);
+            if (extractedId) {
+              const campus = campuses.find(c => c.id.toLowerCase().trim() === extractedId.toLowerCase().trim());
               if (campus) {
                 setScannedCampus(campus.name);
                 // Stop scanning and navigate
                 html5QrCode.stop().then(() => {
                   scannerRef.current = null;
-                  router.push(`/register/${campusId}`);
+                  router.push(`/register/${campus.id}`);
                 }).catch(() => {
-                  router.push(`/register/${campusId}`);
+                  router.push(`/register/${campus.id}`);
                 });
               } else {
                 html5QrCode.stop().then(() => {
