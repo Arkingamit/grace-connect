@@ -369,7 +369,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
         ] = await Promise.all([
           fetch('/api/admin/events').catch(() => null),
           fetch('/api/admin/announcements').catch(() => null),
-          fetch('/api/admin/campuses').catch(() => null),
+          fetch('/api/campuses').catch(() => null),
           fetch('/api/admin/media/gallery').catch(() => null),
           fetch('/api/admin/media/sermons').catch(() => null),
           fetch('/api/admin/media/sermon-series').catch(() => null),

@@ -128,17 +128,17 @@ export function QRScanner({ onClose }: QRScannerProps) {
               } else {
                 html5QrCode.stop().then(() => {
                   scannerRef.current = null;
-                  setError('This QR code belongs to a campus that does not exist in this database.');
+                  setError(`Campus not found. Scanned ID: "${extractedId}". Available campuses: ${campuses.length}. IDs: ${campuses.map(c => c.id).join(', ')}`);
                 }).catch(() => {
-                  setError('This QR code belongs to a campus that does not exist in this database.');
+                  setError(`Campus not found. Scanned ID: "${extractedId}". Available campuses: ${campuses.length}. IDs: ${campuses.map(c => c.id).join(', ')}`);
                 });
               }
             } else {
               html5QrCode.stop().then(() => {
                 scannerRef.current = null;
-                setError('Invalid QR code. Please scan a valid campus registration QR code.');
+                setError(`Invalid QR format. Scanned text: "${decodedText}"`);
               }).catch(() => {
-                setError('Invalid QR code. Please scan a valid campus registration QR code.');
+                setError(`Invalid QR format. Scanned text: "${decodedText}"`);
               });
             }
           },
