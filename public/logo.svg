@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <!-- Grace Music Brand Gradient -->
+    <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7D6AD5"/>
+      <stop offset="100%" stop-color="#6640F5"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- App Icon Background (Deep Zinc) -->
+  <rect width="400" height="400" rx="90" fill="#09090b"/>
+
+  <!-- Note Head -->
+  <circle cx="170" cy="270" r="44" fill="url(#brandGrad)"/>
+
+  <!-- Stem (Vertical Cross Beam) -->
+  <line x1="214" y1="110" x2="214" y2="270" stroke="url(#brandGrad)" stroke-width="24" stroke-linecap="round"/>
+
+  <!-- Horizontal Cross Beam -->
+  <line x1="170" y1="160" x2="258" y2="160" stroke="url(#brandGrad)" stroke-width="24" stroke-linecap="round"/>
+
+  <!-- Music Note Flag -->
+  <path d="M 214 110 C 280 110, 290 170, 280 230 C 280 180, 250 160, 214 160" fill="none" stroke="url(#brandGrad)" stroke-width="24" stroke-linecap="round"/>
+</svg>
