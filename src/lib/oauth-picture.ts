@@ -1,6 +1,6 @@
 /** Google ID tokens include `picture`. Apple ID tokens typically do not. */
 export function getOAuthPicture(
-  payload: { picture?: unknown } | null | undefined,
+  payload: { picture?: unknown } | Record<string, unknown> | null | undefined,
 ): string | undefined {
   const picture = payload?.picture;
   if (typeof picture !== "string") return undefined;
