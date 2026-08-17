@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { Capacitor } from "@capacitor/core";
 import { GoogleLogin } from "@react-oauth/google";
 import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
@@ -20,13 +21,15 @@ export default function LoginPage() {
     setMounted(true);
 
     const initNative = () => {
-      const isCapacitor =
-        typeof window !== "undefined" && (window as any).Capacitor?.isNative;
-      const isWebView =
-        typeof window !== "undefined" &&
-        /wv|Nexus|Android.*AppleWebKit/i.test(navigator.userAgent);
+      // Capacitor 5+ uses isNativePlatform(); `.isNative` is gone, and the
+      // Android-only WebView UA check never matches iOS WKWebView — so iOS
+      // was falling back to Google's web widget, which Google blocks in-app.
+      const isCapacitor = Capacitor.isNativePlatform();
+      const isAndroidWebView =
+        typeof navigator !== "undefined" &&
+        /wv|Android.*AppleWebKit/i.test(navigator.userAgent);
 
-      if (isCapacitor || isWebView) {
+      if (isCapacitor || isAndroidWebView) {
         setIsNative(true);
         try {
           GoogleAuth.initialize({
