@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Outfit } from "next/font/google";
 import Providers from "./providers";
 import "@/index.css";
@@ -32,6 +32,14 @@ export const metadata: Metadata = {
     site: "@lovable_dev",
     images: ["https://graceconnect-psi.vercel.app/logo2.png"],
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+  themeColor: "#FAF7F2",
 };
 
 import { PublicLayoutWrapper } from "@/components/ui/public-layout-wrapper";

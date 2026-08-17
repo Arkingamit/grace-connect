@@ -672,7 +672,7 @@ export function MobileHomeView() {
 
         {/* 1. Header */}
         <header
-          className="sticky top-0 z-50 flex items-center justify-between px-4 pt-6 pb-4 border-b border-[#a59d94]/60 shadow-[0_4px_16px_-2px_rgba(58,45,39,0.12),0_1px_0px_rgba(255,255,255,0.6)_inset] bg-[#FAF7F2]/80 backdrop-blur-md"
+          className="sticky top-0 z-50 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-4 border-b border-[#a59d94]/60 shadow-[0_4px_16px_-2px_rgba(58,45,39,0.12),0_1px_0px_rgba(255,255,255,0.6)_inset] bg-[#FAF7F2]/80 backdrop-blur-md"
         >
           <div className="flex items-center gap-3">
 
