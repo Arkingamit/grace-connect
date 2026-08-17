@@ -9,6 +9,7 @@ import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -26,6 +27,39 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestAppPermissions();
+        registerNativeBackInterceptor();
+    }
+
+    /**
+     * Fallback when JS has not loaded yet (remote Next.js URL).
+     * Prefer window.__graceNativeBack(); else WebView history; else minimize.
+     */
+    private void registerNativeBackInterceptor() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+                if (webView == null) {
+                    moveTaskToBack(true);
+                    return;
+                }
+
+                webView.evaluateJavascript(
+                    "(function(){try{if(typeof window.__graceNativeBack==='function'){return window.__graceNativeBack();}return null;}catch(e){return null;}})()",
+                    value -> {
+                        String result = value == null ? "null" : value.replace("\"", "").trim();
+                        if ("true".equalsIgnoreCase(result) || "1".equals(result)) {
+                            return;
+                        }
+                        if (webView.canGoBack()) {
+                            webView.goBack();
+                        } else {
+                            moveTaskToBack(true);
+                        }
+                    }
+                );
+            }
+        });
     }
 
     private void requestAppPermissions() {

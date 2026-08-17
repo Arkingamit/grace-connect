@@ -25,6 +25,7 @@ const nextConfig = {
       { protocol: 'https', hostname: 'ik.imagekit.io' },
       { protocol: 'https', hostname: 'api.qrserver.com' },
       { protocol: 'https', hostname: 'originui.com' },
+      { protocol: 'https', hostname: '*.googleusercontent.com' },
     ],
   },
 };

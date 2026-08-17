@@ -13,6 +13,18 @@ export function getStoredAvatar(memberId: string): string | null {
   }
 }
 
+/** Custom upload first, then Google/Apple ID photo. */
+export function resolveMemberAvatar(
+  memberId?: string | null,
+  providerAvatar?: string | null,
+): string {
+  if (memberId) {
+    const stored = getStoredAvatar(memberId);
+    if (stored) return stored;
+  }
+  return providerAvatar || "";
+}
+
 export function setStoredAvatar(memberId: string, dataUrl: string) {
   if (typeof window === "undefined") return;
   localStorage.setItem(avatarStorageKey(memberId), dataUrl);

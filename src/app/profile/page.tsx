@@ -17,7 +17,7 @@ import {
   ArrowLeft, QrCode, Shield, LogOut, Cake, MessageSquare, Pencil, ChevronRight, Camera
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getStoredAvatar, setStoredAvatar, fileToDataUrl } from '@/lib/avatar-storage';
+import { setStoredAvatar, fileToDataUrl, resolveMemberAvatar } from '@/lib/avatar-storage';
 import { LogoutConfirmDialog } from '@/components/ui/logout-confirm-dialog';
 
 export default function ProfilePage() {
@@ -36,7 +36,7 @@ export default function ProfilePage() {
     const primary = {
       id: session.memberId,
       name: session.name || 'You',
-      image: getStoredAvatar(session.memberId) || undefined,
+      image: resolveMemberAvatar(session.memberId, session.avatar) || undefined,
     };
     const linked = linkedProfiles.map((profile) => ({
       id: profile.id,
@@ -44,7 +44,7 @@ export default function ProfilePage() {
         profile.name ||
         `${profile.firstName} ${profile.lastName}`.trim() ||
         'Family Member',
-      image: getStoredAvatar(profile.id) || undefined,
+      image: resolveMemberAvatar(profile.id, profile.avatar) || undefined,
     }));
     const all = [primary, ...linked];
     return all.filter(
@@ -54,8 +54,8 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!member?.id || typeof window === "undefined") return;
-    setPhoto(getStoredAvatar(member.id) || "");
-  }, [member?.id]);
+    setPhoto(resolveMemberAvatar(member.id, member.avatar));
+  }, [member?.id, member?.avatar]);
 
   const handleLogout = async () => {
     setLoggingOut(true);

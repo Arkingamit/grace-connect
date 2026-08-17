@@ -84,12 +84,14 @@ function MemberAvatar({
   userId,
   name,
   size = 'md',
+  avatarUrl,
 }: {
   userId: string;
   name: string;
   size?: 'md' | 'lg';
+  avatarUrl?: string;
 }) {
-  const photo = typeof window !== 'undefined' ? getStoredAvatar(userId) : null;
+  const photo = (typeof window !== 'undefined' ? getStoredAvatar(userId) : null) || avatarUrl || null;
   const sizeClass = size === 'lg' ? 'h-14 w-14 text-base' : 'h-10 w-10 text-xs';
 
   return (
@@ -508,7 +510,7 @@ export default function UsersPage() {
             <Card key={user.id} className="border-[#E5D5C5]/60 bg-white hover:shadow-md transition-shadow group rounded-2xl cursor-pointer" onClick={() => setViewingUser(user)}>
               <CardContent className="p-4 flex items-center gap-4 justify-between">
                 <div className="flex items-center gap-4 min-w-0">
-                  <MemberAvatar userId={user.id} name={user.name} />
+                  <MemberAvatar userId={user.id} name={user.name} avatarUrl={user.avatar} />
                   <p className="font-semibold text-[#1A202C] truncate">{user.name}</p>
                 </div>
                 <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -561,7 +563,7 @@ export default function UsersPage() {
             return (
               <div className="space-y-4 pt-2">
                 <div className="flex items-center gap-4">
-                  <MemberAvatar userId={viewingUser.id} name={viewingUser.name} size="lg" />
+                  <MemberAvatar userId={viewingUser.id} name={viewingUser.name} size="lg" avatarUrl={viewingUser.avatar} />
                   <div>
                     <p className="font-bold text-xl text-[#1A202C]">{viewingUser.name}</p>
                     <div className="flex gap-1.5 flex-wrap mt-1.5">

@@ -19,6 +19,7 @@ export interface IUser extends Document {
   status: MemberStatus;
   groups: string[];
   qrCode?: string;
+  avatar?: string;
   familyMemberId?: mongoose.Types.ObjectId;
   parentAccountId?: mongoose.Types.ObjectId;
   parentRelation?: string;
@@ -59,6 +60,7 @@ const UserSchema = new Schema<IUser>(
     },
     groups: [{ type: String }],
     qrCode: { type: String },
+    avatar: { type: String, default: '' },
     familyMemberId: { type: Schema.Types.ObjectId, ref: 'User' },
     parentAccountId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     parentRelation: { type: String, default: '' },

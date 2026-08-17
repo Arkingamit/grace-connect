@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
 
 export interface ModernLoginSignupProps {
   error?: string;
@@ -126,6 +126,14 @@ export default function ModernLoginSignup({
 
               {SocialButtons}
 
+              <Link
+                href="/demo"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#8B2323] bg-[#FBE8E8] px-4 py-3 text-sm font-semibold text-[#8B2323] shadow-sm transition-colors hover:bg-[#F3D4D4] active:scale-[0.99]"
+              >
+                <ShieldCheck className="h-4 w-4 shrink-0" />
+                App Store / Play reviewer access
+              </Link>
+
               <div className="mt-8 w-full space-y-4 border-t border-[#E5D5C5]/50 pt-6">
                 <p className="text-sm text-[#7A6150]">
                   Don&apos;t have an account?{" "}
@@ -143,13 +151,6 @@ export default function ModernLoginSignup({
                   className="inline-flex items-center justify-center gap-1.5 text-sm text-[#7A6150] transition-colors hover:text-[#1A202C]"
                 >
                   <ArrowLeft className="h-4 w-4" /> Back to Home
-                </Link>
-
-                <Link
-                  href="/demo"
-                  className="block text-xs text-[#7A6150]/80 underline-offset-4 hover:text-[#8B2323] hover:underline"
-                >
-                  App Store / Play reviewer access
                 </Link>
               </div>
 
@@ -193,6 +194,14 @@ export default function ModernLoginSignup({
               <div className="mb-6 h-px w-full bg-[#E5D5C5]/50" />
 
               {SocialButtons}
+
+              <Link
+                href="/demo"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#8B2323] bg-[#FBE8E8] px-4 py-3 text-sm font-semibold text-[#8B2323] shadow-sm transition-colors hover:bg-[#F3D4D4] active:scale-[0.99]"
+              >
+                <ShieldCheck className="h-4 w-4 shrink-0" />
+                App Store / Play reviewer access
+              </Link>
 
               <div className="mt-8 w-full space-y-4 border-t border-[#E5D5C5]/50 pt-6">
                 <p className="text-sm text-[#7A6150]">

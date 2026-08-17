@@ -6,6 +6,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { createSession } from '@/lib/auth-utils';
 import { loginSchema } from '@/lib/validations';
 import { formatRejectionMessage } from '@/lib/rejection-reasons';
+import { getOAuthPicture } from '@/lib/oauth-picture';
 
 // Module-level singleton — reuses cached Google public keys across requests
 const googleClient = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
@@ -21,9 +22,10 @@ export async function POST(req: Request) {
     if (!parseResult.success) {
       return NextResponse.json({ error: parseResult.error.errors[0].message }, { status: 400 });
     }
-    const { credential, provider } = parseResult.data;
+    const { credential, provider, picture: clientPicture } = parseResult.data;
 
     let email = '';
+    let picture: string | undefined;
 
     if (provider === 'apple') {
       // Verify Apple token (reuses cached JWKS)
@@ -37,6 +39,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Invalid Apple token or missing email' }, { status: 400 });
       }
       email = payload.email.toLowerCase();
+      picture = getOAuthPicture(payload);
     } else {
       // Verify Google token (reuses cached JWKS)
       const ticket = await googleClient.verifyIdToken({
@@ -49,6 +52,11 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Invalid Google token or missing email' }, { status: 400 });
       }
       email = payload.email.toLowerCase();
+      picture = getOAuthPicture(payload);
+    }
+
+    if (!picture && clientPicture?.startsWith('https://')) {
+      picture = getOAuthPicture({ picture: clientPicture });
     }
 
     const user = await User.findOne(
@@ -90,6 +98,10 @@ export async function POST(req: Request) {
     const displayName = (user as any).name || `${(user as any).firstName} ${(user as any).lastName}`;
     const permissions = (user as any).permissions || [];
     await createSession((user as any)._id.toString(), user.email, displayName, user.role, permissions);
+
+    if (picture) {
+      await User.updateOne({ _id: (user as any)._id }, { $set: { avatar: picture } });
+    }
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error: any) {

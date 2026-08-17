@@ -304,6 +304,7 @@ export interface UserProfile {
   parentName?: string;
   isLinkedProfile?: boolean;
   permissions?: string[];
+  avatar?: string;
 }
 
 export interface ChurchMember {
@@ -326,6 +327,7 @@ export interface ChurchMember {
   status: MemberStatus;
   groups: string[];
   qrCode?: string;
+  avatar?: string;
   familyMemberId?: string;
   parentAccountId?: string;
   isLinkedProfile?: boolean;
@@ -343,4 +345,5 @@ export interface AuthSession {
   name: string;
   role: string;
   permissions?: string[];
+  avatar?: string;
 }

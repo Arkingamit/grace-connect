@@ -88,7 +88,7 @@ export default function LoginPage() {
         setError("Google authentication failed. No ID Token received.");
         return;
       }
-      const result = await login(user.authentication.idToken, "google");
+      const result = await login(user.authentication.idToken, "google", user.imageUrl);
       if (result.success) {
         router.push("/");
       } else {

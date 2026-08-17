@@ -4,6 +4,7 @@ import User from '@/models/User';
 import { OAuth2Client } from 'google-auth-library';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { registerSchema } from '@/lib/validations';
+import { getOAuthPicture } from '@/lib/oauth-picture';
 
 const googleClient = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
 const appleJWKS = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
@@ -18,6 +19,7 @@ export async function POST(req: Request) {
     const { credential, provider, firstName, middleName, lastName, gender, birthday, maritalStatus, marriageDate, campusId, phone, whatsapp, familyMemberId } = parseResult.data;
 
     let email = '';
+    let picture: string | undefined;
 
     if (provider === 'apple') {
       const { payload } = await jwtVerify(credential, appleJWKS, {
@@ -27,6 +29,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Invalid Apple token or missing email' }, { status: 400 });
       }
       email = payload.email.toLowerCase();
+      picture = getOAuthPicture(payload);
     } else {
       // Verify Google token
       const ticket = await googleClient.verifyIdToken({
@@ -39,6 +42,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Invalid Google token or missing email' }, { status: 400 });
       }
       email = payload.email.toLowerCase();
+      picture = getOAuthPicture(payload);
     }
 
     await connectToDatabase();
@@ -63,6 +67,7 @@ export async function POST(req: Request) {
       phone,
       whatsapp,
       familyMemberId,
+      avatar: picture || '',
       status: 'pending',
       role: 'member',
       groups: [],

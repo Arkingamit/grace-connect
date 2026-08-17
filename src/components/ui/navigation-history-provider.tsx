@@ -1,7 +1,14 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  HOME_ROUTE,
+  popNavStack,
+  readNavStack,
+  routeFromLocation,
+  trackRoute,
+} from "@/lib/in-app-nav-stack";
 
 interface NavigationHistoryContextType {
   history: string[];
@@ -12,38 +19,24 @@ const NavigationHistoryContext = createContext<NavigationHistoryContextType | un
 
 export function NavigationHistoryProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [history, setHistory] = useState<string[]>([]);
 
-  useEffect(() => {
-    setHistory((prev) => {
-      // If we are already on this path, don't add it again
-      if (prev[prev.length - 1] === pathname) {
-        return prev;
-      }
-      const newHistory = [...prev, pathname];
-      // Keep only the last 5 pages
-      if (newHistory.length > 5) {
-        newHistory.shift();
-      }
-      return newHistory;
-    });
-  }, [pathname]);
+  const route = routeFromLocation(pathname, searchParams.toString());
 
-  const goBack = (fallbackRoute: string = "/") => {
-    setHistory((prev) => {
-      if (prev.length > 1) {
-        const newHistory = [...prev];
-        newHistory.pop(); // Remove current page
-        const previousPage = newHistory[newHistory.length - 1];
-        // Note: Using router.push instead of back() to guarantee navigation matches our tracked stack
-        router.push(previousPage);
-        return newHistory;
-      } else {
-        router.push(fallbackRoute);
-        return prev;
-      }
-    });
+  useEffect(() => {
+    setHistory(trackRoute(route));
+  }, [route]);
+
+  const goBack = (fallbackRoute: string = HOME_ROUTE) => {
+    const previous = popNavStack();
+    if (previous) {
+      setHistory(readNavStack());
+      router.push(previous);
+      return;
+    }
+    router.push(fallbackRoute);
   };
 
   return (

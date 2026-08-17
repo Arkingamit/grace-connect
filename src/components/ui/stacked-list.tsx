@@ -233,6 +233,7 @@ const MemberItem = ({
           <img
             src={photoSrc}
             alt={member.name}
+            referrerPolicy="no-referrer"
             className="h-full w-full object-cover"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
@@ -616,6 +617,7 @@ export function mapUsersToStackedMembers(
     role?: string;
     campusId?: string;
     campusName?: string;
+    avatar?: string;
   }>,
 ): Member[] {
   return users.map((u) => {
@@ -642,7 +644,7 @@ export function mapUsersToStackedMembers(
       online: false,
       role: roleLabel,
       roleType,
-      avatar: getStoredAvatar(u.id) || undefined,
+      avatar: getStoredAvatar(u.id) || u.avatar || undefined,
     };
   });
 }

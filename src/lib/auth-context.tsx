@@ -11,7 +11,7 @@ interface AuthContextType {
   members: ChurchMember[];
   isLoading: boolean;
   register: (data: Partial<ChurchMember> & { credential?: string; provider?: 'google' | 'apple' }) => Promise<{ success: boolean; error?: string; userId?: string }>;
-  login: (credential: string, provider?: 'google' | 'apple') => Promise<{ success: boolean; error?: string }>;
+  login: (credential: string, provider?: 'google' | 'apple', picture?: string) => Promise<{ success: boolean; error?: string }>;
   /** App Store / Play reviewer bypass — requires DEMO_LOGIN_ENABLED + matching secret */
   demoLogin: (code: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -59,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: data.user.email,
             name: data.user.name || `${data.user.firstName} ${data.user.lastName}`,
             role: data.user.role || 'member',
+            avatar: data.user.avatar || undefined,
           });
           
           if (data.linkedProfiles) {
@@ -128,12 +129,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const login = useCallback(async (credential: string, provider: 'google' | 'apple' = 'google') => {
+  const login = useCallback(async (credential: string, provider: 'google' | 'apple' = 'google', picture?: string) => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential, provider }),
+        body: JSON.stringify({ credential, provider, picture }),
       });
       const result = await res.json();
       if (!res.ok) return { success: false, error: result.error || 'Login failed' };

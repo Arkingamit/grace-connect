@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,7 +11,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { VersionGate } from "@/components/ui/version-gate";
 import { NotificationProvider } from "@/components/ui/notification-provider";
-import { NativeBackHandler } from "@/components/ui/native-back-handler";
+import { NativeBackNavigation } from "@/components/ui/native-back-navigation";
 import { NavigationHistoryProvider } from "@/components/ui/navigation-history-provider";
 
 // QueryClient created OUTSIDE the component to prevent recreation on re-render
@@ -49,12 +49,14 @@ export default function Providers({ children }: { children: React.ReactNode }) {
                 <Toaster />
                 <Sonner />
                 <NotificationProvider>
-                  <NavigationHistoryProvider>
-                    <NativeBackHandler />
-                    <VersionGate>
-                      {children}
-                    </VersionGate>
-                  </NavigationHistoryProvider>
+                  <Suspense fallback={null}>
+                    <NavigationHistoryProvider>
+                      <NativeBackNavigation />
+                      <VersionGate>
+                        {children}
+                      </VersionGate>
+                    </NavigationHistoryProvider>
+                  </Suspense>
                 </NotificationProvider>
               </TooltipProvider>
             </AuthProvider>

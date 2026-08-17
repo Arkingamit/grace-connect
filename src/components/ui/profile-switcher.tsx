@@ -17,7 +17,7 @@ import { AvatarGroup } from "./avatar-group";
 import { QrCode, UserPlus, LogOut, User } from "lucide-react";
 import { AddFamilyMemberDialog } from "./add-family-member-dialog";
 import { LogoutConfirmDialog } from "./logout-confirm-dialog";
-import { getStoredAvatar } from "@/lib/avatar-storage";
+import { resolveMemberAvatar } from "@/lib/avatar-storage";
 import { cn } from "@/lib/utils";
 
 function getInitials(name: string) {
@@ -68,8 +68,8 @@ export function ProfileSwitcher({
       setActivePhoto(null);
       return;
     }
-    setActivePhoto(getStoredAvatar(activeMember.id));
-  }, [activeMember?.id]);
+    setActivePhoto(resolveMemberAvatar(activeMember.id, activeMember.avatar) || null);
+  }, [activeMember?.id, activeMember?.avatar]);
 
   const familyStackItems = useMemo(() => {
     if (!session) return [];
@@ -77,7 +77,7 @@ export function ProfileSwitcher({
     const primary = {
       id: session.memberId,
       name: session.name || "You",
-      image: getStoredAvatar(session.memberId) || undefined,
+      image: resolveMemberAvatar(session.memberId, session.avatar) || undefined,
     };
 
     const linked = linkedProfiles.map((profile) => ({
@@ -86,7 +86,7 @@ export function ProfileSwitcher({
         profile.name ||
         `${profile.firstName} ${profile.lastName}`.trim() ||
         "Family Member",
-      image: getStoredAvatar(profile.id) || undefined,
+      image: resolveMemberAvatar(profile.id, profile.avatar) || undefined,
     }));
 
     const all = [primary, ...linked];

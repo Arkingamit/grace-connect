@@ -270,6 +270,7 @@ function TiltCard({
           <img
             src={profile.image}
             alt={profile.name}
+            referrerPolicy="no-referrer"
             className={`absolute inset-0 h-full w-full object-cover transition-all duration-500 group-hover:scale-110 ${
               isManaging ? "opacity-70" : "opacity-90 group-hover:opacity-100"
             }`}

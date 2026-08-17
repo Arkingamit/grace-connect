@@ -7,7 +7,7 @@ import ProfileSelect, {
 } from "@/components/ui/3d-profile-selector";
 import { useAuth } from "@/lib/auth-context";
 import { AddFamilyMemberDialog } from "@/components/ui/add-family-member-dialog";
-import { getStoredAvatar } from "@/lib/avatar-storage";
+import { resolveMemberAvatar } from "@/lib/avatar-storage";
 
 export default function SelectProfilePage() {
   const router = useRouter();
@@ -35,7 +35,7 @@ export default function SelectProfilePage() {
     const primary: Profile = {
       id: session.memberId,
       name: session.name || "You",
-      image: getStoredAvatar(session.memberId) || undefined,
+      image: resolveMemberAvatar(session.memberId, session.avatar) || undefined,
     };
 
     const linked = linkedProfiles.map((member) => ({
@@ -44,7 +44,7 @@ export default function SelectProfilePage() {
         member.name ||
         `${member.firstName} ${member.lastName}`.trim() ||
         "Family Member",
-      image: getStoredAvatar(member.id) || undefined,
+      image: resolveMemberAvatar(member.id, member.avatar) || undefined,
     }));
 
     return [primary, ...linked];

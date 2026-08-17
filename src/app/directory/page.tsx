@@ -10,7 +10,7 @@ import StackedList, {
 } from "@/components/ui/stacked-list";
 import { useAuth } from "@/lib/auth-context";
 import { getRoleLabel } from "@/lib/admin-data-context";
-import { getStoredAvatar } from "@/lib/avatar-storage";
+import { resolveMemberAvatar } from "@/lib/avatar-storage";
 import type { UserRole } from "@/lib/types";
 
 function mapRoleType(role?: string): MemberRoleType {
@@ -46,7 +46,7 @@ export default function DirectoryPage() {
         online,
         role: getRoleLabel((m.role as UserRole) || "member"),
         roleType: mapRoleType(m.role),
-        avatar: getStoredAvatar(m.id) || undefined,
+        avatar: resolveMemberAvatar(m.id, m.avatar) || undefined,
       };
     });
   }, [members]);
