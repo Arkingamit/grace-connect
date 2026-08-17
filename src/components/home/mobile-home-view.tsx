@@ -672,11 +672,12 @@ export function MobileHomeView() {
 
         {/* 1. Header */}
         <header
-          className="sticky top-0 z-50 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-4 border-b border-[#a59d94]/60 shadow-[0_4px_16px_-2px_rgba(58,45,39,0.12),0_1px_0px_rgba(255,255,255,0.6)_inset] bg-[#FAF7F2]/80 backdrop-blur-md"
+          className="sticky top-0 z-50 border-b border-[#a59d94]/60 bg-[#FAF7F2]/80 px-4 shadow-[0_4px_16px_-2px_rgba(58,45,39,0.12),0_1px_0px_rgba(255,255,255,0.6)_inset] backdrop-blur-md pt-[env(safe-area-inset-top)]"
         >
+          <div className="flex h-14 items-center justify-between">
           <div className="flex items-center gap-3">
 
-            <img src="/logo.png" alt="Grace Community" className="w-25 h-20 object-contain -my-20" />
+            <img src="/logo.png" alt="Grace Community" className="h-12 w-auto object-contain" />
             <div className="flex flex-col">
 
             </div>
@@ -702,9 +703,10 @@ export function MobileHomeView() {
               </Link>
             )}
           </div>
+          </div>
         </header>
 
-        <div className="px-4 pt-4 space-y-8">
+        <div className="px-4 pt-3 space-y-8">
 
           {/* 2. Hero Card */}
           <div className="rounded-[2.5rem] bg-[#5C1111] text-white overflow-hidden shadow-xl relative">
