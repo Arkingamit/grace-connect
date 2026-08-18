@@ -17,6 +17,7 @@ let package = Package(
         .package(name: "CapacitorCamera", path: "../../../node_modules/@capacitor/camera"),
         .package(name: "CapacitorGeolocation", path: "../../../node_modules/@capacitor/geolocation"),
         .package(name: "CapacitorPushNotifications", path: "../../../node_modules/@capacitor/push-notifications"),
+        .package(name: "CodetrixStudioCapacitorGoogleAuth", path: "../../../node_modules/@codetrix-studio/capacitor-google-auth"),
         .package(name: "CapacitorNativeSettings", path: "../../../node_modules/capacitor-native-settings")
     ],
     targets: [
@@ -30,6 +31,7 @@ let package = Package(
                 .product(name: "CapacitorCamera", package: "CapacitorCamera"),
                 .product(name: "CapacitorGeolocation", package: "CapacitorGeolocation"),
                 .product(name: "CapacitorPushNotifications", package: "CapacitorPushNotifications"),
+                .product(name: "CodetrixStudioCapacitorGoogleAuth", package: "CodetrixStudioCapacitorGoogleAuth"),
                 .product(name: "CapacitorNativeSettings", package: "CapacitorNativeSettings")
             ]
         )

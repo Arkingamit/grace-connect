@@ -9,7 +9,8 @@
     "dev": "next dev -p 4000",
     "build": "next build",
     "start": "next start -p 4000",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "node scripts/ensure-google-auth-spm.mjs"
   },
   "browserslist": [
     "chrome >= 80",

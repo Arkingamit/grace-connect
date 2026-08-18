@@ -132,7 +132,12 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error(err);
-      setError("Native Apple login failed or was canceled.");
+      const message = err?.message || err?.errorMessage || "";
+      setError(
+        /cancel/i.test(message)
+          ? "Apple login was canceled."
+          : message || "Native Apple login failed. Please try again."
+      );
     }
   };
 
