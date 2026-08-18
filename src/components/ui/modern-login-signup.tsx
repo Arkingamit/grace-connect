@@ -86,7 +86,7 @@ export default function ModernLoginSignup({
   );
 
   return (
-    <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#FAF7F2] p-4 pb-24 text-[#1A202C]">
+    <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#FAF7F2] px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[#1A202C]">
       {/* Pattern + ambient accents */}
       <div
         className="pointer-events-none absolute inset-0 z-0 opacity-40"
