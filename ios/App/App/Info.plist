@@ -62,6 +62,8 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>GIDClientID</key>
+	<string>641349616597-5npf7tgp6ifsu9evc1h4oe328rr8o12c.apps.googleusercontent.com</string>
+	<key>GIDServerClientID</key>
 	<string>641349616597-i769rj34s7j08odnfurq27quo5f0jv7k.apps.googleusercontent.com</string>
 	<key>CFBundleURLTypes</key>
 	<array>
@@ -69,10 +71,10 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.googleusercontent.apps.641349616597-i769rj34s7j08odnfurq27quo5f0jv7k</string>
+			<string>GoogleSignIn</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.641349616597-i769rj34s7j08odnfurq27quo5f0jv7k</string>
+				<string>com.googleusercontent.apps.641349616597-5npf7tgp6ifsu9evc1h4oe328rr8o12c</string>
 			</array>
 		</dict>
 	</array>

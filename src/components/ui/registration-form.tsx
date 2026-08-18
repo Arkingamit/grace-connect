@@ -64,10 +64,25 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
   React.useEffect(() => {
     setMounted(true);
     const initNative = () => {
-      const isCap = typeof window !== 'undefined' && (window as any).Capacitor?.isNative;
-      const isWebView = typeof window !== 'undefined' && /wv|Nexus|Android.*AppleWebKit/i.test(navigator.userAgent);
+      const isCap = Capacitor.isNativePlatform();
+      const isWebView =
+        typeof navigator !== 'undefined' &&
+        /wv|Android.*AppleWebKit/i.test(navigator.userAgent);
       if (isCap || isWebView) {
         setIsNative(true);
+        try {
+          const iosClientId =
+            '641349616597-5npf7tgp6ifsu9evc1h4oe328rr8o12c.apps.googleusercontent.com';
+          const webClientId =
+            '641349616597-i769rj34s7j08odnfurq27quo5f0jv7k.apps.googleusercontent.com';
+          GoogleAuth.initialize({
+            clientId: Capacitor.getPlatform() === 'ios' ? iosClientId : webClientId,
+            scopes: ['profile', 'email'],
+            grantOfflineAccess: true,
+          });
+        } catch (e) {
+          console.error(e);
+        }
       }
     };
     initNative();
@@ -165,7 +180,12 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
       handleGoogleRegister({ credential: user.authentication.idToken });
     } catch (err: any) {
       console.error(err);
-      setError('Native Google login failed or was canceled.');
+      const message = err?.message || err?.errorMessage || '';
+      setError(
+        /cancel/i.test(message)
+          ? 'Google login was canceled.'
+          : message || 'Native Google login failed. Please try again.'
+      );
     }
   };
 

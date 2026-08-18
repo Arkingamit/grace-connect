@@ -32,9 +32,13 @@ export default function LoginPage() {
       if (isCapacitor || isAndroidWebView) {
         setIsNative(true);
         try {
+          const iosClientId =
+            "641349616597-5npf7tgp6ifsu9evc1h4oe328rr8o12c.apps.googleusercontent.com";
+          const webClientId =
+            "641349616597-i769rj34s7j08odnfurq27quo5f0jv7k.apps.googleusercontent.com";
           GoogleAuth.initialize({
             clientId:
-              "641349616597-i769rj34s7j08odnfurq27quo5f0jv7k.apps.googleusercontent.com",
+              Capacitor.getPlatform() === "ios" ? iosClientId : webClientId,
             scopes: ["profile", "email"],
             grantOfflineAccess: true,
           });
@@ -99,7 +103,12 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error(err);
-      setError("Native Google login failed or was canceled.");
+      const message = err?.message || err?.errorMessage || "";
+      setError(
+        /cancel/i.test(message)
+          ? "Google login was canceled."
+          : message || "Native Google login failed. Please try again."
+      );
     }
   };
 
