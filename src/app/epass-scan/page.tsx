@@ -226,7 +226,7 @@ function EpassScanInner() {
 
   return (
     <div className="min-h-[100dvh] bg-[#FAF7F2] pb-24">
-      <div className="sticky top-0 z-20 bg-[#FAF7F2]/95 backdrop-blur border-b border-[#E5D5C5]/60 px-4 py-3 flex items-center gap-3">
+      <div className="sticky top-0 z-20 bg-[#FAF7F2]/95 backdrop-blur border-b border-[#E5D5C5]/60 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-3 flex items-center gap-3">
         <Button variant="ghost" size="icon" asChild className="rounded-full">
           <Link href="/profile" aria-label="Back">
             <ChevronLeft className="w-5 h-5" />

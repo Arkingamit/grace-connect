@@ -674,10 +674,10 @@ export function MobileHomeView() {
         <header
           className="sticky top-0 z-50 border-b border-[#a59d94]/60 bg-[#FAF7F2]/80 px-4 shadow-[0_4px_16px_-2px_rgba(58,45,39,0.12),0_1px_0px_rgba(255,255,255,0.6)_inset] backdrop-blur-md pt-[env(safe-area-inset-top)]"
         >
-          <div className="flex h-14 items-center justify-between">
+          <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-3">
 
-            <img src="/logo.png" alt="Grace Community" className="h-12 w-auto object-contain" />
+            <img src="/logo.png" alt="Grace Community" className="h-14 w-auto object-contain" />
             <div className="flex flex-col">
 
             </div>

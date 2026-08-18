@@ -75,7 +75,7 @@ export default function DirectoryPage() {
 
   return (
     <div className="relative min-h-[100dvh] bg-[#FAF7F2] pb-24">
-      <div className="sticky top-0 z-40 flex items-center gap-2 border-b border-[#E5D5C5]/60 bg-[#FAF7F2]/90 px-4 py-3 backdrop-blur-md">
+      <div className="sticky top-0 z-40 flex items-center gap-2 border-b border-[#E5D5C5]/60 bg-[#FAF7F2]/90 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-3 backdrop-blur-md">
         <button
           type="button"
           onClick={() => router.back()}

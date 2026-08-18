@@ -333,7 +333,7 @@ export default function NotificationsPage() {
     <div className="min-h-screen bg-transparent pb-24">
 
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-[#FAF7F2]/80 backdrop-blur-md border-b border-[#E5D5C5]/40 shadow-sm pt-4 pb-4 px-4">
+      <div className="sticky top-0 z-50 bg-[#FAF7F2]/80 backdrop-blur-md border-b border-[#E5D5C5]/40 shadow-sm pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4">
         <div className="flex items-center gap-3">
           <Link
             href="/"

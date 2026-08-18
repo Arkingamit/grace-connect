@@ -7,12 +7,21 @@ const pluginDir = join(
   root,
   "node_modules/@codetrix-studio/capacitor-google-auth"
 );
-const dest = join(pluginDir, "Package.swift");
-const src = join(root, "scripts/codetrix-google-auth.Package.swift");
 
 if (!existsSync(pluginDir)) {
   process.exit(0);
 }
 
-copyFileSync(src, dest);
-console.log("Added Package.swift to @codetrix-studio/capacitor-google-auth");
+const files = [
+  ["scripts/codetrix-google-auth.Package.swift", "Package.swift"],
+  [
+    "scripts/codetrix-google-auth.CapacitorBridge.swift",
+    "ios/Plugin/CapacitorBridge.swift",
+  ],
+];
+
+for (const [from, to] of files) {
+  copyFileSync(join(root, from), join(pluginDir, to));
+}
+
+console.log("Added SPM support to @codetrix-studio/capacitor-google-auth");

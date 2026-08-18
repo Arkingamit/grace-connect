@@ -23,7 +23,9 @@ let package = Package(
                 .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS")
             ],
             path: "ios/Plugin",
-            exclude: ["Info.plist", "Plugin.h"]
+            // SwiftPM rejects mixed-language targets, so the Objective-C
+            // registration macro is replaced by CAPBridgedPlugin in Swift.
+            exclude: ["Info.plist", "Plugin.h", "Plugin.m"]
         )
     ]
 )

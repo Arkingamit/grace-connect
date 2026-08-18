@@ -47,7 +47,7 @@ export default function SearchPage() {
     <div className="min-h-screen bg-transparent pb-24">
       
       {/* Header & Search Bar */}
-      <div className="sticky top-0 z-50 bg-[#FAF7F2]/80 backdrop-blur-md border-b border-[#E5D5C5]/40 shadow-sm pt-4 pb-4 px-4">
+      <div className="sticky top-0 z-50 bg-[#FAF7F2]/80 backdrop-blur-md border-b border-[#E5D5C5]/40 shadow-sm pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4">
         <div className="flex items-center gap-3">
           <Link href="/" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#7A6150] shadow-sm shrink-0">
             <ChevronLeft className="w-5 h-5" />

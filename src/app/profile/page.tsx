@@ -104,7 +104,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-[#FAF7F2] dark:bg-background text-foreground antialiased pb-4">
       {/* Top App Bar / Glass Header */}
-      <header className="sticky top-0 z-50 bg-[#FAF7F2]/80 dark:bg-background/80 backdrop-blur-md border-b border-border/40">
+      <header className="sticky top-0 z-50 bg-[#FAF7F2]/80 dark:bg-background/80 backdrop-blur-md border-b border-border/40 pt-[env(safe-area-inset-top)]">
         <div className="flex items-center px-4 h-16 w-full max-w-xl mx-auto">
           <button
             onClick={() => goBack("/")}
