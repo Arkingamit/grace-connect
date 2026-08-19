@@ -9,11 +9,20 @@ import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import AppleLogin from "react-apple-signin-auth";
 import ModernLoginSignup from "@/components/ui/modern-login-signup";
+import {
+  resumeAppleWebSignIn,
+  startAppleWebSignIn,
+  stopAppleWebSignInPolling,
+} from "@/lib/apple-web-signin";
+
+const APPLE_WAITING_NOTICE =
+  "Finish signing in with Apple in the browser, then come back to this screen.";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, refreshSession } = useAuth();
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [mounted, setMounted] = useState(false);
   const [isNative, setIsNative] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -53,6 +62,31 @@ export default function LoginPage() {
     initNative();
     setTimeout(initNative, 500);
   }, [router]);
+
+  const appleWebHandlers = React.useMemo(
+    () => ({
+      onWaiting: () => {
+        setError("");
+        setNotice(APPLE_WAITING_NOTICE);
+      },
+      onSuccess: async () => {
+        setNotice("");
+        await refreshSession();
+        router.push("/");
+      },
+      onError: (message: string) => {
+        setNotice("");
+        setError(message);
+      },
+    }),
+    [refreshSession, router],
+  );
+
+  // Pick the flow back up if the WebView reloaded while Apple was open.
+  useEffect(() => {
+    resumeAppleWebSignIn(appleWebHandlers);
+    return () => stopAppleWebSignInPolling();
+  }, [appleWebHandlers]);
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     setError("");
@@ -112,15 +146,22 @@ export default function LoginPage() {
           : /something went wrong|developer_error|error code: 10|12500/i.test(
                 message
               )
-            ? "Google sign-in is not set up for this Android build. Use the reviewer button, or try again after the next app update."
+            ? "Google sign-in isn't available on this Android build yet. Please continue with Apple, or use the reviewer access button below."
             : message || "Google login failed. Please try again."
       );
     }
   };
 
-  const handleNativeAppleLogin = async () => {
+  const handleAppleLogin = async () => {
+    // The native plugin is iOS-only; Android goes through Apple's web flow.
+    if (isNative && !isIOS) {
+      await startAppleWebSignIn(appleWebHandlers);
+      return;
+    }
+
     try {
       setError("");
+      setNotice("");
       const result = await SignInWithApple.authorize({
         clientId: "com.graceconnect.app",
         scopes: "email name",
@@ -204,10 +245,10 @@ export default function LoginPage() {
   return (
     <ModernLoginSignup
       error={error}
+      notice={notice}
       useNativeButtons={isNative}
-      showApple={!isNative || isIOS}
       onGoogleClick={handleNativeGoogleLogin}
-      onAppleClick={handleNativeAppleLogin}
+      onAppleClick={handleAppleLogin}
       googleSlot={googleSlot}
       appleSlot={appleSlot}
       registerHref="/register"

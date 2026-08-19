@@ -12,6 +12,8 @@ interface AuthContextType {
   isLoading: boolean;
   register: (data: Partial<ChurchMember> & { credential?: string; provider?: 'google' | 'apple' }) => Promise<{ success: boolean; error?: string; userId?: string }>;
   login: (credential: string, provider?: 'google' | 'apple', picture?: string) => Promise<{ success: boolean; error?: string }>;
+  /** Reload the session for flows that set the cookie server-side (e.g. Apple on Android) */
+  refreshSession: () => Promise<void>;
   /** App Store / Play reviewer bypass — requires DEMO_LOGIN_ENABLED + matching secret */
   demoLogin: (code: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -40,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchSession = async () => {
+  const fetchSession = useCallback(async () => {
     try {
       // Only fetch session — no longer fetching /api/admin/users here.
       // Users list is managed by AdminDataContext (scoped to /admin routes).
@@ -92,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // Separate members fetch — only called when explicitly needed (e.g., admin approval flow)
   const refreshMembers = useCallback(async () => {
@@ -110,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetchSession();
     // Members are only loaded lazily when needed (admin routes)
-  }, []);
+  }, [fetchSession]);
 
   const register = useCallback(async (data: Partial<ChurchMember> & { credential?: string }) => {
     try {
@@ -293,7 +295,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       session, members, isLoading,
-      register, login, demoLogin, logout,
+      register, login, demoLogin, logout, refreshSession: fetchSession,
       getMember, getSessionMember,
       getPendingRequests, approveMember, rejectMember,
       getApprovedMembers, getEffectiveGroups,

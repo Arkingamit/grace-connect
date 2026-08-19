@@ -1,18 +1,13 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
-import User from '@/models/User';
 import { OAuth2Client } from 'google-auth-library';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { createSession } from '@/lib/auth-utils';
 import { loginSchema } from '@/lib/validations';
-import { formatRejectionMessage } from '@/lib/rejection-reasons';
 import { getOAuthPicture } from '@/lib/oauth-picture';
+import { verifyAppleIdToken } from '@/lib/apple-auth';
+import { signInVerifiedEmail } from '@/lib/social-login';
 
 // Module-level singleton — reuses cached Google public keys across requests
 const googleClient = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
-
-// Module-level singleton — reuses cached Apple public keys across requests
-const appleJWKS = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
 
 export async function POST(req: Request) {
   try {
@@ -28,13 +23,9 @@ export async function POST(req: Request) {
     let picture: string | undefined;
 
     if (provider === 'apple') {
-      // Verify Apple token (reuses cached JWKS)
       // The Apple JWT includes the email in the payload if requested
-      const { payload } = await jwtVerify(credential, appleJWKS, {
-        issuer: 'https://appleid.apple.com',
-        // audience: process.env.NEXT_PUBLIC_APPLE_CLIENT_ID // Optional: restrict audience to client IDs
-      });
-      
+      const payload = await verifyAppleIdToken(credential);
+
       if (!payload || !payload.email || typeof payload.email !== 'string') {
         return NextResponse.json({ error: 'Invalid Apple token or missing email' }, { status: 400 });
       }
@@ -59,48 +50,22 @@ export async function POST(req: Request) {
       picture = getOAuthPicture({ picture: clientPicture });
     }
 
-    const user = await User.findOne(
-      { email },
-      {
-        _id: 1,
-        email: 1,
-        firstName: 1,
-        lastName: 1,
-        name: 1,
-        role: 1,
-        status: 1,
-        permissions: 1,
-        rejectionReason: 1,
-        rejectionNote: 1,
-      }
-    ).lean();
+    const result = await signInVerifiedEmail(
+      email,
+      provider === 'apple' ? 'Apple' : 'Google',
+      picture,
+    );
 
-    if (!user) {
-      return NextResponse.json({ error: 'No account found with this Google account. Please register first.' }, { status: 404 });
-    }
-
-    if (user.status === 'pending') {
-      return NextResponse.json({ error: 'Your registration is pending approval from your campus pastor' }, { status: 403 });
-    }
-
-    if (user.status === 'rejected') {
-      return NextResponse.json({
-        error: formatRejectionMessage(
-          (user as any).rejectionReason,
-          (user as any).rejectionNote,
-        ),
-        rejectionReason: (user as any).rejectionReason || '',
-        rejectionNote: (user as any).rejectionNote || '',
-      }, { status: 403 });
-    }
-
-    // Embed role and permissions in the session JWT so requireAdmin needs no DB call
-    const displayName = (user as any).name || `${(user as any).firstName} ${(user as any).lastName}`;
-    const permissions = (user as any).permissions || [];
-    await createSession((user as any)._id.toString(), user.email, displayName, user.role, permissions);
-
-    if (picture) {
-      await User.updateOne({ _id: (user as any)._id }, { $set: { avatar: picture } });
+    if (!result.ok) {
+      return NextResponse.json(
+        {
+          error: result.error,
+          ...(result.rejectionReason !== undefined
+            ? { rejectionReason: result.rejectionReason, rejectionNote: result.rejectionNote }
+            : {}),
+        },
+        { status: result.status || 400 },
+      );
     }
 
     return NextResponse.json({ success: true }, { status: 200 });
