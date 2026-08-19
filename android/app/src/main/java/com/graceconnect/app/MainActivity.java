@@ -4,9 +4,6 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.webkit.GeolocationPermissions;
-import android.webkit.PermissionRequest;
-import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 
 import androidx.activity.OnBackPressedCallback;
@@ -14,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.codetrixstudio.capacitor.GoogleAuth.GoogleAuth;
 import com.getcapacitor.BridgeActivity;
 
 import java.util.ArrayList;
@@ -25,6 +23,9 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Credential Manager Google (Grace Music strategy) + Codetrix for iOS parity if present.
+        registerPlugin(GraceGoogleAuthPlugin.class);
+        registerPlugin(GoogleAuth.class);
         super.onCreate(savedInstanceState);
         requestAppPermissions();
         registerNativeBackInterceptor();

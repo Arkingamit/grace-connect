@@ -9,6 +9,7 @@ import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import AppleLogin from "react-apple-signin-auth";
 import ModernLoginSignup from "@/components/ui/modern-login-signup";
+import { GraceGoogleAuth } from "@/lib/grace-google-auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,16 +37,23 @@ export default function LoginPage() {
         setIsNative(true);
         setIsIOS(Capacitor.getPlatform() === "ios");
         try {
-          const iosClientId =
-            "641349616597-5npf7tgp6ifsu9evc1h4oe328rr8o12c.apps.googleusercontent.com";
-          const webClientId =
-            "641349616597-i769rj34s7j08odnfurq27quo5f0jv7k.apps.googleusercontent.com";
-          GoogleAuth.initialize({
-            clientId:
-              Capacitor.getPlatform() === "ios" ? iosClientId : webClientId,
-            scopes: ["profile", "email"],
-            grantOfflineAccess: true,
-          });
+          // On Android the native plugin must use the Web client ID for requestIdToken.
+          // Prefer capacitor.config / strings.xml; only pass iOS client on iOS.
+          if (Capacitor.getPlatform() === "ios") {
+            GoogleAuth.initialize({
+              clientId:
+                "641349616597-5npf7tgp6ifsu9evc1h4oe328rr8o12c.apps.googleusercontent.com",
+              scopes: ["profile", "email"],
+              grantOfflineAccess: true,
+            });
+          } else {
+            GoogleAuth.initialize({
+              clientId:
+                "641349616597-i769rj34s7j08odnfurq27quo5f0jv7k.apps.googleusercontent.com",
+              scopes: ["profile", "email"],
+              grantOfflineAccess: true,
+            });
+          }
         } catch (e) {
           console.error(e);
         }
@@ -103,12 +111,31 @@ export default function LoginPage() {
   const handleNativeGoogleLogin = async () => {
     try {
       setError("");
-      const user = await GoogleAuth.signIn();
-      if (!user.authentication.idToken) {
+      // Android: Credential Manager (Grace Music strategy). iOS: Codetrix GoogleAuth.
+      const isAndroid = Capacitor.getPlatform() === "android";
+      let idToken = "";
+      let picture: string | undefined;
+
+      if (isAndroid) {
+        const resultNative = await GraceGoogleAuth.signIn();
+        idToken = resultNative.idToken;
+        picture = resultNative.imageUrl;
+      } else {
+        const user = await GoogleAuth.signIn();
+        if (!user.authentication?.idToken) {
+          setError("Google authentication failed. No ID Token received.");
+          return;
+        }
+        idToken = user.authentication.idToken;
+        picture = user.imageUrl;
+      }
+
+      if (!idToken) {
         setError("Google authentication failed. No ID Token received.");
         return;
       }
-      const result = await login(user.authentication.idToken, "google", user.imageUrl);
+
+      const result = await login(idToken, "google", picture);
       if (result.success) {
         router.push("/");
       } else {
@@ -120,10 +147,10 @@ export default function LoginPage() {
       setError(
         /cancel/i.test(message)
           ? "Google login was canceled."
-          : /something went wrong|developer_error|error code: 10|12500/i.test(
+          : /something went wrong|developer_error|error code: 10|12500|SHA-1/i.test(
                 message
               )
-            ? "Google sign-in isn't available on this Android build yet. Please continue with Apple, or use the reviewer access button below."
+            ? "Google sign-in failed (Android config). If this build came from Play Store, add the Play App Signing SHA-1 in Firebase for package com.graceconnect.app, then rebuild. Or use Apple / reviewer access for now."
             : message || "Google login failed. Please try again."
       );
     }

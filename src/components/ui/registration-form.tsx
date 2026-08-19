@@ -25,6 +25,7 @@ import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
 import AppleLogin from 'react-apple-signin-auth';
+import { GraceGoogleAuth } from '@/lib/grace-google-auth';
 
 interface RegistrationFormProps {
   /** When set, the campus is pre-selected and cannot be changed (QR flow) */
@@ -174,19 +175,35 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
   const handleNativeGoogleRegister = async () => {
     try {
       setError('');
-      const user = await GoogleAuth.signIn();
-      if (!user.authentication.idToken) {
+      const isAndroid = Capacitor.getPlatform() === 'android';
+      let idToken = '';
+
+      if (isAndroid) {
+        const resultNative = await GraceGoogleAuth.signIn();
+        idToken = resultNative.idToken;
+      } else {
+        const user = await GoogleAuth.signIn();
+        if (!user.authentication?.idToken) {
+          setError('Google authentication failed. No ID Token received.');
+          return;
+        }
+        idToken = user.authentication.idToken;
+      }
+
+      if (!idToken) {
         setError('Google authentication failed. No ID Token received.');
         return;
       }
-      handleGoogleRegister({ credential: user.authentication.idToken });
+      handleGoogleRegister({ credential: idToken });
     } catch (err: any) {
       console.error(err);
       const message = err?.message || err?.errorMessage || '';
       setError(
         /cancel/i.test(message)
           ? 'Google login was canceled.'
-          : message || 'Native Google login failed. Please try again.'
+          : /something went wrong|developer_error|error code: 10|12500|SHA-1/i.test(message)
+            ? 'Google sign-in failed (Android config). Add Play App Signing SHA-1 in Firebase for com.graceconnect.app, then rebuild.'
+            : message || 'Native Google login failed. Please try again.'
       );
     }
   };
