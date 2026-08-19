@@ -59,6 +59,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
   const [submitted, setSubmitted] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [isNative, setIsNative] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   React.useEffect(() => {
@@ -70,6 +71,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
         /wv|Android.*AppleWebKit/i.test(navigator.userAgent);
       if (isCap || isWebView) {
         setIsNative(true);
+        setIsIOS(Capacitor.getPlatform() === 'ios');
         try {
           const iosClientId =
             '641349616597-5npf7tgp6ifsu9evc1h4oe328rr8o12c.apps.googleusercontent.com';
@@ -822,6 +824,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
                         Register with Google
                       </button>
+                      {isIOS && (
                       <button
                         onClick={handleNativeAppleRegister}
                         className="w-full bg-black text-white border border-black font-medium text-sm rounded-md py-2.5 px-4 flex items-center justify-center gap-3 hover:bg-gray-900 transition-colors shadow-sm"
@@ -829,6 +832,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                         <svg viewBox="0 0 384 512" className="w-5 h-5 fill-white"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.1-44.6-35.9-2.8-74.3 22.7-93.1 22.7-18.9 0-50.1-22.1-78.8-22.1-41.1 0-79.6 23.3-100.9 61.2-42.9 76.5-11 190.2 30.6 248.9 20.4 28.7 44.5 61.2 75.3 60 30.3-1.2 41.5-19.6 77.9-19.6 36.1 0 46.5 19.3 78.2 19.3 32.5-.2 53.6-29.6 73.8-59 23.2-34 32.4-67.1 33-68.8-1-1-61.9-23.7-61.9-113.2zM250.7 77.7c16.5-20.1 27.6-47.8 24.6-75.7-24 1-52 14.1-69 32.2-15.1 16-27.9 44-24.3 71.1 26.6 2 52.2-14.8 68.7-27.6z"/></svg>
                         Register with Apple
                       </button>
+                      )}
                     </>
                   ) : (
                     <>

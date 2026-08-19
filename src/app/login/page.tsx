@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
   const [isNative, setIsNative] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -31,6 +32,7 @@ export default function LoginPage() {
 
       if (isCapacitor || isAndroidWebView) {
         setIsNative(true);
+        setIsIOS(Capacitor.getPlatform() === "ios");
         try {
           const iosClientId =
             "641349616597-5npf7tgp6ifsu9evc1h4oe328rr8o12c.apps.googleusercontent.com";
@@ -107,7 +109,11 @@ export default function LoginPage() {
       setError(
         /cancel/i.test(message)
           ? "Google login was canceled."
-          : message || "Native Google login failed. Please try again."
+          : /something went wrong|developer_error|error code: 10|12500/i.test(
+                message
+              )
+            ? "Google sign-in is not set up for this Android build. Use the reviewer button, or try again after the next app update."
+            : message || "Google login failed. Please try again."
       );
     }
   };
@@ -199,6 +205,7 @@ export default function LoginPage() {
     <ModernLoginSignup
       error={error}
       useNativeButtons={isNative}
+      showApple={!isNative || isIOS}
       onGoogleClick={handleNativeGoogleLogin}
       onAppleClick={handleNativeAppleLogin}
       googleSlot={googleSlot}

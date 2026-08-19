@@ -12,6 +12,8 @@ export interface ModernLoginSignupProps {
   onAppleClick?: () => void;
   /** When true, show native-style buttons instead of OAuth widget slots */
   useNativeButtons?: boolean;
+  /** Hide Apple Sign-In (Android has no native plugin; keep Google only). */
+  showApple?: boolean;
   registerHref?: string;
   privacyHref?: string;
   termsHref?: string;
@@ -25,6 +27,7 @@ export default function ModernLoginSignup({
   onGoogleClick,
   onAppleClick,
   useNativeButtons = false,
+  showApple = true,
   registerHref = "/register",
   privacyHref = "/privacy-policy",
   termsHref = "/privacy-policy",
@@ -69,19 +72,21 @@ export default function ModernLoginSignup({
         {GoogleIcon}
         {isLogin ? "Continue with Google" : "Sign up with Google"}
       </button>
-      <button
-        type="button"
-        onClick={onAppleClick}
-        className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#1A202C] bg-[#1A202C] px-4 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#2d3748]"
-      >
-        {AppleIcon}
-        {isLogin ? "Continue with Apple" : "Sign up with Apple"}
-      </button>
+      {showApple && (
+        <button
+          type="button"
+          onClick={onAppleClick}
+          className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#1A202C] bg-[#1A202C] px-4 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#2d3748]"
+        >
+          {AppleIcon}
+          {isLogin ? "Continue with Apple" : "Sign up with Apple"}
+        </button>
+      )}
     </div>
   ) : (
     <div className="flex w-full flex-col items-center gap-3">
       {googleSlot}
-      {appleSlot}
+      {showApple && appleSlot}
     </div>
   );
 
