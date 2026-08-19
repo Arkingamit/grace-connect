@@ -7,7 +7,15 @@ const config: CapacitorConfig = {
   server: {
     url: 'https://graceconnect.graceahmedabad.org',
     cleartext: true,
-    allowNavigation: ['graceconnect.graceahmedabad.org', '*.graceahmedabad.org']
+    allowNavigation: [
+      'graceconnect.graceahmedabad.org',
+      '*.graceahmedabad.org',
+      // Sign in with Apple on Android runs as a web OAuth redirect, so Apple's
+      // pages have to be allowed to load inside the WebView.
+      'appleid.apple.com',
+      'idmsa.apple.com',
+      '*.apple.com',
+    ]
   },
   plugins: {
     GoogleAuth: {

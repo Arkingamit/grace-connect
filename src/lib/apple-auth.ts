@@ -31,6 +31,12 @@ export function createAppleAuthorizeUrl(state: string, nonce: string): string {
   return `https://appleid.apple.com/auth/authorize?${params.toString()}`;
 }
 
+/** Only ever send members back to a path on our own site. */
+export function safeRedirectPath(value: string | null | undefined): string {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/';
+  return value;
+}
+
 export function createAppleFlowSecrets() {
   return {
     state: randomBytes(32).toString('hex'),

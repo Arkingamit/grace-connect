@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Capacitor } from "@capacitor/core";
 import { GoogleLogin } from "@react-oauth/google";
@@ -9,18 +9,11 @@ import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import AppleLogin from "react-apple-signin-auth";
 import ModernLoginSignup from "@/components/ui/modern-login-signup";
-import {
-  resumeAppleWebSignIn,
-  startAppleWebSignIn,
-  stopAppleWebSignInPolling,
-} from "@/lib/apple-web-signin";
-
-const APPLE_WAITING_NOTICE =
-  "Finish signing in with Apple in the browser, then come back to this screen.";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, refreshSession } = useAuth();
+  const searchParams = useSearchParams();
+  const { login } = useAuth();
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [mounted, setMounted] = useState(false);
@@ -63,30 +56,14 @@ export default function LoginPage() {
     setTimeout(initNative, 500);
   }, [router]);
 
-  const appleWebHandlers = React.useMemo(
-    () => ({
-      onWaiting: () => {
-        setError("");
-        setNotice(APPLE_WAITING_NOTICE);
-      },
-      onSuccess: async () => {
-        setNotice("");
-        await refreshSession();
-        router.push("/");
-      },
-      onError: (message: string) => {
-        setNotice("");
-        setError(message);
-      },
-    }),
-    [refreshSession, router],
-  );
-
-  // Pick the flow back up if the WebView reloaded while Apple was open.
+  // The Apple web flow reports failures by sending the member back here.
   useEffect(() => {
-    resumeAppleWebSignIn(appleWebHandlers);
-    return () => stopAppleWebSignInPolling();
-  }, [appleWebHandlers]);
+    const appleError = searchParams.get("appleError");
+    if (appleError) {
+      setNotice("");
+      setError(appleError);
+    }
+  }, [searchParams]);
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     setError("");
@@ -153,9 +130,12 @@ export default function LoginPage() {
   };
 
   const handleAppleLogin = async () => {
-    // The native plugin is iOS-only; Android goes through Apple's web flow.
+    // The native plugin is iOS-only; Android uses Apple's web OAuth redirect,
+    // which Capacitor loads in the WebView via allowNavigation.
     if (isNative && !isIOS) {
-      await startAppleWebSignIn(appleWebHandlers);
+      setError("");
+      setNotice("Opening Apple sign-in…");
+      window.location.href = "/api/auth/apple/start?redirectTo=/";
       return;
     }
 

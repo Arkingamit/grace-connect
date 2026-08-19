@@ -12,8 +12,6 @@ interface AuthContextType {
   isLoading: boolean;
   register: (data: Partial<ChurchMember> & { credential?: string; provider?: 'google' | 'apple' }) => Promise<{ success: boolean; error?: string; userId?: string }>;
   login: (credential: string, provider?: 'google' | 'apple', picture?: string) => Promise<{ success: boolean; error?: string }>;
-  /** Reload the session for flows that set the cookie server-side (e.g. Apple on Android) */
-  refreshSession: () => Promise<void>;
   /** App Store / Play reviewer bypass — requires DEMO_LOGIN_ENABLED + matching secret */
   demoLogin: (code: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -295,7 +293,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       session, members, isLoading,
-      register, login, demoLogin, logout, refreshSession: fetchSession,
+      register, login, demoLogin, logout,
       getMember, getSessionMember,
       getPendingRequests, approveMember, rejectMember,
       getApprovedMembers, getEffectiveGroups,

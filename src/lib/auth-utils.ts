@@ -31,18 +31,49 @@ export async function decrypt(session: string | undefined = '') {
   }
 }
 
-/** Create a session cookie embedding userId, email, name, role AND permissions (avoids DB lookup on every request) */
-export async function createSession(userId: string, email: string, name: string, role: string = 'member', permissions: string[] = []) {
+export interface SessionCookie {
+  name: string;
+  value: string;
+  options: {
+    httpOnly: boolean;
+    secure: boolean;
+    expires: Date;
+    sameSite: 'lax';
+    path: string;
+  };
+}
+
+/**
+ * Build the session cookie without setting it, for handlers that attach it to a
+ * response they construct themselves (e.g. an OAuth callback redirect).
+ */
+export async function buildSessionCookie(
+  userId: string,
+  email: string,
+  name: string,
+  role: string = 'member',
+  permissions: string[] = [],
+): Promise<SessionCookie> {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
   const session = await encrypt({ userId, email, name, role, permissions, expiresAt });
 
-  (await cookies()).set('session', session, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    expires: expiresAt,
-    sameSite: 'lax',
-    path: '/',
-  });
+  return {
+    name: 'session',
+    value: session,
+    options: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      expires: expiresAt,
+      sameSite: 'lax',
+      path: '/',
+    },
+  };
+}
+
+/** Create a session cookie embedding userId, email, name, role AND permissions (avoids DB lookup on every request) */
+export async function createSession(userId: string, email: string, name: string, role: string = 'member', permissions: string[] = []) {
+  const cookie = await buildSessionCookie(userId, email, name, role, permissions);
+  (await cookies()).set(cookie.name, cookie.value, cookie.options);
 }
 
 export async function deleteSession() {

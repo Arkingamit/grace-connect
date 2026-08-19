@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     const result = await signInVerifiedEmail(
       email,
       provider === 'apple' ? 'Apple' : 'Google',
-      picture,
+      { picture },
     );
 
     if (!result.ok) {

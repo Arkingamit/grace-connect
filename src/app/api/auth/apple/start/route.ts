@@ -1,12 +1,25 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import AppleAuthSession from '@/models/AppleAuthSession';
-import { createAppleAuthorizeUrl, createAppleFlowSecrets } from '@/lib/apple-auth';
+import {
+  createAppleAuthorizeUrl,
+  createAppleFlowSecrets,
+  safeRedirectPath,
+} from '@/lib/apple-auth';
 
-/** Window the member has to finish signing in inside the system browser. */
+export const dynamic = 'force-dynamic';
+
+/** Window the member has to finish signing in with Apple. */
 const FLOW_TTL_MS = 10 * 60 * 1000;
 
-export async function POST() {
+/**
+ * Entry point for the browser-based Apple flow (Android and web). The client
+ * navigates here, we hand Apple a one-time state/nonce, and Apple posts the
+ * result back to /api/auth/apple/callback.
+ */
+export async function GET(req: Request) {
+  const redirectTo = safeRedirectPath(new URL(req.url).searchParams.get('redirectTo'));
+
   try {
     await connectToDatabase();
 
@@ -16,16 +29,15 @@ export async function POST() {
       state,
       nonce,
       status: 'pending',
+      redirectTo,
       expiresAt: new Date(Date.now() + FLOW_TTL_MS),
     });
 
-    return NextResponse.json({
-      state,
-      url: createAppleAuthorizeUrl(state, nonce),
-      expiresIn: Math.floor(FLOW_TTL_MS / 1000),
-    });
+    return NextResponse.redirect(createAppleAuthorizeUrl(state, nonce), 302);
   } catch (error) {
     console.error('Apple start error:', error);
-    return NextResponse.json({ error: 'Could not start Apple sign-in' }, { status: 500 });
+    const failure = new URL('/login', new URL(req.url).origin);
+    failure.searchParams.set('appleError', 'Could not start Apple sign-in. Please try again.');
+    return NextResponse.redirect(failure, 302);
   }
 }

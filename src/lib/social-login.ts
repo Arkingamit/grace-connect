@@ -1,5 +1,5 @@
 import User from '@/models/User';
-import { createSession } from '@/lib/auth-utils';
+import { buildSessionCookie, createSession, SessionCookie } from '@/lib/auth-utils';
 import { formatRejectionMessage } from '@/lib/rejection-reasons';
 
 export interface SocialLoginResult {
@@ -9,6 +9,17 @@ export interface SocialLoginResult {
   error?: string;
   rejectionReason?: string;
   rejectionNote?: string;
+  /** Only set when the caller asked to attach the cookie itself */
+  sessionCookie?: SessionCookie;
+}
+
+export interface SocialLoginOptions {
+  picture?: string;
+  /**
+   * Return the session cookie instead of setting it, for callers building their
+   * own response (an OAuth callback redirect, for example).
+   */
+  returnCookie?: boolean;
 }
 
 /**
@@ -19,8 +30,9 @@ export interface SocialLoginResult {
 export async function signInVerifiedEmail(
   email: string,
   providerLabel: 'Google' | 'Apple',
-  picture?: string,
+  options: SocialLoginOptions = {},
 ): Promise<SocialLoginResult> {
+  const { picture, returnCookie } = options;
   const user = await User.findOne(
     { email },
     {
@@ -69,17 +81,18 @@ export async function signInVerifiedEmail(
   // Embed role and permissions in the session JWT so requireAdmin needs no DB call
   const displayName = (user as any).name || `${(user as any).firstName} ${(user as any).lastName}`;
   const permissions = (user as any).permissions || [];
-  await createSession(
-    (user as any)._id.toString(),
-    user.email,
-    displayName,
-    user.role,
-    permissions,
-  );
+  const userId = (user as any)._id.toString();
+
+  let sessionCookie: SessionCookie | undefined;
+  if (returnCookie) {
+    sessionCookie = await buildSessionCookie(userId, user.email, displayName, user.role, permissions);
+  } else {
+    await createSession(userId, user.email, displayName, user.role, permissions);
+  }
 
   if (picture) {
     await User.updateOne({ _id: (user as any)._id }, { $set: { avatar: picture } });
   }
 
-  return { ok: true };
+  return { ok: true, sessionCookie };
 }
