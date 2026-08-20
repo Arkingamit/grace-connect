@@ -9,13 +9,29 @@ export const APPLE_WEB_CLIENT_ID =
   process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || 'com.graceconnect.web';
 
 /** Bundle ID, used by the native iOS plugin. */
-export const APPLE_NATIVE_CLIENT_ID = 'com.graceconnect.app';
+export const APPLE_NATIVE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_APPLE_IOS_CLIENT_ID ||
+  process.env.APPLE_IOS_BUNDLE_ID ||
+  'com.graceconnect.app';
+
+/**
+ * Every audience we accept on Apple ID tokens (iOS bundle ID + Services ID).
+ * Comma-separated env override, same strategy as Grace Music.
+ */
+export const APPLE_CLIENT_IDS = (
+  process.env.APPLE_CLIENT_IDS ||
+  `${APPLE_NATIVE_CLIENT_ID},${APPLE_WEB_CLIENT_ID}`
+)
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 export const APPLE_SITE_URL = (
   process.env.APPLE_SITE_URL || 'https://graceconnect.graceahmedabad.org'
 ).replace(/\/$/, '');
 
-export const APPLE_REDIRECT_URI = `${APPLE_SITE_URL}/api/auth/apple/callback`;
+export const APPLE_REDIRECT_URI =
+  process.env.APPLE_REDIRECT_URI || `${APPLE_SITE_URL}/api/auth/apple/callback`;
 
 export function createAppleAuthorizeUrl(state: string, nonce: string): string {
   const params = new URLSearchParams({
@@ -60,7 +76,8 @@ export async function verifyAppleIdToken(
 ) {
   const { payload } = await jwtVerify(idToken, appleJWKS, {
     issuer: 'https://appleid.apple.com',
-    ...(options.audience ? { audience: options.audience } : {}),
+    // Always restrict to our own client IDs (Grace Music strategy).
+    audience: options.audience ?? APPLE_CLIENT_IDS,
   });
 
   if (options.nonce && !nonceMatches(payload.nonce, options.nonce)) {

@@ -2,12 +2,11 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
 import { OAuth2Client } from 'google-auth-library';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { registerSchema } from '@/lib/validations';
 import { getOAuthPicture } from '@/lib/oauth-picture';
+import { verifyAppleIdToken } from '@/lib/apple-auth';
 
 const googleClient = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
-const appleJWKS = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
 
 export async function POST(req: Request) {
   try {
@@ -22,9 +21,8 @@ export async function POST(req: Request) {
     let picture: string | undefined;
 
     if (provider === 'apple') {
-      const { payload } = await jwtVerify(credential, appleJWKS, {
-        issuer: 'https://appleid.apple.com',
-      });
+      // Verifies issuer + our allowed client IDs (audience) via shared helper
+      const payload = await verifyAppleIdToken(credential);
       if (!payload || !payload.email || typeof payload.email !== 'string') {
         return NextResponse.json({ error: 'Invalid Apple token or missing email' }, { status: 400 });
       }

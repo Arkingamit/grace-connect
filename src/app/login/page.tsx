@@ -170,7 +170,8 @@ export default function LoginPage() {
       setError("");
       setNotice("");
       const result = await SignInWithApple.authorize({
-        clientId: "com.graceconnect.app",
+        clientId:
+          process.env.NEXT_PUBLIC_APPLE_IOS_CLIENT_ID || "com.graceconnect.app",
         scopes: "email name",
         redirectURI: "https://graceconnect.graceahmedabad.org/login",
       });
