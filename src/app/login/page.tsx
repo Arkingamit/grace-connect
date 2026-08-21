@@ -284,6 +284,7 @@ export default function LoginPage() {
 
   return (
     <ModernLoginSignup
+      initialMode="signup"
       error={error}
       notice={notice}
       useNativeButtons={isNative}

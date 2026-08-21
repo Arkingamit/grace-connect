@@ -668,7 +668,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
       </AnimatePresence>
 
       <div
-        className={`${forceVisible ? 'flex' : 'md:hidden flex'} flex-col min-h-screen text-[#3A2D27] pb-20 font-sans relative w-full ${showSplash ? 'h-[100dvh] overflow-hidden' : 'overflow-x-hidden'} bg-transparent`}
+        className={`${forceVisible ? 'flex' : 'desktop:hidden flex'} flex-col min-h-screen text-[#3A2D27] pb-20 font-sans relative w-full ${showSplash ? 'h-[100dvh] overflow-hidden' : 'overflow-x-hidden'} bg-transparent`}
       >
 
         {/* 1. Header */}

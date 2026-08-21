@@ -110,7 +110,7 @@ export default function HomePage() {
 
       {/* Desktop Original View (Hidden on Mobile and in the native app) */}
       {!isNative && (
-      <div className="hidden md:flex flex-col">
+      <div className="hidden desktop:flex flex-col">
         {session ? (
           <>
 

@@ -52,15 +52,6 @@ export function AuthModeToggle({
 
   return (
     <div className="mb-8 grid grid-cols-2 rounded-full border border-[#E5D5C5]/60 bg-[#FBE8E8]/70 p-1">
-      {signupHref ? (
-        <Link href={signupHref} className={`${signupClass} text-center`}>
-          Sign Up
-        </Link>
-      ) : (
-        <button type="button" onClick={onSignup} className={signupClass}>
-          Sign Up
-        </button>
-      )}
       {loginHref ? (
         <Link href={loginHref} className={`${loginClass} text-center`}>
           Log In
@@ -68,6 +59,15 @@ export function AuthModeToggle({
       ) : (
         <button type="button" onClick={onLogin} className={loginClass}>
           Log In
+        </button>
+      )}
+      {signupHref ? (
+        <Link href={signupHref} className={`${signupClass} text-center`}>
+          Sign Up
+        </Link>
+      ) : (
+        <button type="button" onClick={onSignup} className={signupClass}>
+          Sign Up
         </button>
       )}
     </div>

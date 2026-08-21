@@ -19,6 +19,10 @@ export default {
 			}
 		},
 		extend: {
+			screens: {
+				// iPad Pro 12.9 (1024 portrait / 1366 landscape) stays on the app (mobile) layout.
+				desktop: '1400px',
+			},
 			fontFamily: {
 				'heading': ['var(--font-heading)', 'sans-serif'],
 				'body': ['var(--font-body)', 'sans-serif'],

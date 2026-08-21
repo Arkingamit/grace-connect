@@ -23,8 +23,8 @@ export function MobileBottomNav() {
     ];
 
     return (
-        <nav className="fixed inset-x-0 bottom-0 z-50 md:hidden bg-[#FAF7F2] dark:bg-[#1C1917] border-t border-[#a59d94]/60 shadow-[0_-4px_16px_-2px_rgba(58,45,39,0.12)]">
-            <div className="mx-auto max-w-screen-sm px-2 py-1.5">
+        <nav className="fixed inset-x-0 bottom-0 z-50 desktop:hidden bg-[#FAF7F2] dark:bg-[#1C1917] border-t border-[#a59d94]/60 shadow-[0_-4px_16px_-2px_rgba(58,45,39,0.12)]">
+            <div className="mx-auto max-w-2xl px-2 py-1.5">
                 <div className="grid grid-cols-4 gap-1">
                     {navItems.map((item) => {
                         const Icon = item.icon;

@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
  */
 export function MobileHomeSkeleton({ forceVisible = false }: { forceVisible?: boolean }) {
   return (
-    <div className={`${forceVisible ? 'flex' : 'md:hidden flex'} flex-col min-h-screen bg-[#FAF7F2]`}>
+    <div className={`${forceVisible ? 'flex' : 'desktop:hidden flex'} flex-col min-h-screen bg-[#FAF7F2]`}>
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[#FAF7F2]/90 backdrop-blur-md px-4 py-3 flex items-center justify-between">
         <Skeleton className="w-10 h-10 rounded-full" />
@@ -93,7 +93,7 @@ export function MobileHomeSkeleton({ forceVisible = false }: { forceVisible?: bo
  */
 export function DesktopHomeSkeleton() {
   return (
-    <div className="hidden md:flex flex-col">
+    <div className="hidden desktop:flex flex-col">
       {/* Hero */}
       <div className="min-h-screen flex flex-col items-center justify-center px-8 border-b border-border/50">
         <div className="w-full max-w-4xl mx-auto space-y-8 flex flex-col items-center">

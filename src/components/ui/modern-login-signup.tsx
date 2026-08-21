@@ -42,7 +42,7 @@ export default function ModernLoginSignup({
   registerHref = "/register",
   privacyHref = "/privacy-policy",
   termsHref = "/privacy-policy",
-  initialMode = "login",
+  initialMode = "signup",
   onScanCampus,
   loginHref,
 }: ModernLoginSignupProps) {
