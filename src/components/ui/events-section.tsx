@@ -14,10 +14,19 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Calendar, Clock, MapPin, Users, ArrowRight, Building2, Images, X, Loader2, ExternalLink, Check, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, ArrowRight, Building2, Images, X, Loader2, ExternalLink, ChevronLeft, CheckCircle2, QrCode } from 'lucide-react';
 import { getMapsUrl } from '@/lib/maps';
 import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
 import { EventMonthCalendar } from '@/components/ui/event-month-calendar';
+import { AnimatedTicket } from '@/components/ui/ticket-confirmation-card';
+import { CelebrationRibbon } from '@/components/ui/celebration-ribbon';
+import {
+  eventPassQrValue,
+  eventTicketId,
+  loadEventRegistrationPass,
+  saveEventRegistrationPass,
+  type EventRegistrationPass,
+} from '@/lib/event-registration-pass';
 
 function EventLocationLink({
   location,
@@ -193,6 +202,7 @@ export function EventPhotoModal({ event, onClose }: { event: Event; onClose: () 
 // ─── Event RSVP Modal ───────────────────────────────────────────────────────
 export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () => void }) {
   const { addEventRegistration, updateEventRegistration, eventRegistrations, currentUser } = useAdminData();
+  const { getSessionMember } = useAuth();
   const existingReg = currentUser ? eventRegistrations.find(r => r.eventId === event.id && r.userEmail === currentUser.email) : null;
   const [name, setName] = useState(currentUser?.name || '');
   const [email, setEmail] = useState(currentUser?.email || '');
@@ -210,6 +220,53 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
   const [isEditing, setIsEditing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [viewingPass, setViewingPass] = useState(false);
+  const [eventPass, setEventPass] = useState<EventRegistrationPass | null>(null);
+
+  useEffect(() => {
+    setEventPass(loadEventRegistrationPass(event.id));
+  }, [event.id]);
+
+  // Keep focused RSVP fields visible above the Android soft keyboard.
+  useEffect(() => {
+    const onFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const tag = target.tagName;
+      if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") return;
+      window.setTimeout(() => {
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 280);
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, []);
+
+  const extraFieldsFromResponses = (resps: Record<string, string | string[]>) =>
+    (event.formFields || []).map((field) => {
+      const answer = resps[field.id];
+      const value = Array.isArray(answer) ? answer.join(', ') : (answer || '—');
+      return { label: field.label, value };
+    });
+
+  const buildAndSavePass = (resps: Record<string, string | string[]>) => {
+    const member = getSessionMember();
+    const pass: EventRegistrationPass = {
+      eventId: event.id,
+      eventTitle: event.title,
+      location: event.location || 'TBA',
+      eventDate: event.date,
+      userName: name || currentUser?.name || member?.firstName || 'Member',
+      userEmail: email || currentUser?.email || '',
+      qrCode: eventPassQrValue(event.id, email || currentUser?.email || '', member?.qrCode),
+      ticketId: eventTicketId(event.id),
+      registeredAt: new Date().toISOString(),
+      extraFields: extraFieldsFromResponses(resps),
+    };
+    saveEventRegistrationPass(pass);
+    setEventPass(pass);
+    return pass;
+  };
 
   const handleCheckboxChange = (fieldId: string, optLabel: string, checked: boolean) => {
     setErrorMsg('');
@@ -278,6 +335,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
             responses,
           });
         }
+        buildAndSavePass(responses);
         setSubmitted(true);
       } catch (err) {
         // Error toast handled by hook
@@ -288,27 +346,45 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
   };
 
   if (submitted) {
+    const pass = eventPass;
+    if (!pass) return null;
     return (
-      <Dialog open={true} onOpenChange={onClose}>
-        <DialogContent className="max-w-md text-center py-12">
-          <div className="w-16 h-16 bg-success/20 text-success rounded-full flex items-center justify-center mx-auto mb-4">
-            <Check className="w-8 h-8" />
-          </div>
-          <DialogTitle className="text-2xl mb-2">{existingReg ? 'Registration Updated!' : "You're Registered!"}</DialogTitle>
-          <p className="text-muted-foreground mb-6">
-            {existingReg 
-              ? `Your registration for ${event.title} has been updated successfully.`
-              : `We've saved your spot for ${event.title}. We look forward to seeing you there!`}
-          </p>
-          <Button onClick={onClose} className="w-full">Close</Button>
-        </DialogContent>
-      </Dialog>
+      <>
+        <CelebrationRibbon active />
+        <Dialog open={true} onOpenChange={onClose}>
+          <DialogContent className="max-h-[90dvh] max-w-md overflow-y-auto border-0 bg-transparent p-0 shadow-none sm:rounded-2xl">
+            <DialogHeader className="sr-only">
+              <DialogTitle>
+                {existingReg ? 'Registration Updated!' : "You're Registered!"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-3 px-2 py-4">
+              <AnimatedTicket
+                ticketId={pass.ticketId}
+                date={new Date(pass.registeredAt)}
+                cardHolder={pass.userName}
+                barcodeValue={pass.qrCode}
+                campusName={pass.location}
+                email={pass.userEmail}
+                eventTitle={pass.eventTitle}
+                extraFields={pass.extraFields}
+                statusLabel={existingReg ? 'Updated' : 'Registered'}
+                celebrate={false}
+              />
+              <Button onClick={onClose} className="w-full max-w-sm bg-[#8B2323] hover:bg-[#721515] text-white">
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
   return (
+    <>
     <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-xl max-h-[min(90dvh,90%)] overflow-y-auto overscroll-contain">
         <DialogHeader>
           <DialogTitle>RSVP: {event.title}</DialogTitle>
         </DialogHeader>
@@ -371,6 +447,20 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
               </div>
             )}
             <div className="pt-4 border-t border-border/40 flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2 border-[#8B2323]/30 text-[#8B2323]"
+                onClick={() => {
+                  if (!eventPass) {
+                    setEventPass(buildAndSavePass(existingReg.responses || {}));
+                  }
+                  setViewingPass(true);
+                }}
+              >
+                <QrCode className="w-4 h-4" />
+                View confirmation card
+              </Button>
               {event.allowResponseEdits !== false && (
                 <Button onClick={() => setIsEditing(true)} className="w-full">Edit Registration</Button>
               )}
@@ -580,6 +670,33 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
         )}
       </DialogContent>
     </Dialog>
+    {viewingPass && eventPass ? (
+      <Dialog open={true} onOpenChange={setViewingPass}>
+        <DialogContent className="max-h-[90dvh] max-w-md overflow-y-auto border-0 bg-transparent p-0 shadow-none sm:rounded-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Registration confirmation</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 px-2 py-4">
+            <AnimatedTicket
+              ticketId={eventPass.ticketId}
+              date={new Date(eventPass.registeredAt)}
+              cardHolder={eventPass.userName}
+              barcodeValue={eventPass.qrCode}
+              campusName={eventPass.location}
+              email={eventPass.userEmail}
+              eventTitle={eventPass.eventTitle}
+              extraFields={eventPass.extraFields}
+              statusLabel="Registered"
+              celebrate={false}
+            />
+            <Button onClick={() => setViewingPass(false)} className="w-full max-w-sm">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    ) : null}
+    </>
   );
 }
 

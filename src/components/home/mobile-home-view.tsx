@@ -26,6 +26,7 @@ import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { AuthGate } from '@/components/ui/auth-gate';
 import { ProfileSwitcher } from '@/components/ui/profile-switcher';
+import { ViewRegistrationPassButton } from '@/components/ui/registration-pass-dialog';
 import { getMapsUrl } from '@/lib/maps';
 import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
 
@@ -420,7 +421,7 @@ function HighlightsCardStack({
   );
 }
 
-export function MobileHomeView() {
+export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolean }) {
   const { events, worshipVideos, flipCardConfig, announcements, sermons, prayerRequests, getVisibleGalleryAlbums, systemSettings, liveStreams, broadcasts } = useAdminData();
   const { session, getSessionMember, getEffectiveGroups, logout } = useAuth();
 
@@ -667,7 +668,7 @@ export function MobileHomeView() {
       </AnimatePresence>
 
       <div
-        className={`md:hidden flex flex-col min-h-screen text-[#3A2D27] pb-20 font-sans relative w-full ${showSplash ? 'h-[100dvh] overflow-hidden' : 'overflow-x-hidden'} bg-transparent`}
+        className={`${forceVisible ? 'flex' : 'md:hidden flex'} flex-col min-h-screen text-[#3A2D27] pb-20 font-sans relative w-full ${showSplash ? 'h-[100dvh] overflow-hidden' : 'overflow-x-hidden'} bg-transparent`}
       >
 
         {/* 1. Header */}
@@ -675,15 +676,16 @@ export function MobileHomeView() {
           className="sticky top-0 z-50 border-b border-[#a59d94]/60 bg-[#FAF7F2]/80 px-4 shadow-[0_4px_16px_-2px_rgba(58,45,39,0.12),0_1px_0px_rgba(255,255,255,0.6)_inset] backdrop-blur-md pt-[env(safe-area-inset-top)]"
         >
           <div className="flex h-16 items-center justify-between">
-          <div className="flex items-center gap-3">
-
-            <img src="/logo.png" alt="Grace Community" className="h-14 w-auto object-contain" />
-            <div className="flex flex-col">
-
-            </div>
+          <div className="flex min-w-0 items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo2.png"
+              alt="Grace Ahmedabad"
+              className="h-16 w-auto max-w-[min(58vw,240px)] object-contain object-left"
+            />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             <Link href="/search" className="w-10 h-10 rounded-full bg-[#FAF7F2] border border-[#E5D5C5]/60 flex items-center justify-center text-[#8B2323] shadow-sm">
               <Search className="w-5 h-5" />
             </Link>
@@ -707,6 +709,7 @@ export function MobileHomeView() {
         </header>
 
         <div className="px-4 pt-3 space-y-8">
+          <ViewRegistrationPassButton className="w-full border-[#8B2323]/30 text-[#8B2323]" />
 
           {/* 2. Hero Card */}
           <div className="rounded-[2.5rem] bg-[#5C1111] text-white overflow-hidden shadow-xl relative">
@@ -1260,7 +1263,7 @@ export function MobileHomeView() {
               <div className="mt-8">
                 <AuthGate
                   title="Community Features"
-                  description="Features like Announcements, Events, Prayer Wall, and Photo Gallery are exclusive to Grace Community members. Please sign in or register to access this content."
+                  description="These features are exclusive to Grace Community members. Please sign in or register to access this content."
                 >
                   <div className="flex flex-col space-y-8">
                     {/* 2. Announcements */}

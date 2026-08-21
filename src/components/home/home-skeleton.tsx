@@ -8,9 +8,9 @@ import { Skeleton } from '@/components/ui/skeleton';
  * Shows shimmer placeholders for the hero card, quick actions, 
  * daily verse, events, sermons, and worship sections.
  */
-export function MobileHomeSkeleton() {
+export function MobileHomeSkeleton({ forceVisible = false }: { forceVisible?: boolean }) {
   return (
-    <div className="md:hidden flex flex-col min-h-screen bg-[#FAF7F2]">
+    <div className={`${forceVisible ? 'flex' : 'md:hidden flex'} flex-col min-h-screen bg-[#FAF7F2]`}>
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[#FAF7F2]/90 backdrop-blur-md px-4 py-3 flex items-center justify-between">
         <Skeleton className="w-10 h-10 rounded-full" />

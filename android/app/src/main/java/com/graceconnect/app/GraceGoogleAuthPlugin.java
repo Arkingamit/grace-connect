@@ -1,8 +1,13 @@
 package com.graceconnect.app;
 
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
+import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.credentials.Credential;
 import androidx.credentials.CredentialManager;
@@ -21,6 +26,7 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import org.json.JSONObject;
 
@@ -31,6 +37,8 @@ import org.json.JSONObject;
  */
 @CapacitorPlugin(name = "GraceGoogleAuth")
 public class GraceGoogleAuthPlugin extends Plugin {
+
+    private static final String TAG = "GraceGoogleAuth";
 
     /** Web OAuth client ID — must match requestIdToken / server audience. */
     private static final String WEB_CLIENT_ID =
@@ -72,13 +80,17 @@ public class GraceGoogleAuthPlugin extends Plugin {
 
                 @Override
                 public void onError(@NonNull GetCredentialException e) {
+                    Log.e(TAG, "getCredential failed flow=" + (useButtonFlow ? "button" : "googleId"), e);
                     if (!useButtonFlow && (e instanceof NoCredentialException || e instanceof GetCredentialCancellationException)) {
                         new Handler(Looper.getMainLooper()).post(() -> trySignIn(call, true));
                         return;
                     }
+                    String sha1 = signingSha1();
                     if (e instanceof GetCredentialCancellationException) {
                         call.reject(
-                            "Google Sign-In canceled (often means Android SHA-1 is not registered in Firebase). "
+                            "Google Sign-In canceled. If you did not cancel, this APK SHA-1 is not in Firebase: "
+                                + sha1
+                                + ". Add it under Project settings → Your apps → com.graceconnect.app, wait a few minutes, then retry. "
                                 + (e.getMessage() != null ? e.getMessage() : ""),
                             "SIGN_IN_CANCELED"
                         );
@@ -88,6 +100,7 @@ public class GraceGoogleAuthPlugin extends Plugin {
                     if (e.getMessage() != null && !e.getMessage().isEmpty()) {
                         detail += ": " + e.getMessage();
                     }
+                    detail += " (APK SHA-1: " + sha1 + ")";
                     call.reject(detail);
                 }
             }
@@ -140,6 +153,35 @@ public class GraceGoogleAuthPlugin extends Plugin {
             call.resolve(result);
         } catch (Exception e) {
             call.reject(e.getMessage() != null ? e.getMessage() : "Failed to parse Google credential");
+        }
+    }
+
+    private String signingSha1() {
+        try {
+            PackageManager pm = getContext().getPackageManager();
+            String pkg = getContext().getPackageName();
+            Signature[] signatures;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                PackageInfo info = pm.getPackageInfo(pkg, PackageManager.GET_SIGNING_CERTIFICATES);
+                signatures = info.signingInfo != null ? info.signingInfo.getApkContentsSigners() : null;
+            } else {
+                @SuppressWarnings("deprecation")
+                PackageInfo info = pm.getPackageInfo(pkg, PackageManager.GET_SIGNATURES);
+                signatures = info.signatures;
+            }
+            if (signatures == null || signatures.length == 0) {
+                return "unknown";
+            }
+            byte[] digest = MessageDigest.getInstance("SHA-1").digest(signatures[0].toByteArray());
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < digest.length; i++) {
+                if (i > 0) sb.append(':');
+                sb.append(String.format("%02X", digest[i]));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "Could not read signing SHA-1", e);
+            return "unknown";
         }
     }
 

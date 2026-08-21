@@ -40,14 +40,16 @@ function resolveStoreUrl(settings: any, platform: string): string {
 
 export function VersionGate({ children }: { children: React.ReactNode }) {
   const [needsUpdate, setNeedsUpdate] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [storeUrl, setStoreUrl] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 4000);
+
     const checkVersion = async () => {
       try {
-        const res = await fetch('/api/system/settings');
+        const res = await fetch('/api/system/settings', { signal: controller.signal });
         if (res.ok) {
           const settings = await res.json();
           const platform = Capacitor.isNativePlatform()
@@ -65,18 +67,20 @@ export function VersionGate({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (error) {
-        console.error('Failed to check app version:', error);
+        if ((error as { name?: string })?.name !== 'AbortError') {
+          console.error('Failed to check app version:', error);
+        }
       } finally {
-        setLoading(false);
+        window.clearTimeout(timeout);
       }
     };
 
-    checkVersion();
+    void checkVersion();
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, []);
-
-  if (loading) {
-    return <div className="min-h-screen bg-background" />;
-  }
 
   if (needsUpdate) {
     return <ForceUpdate storeUrl={storeUrl} message={message} />;

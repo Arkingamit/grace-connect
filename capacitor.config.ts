@@ -17,7 +17,19 @@ const config: CapacitorConfig = {
       '*.apple.com',
     ]
   },
+  ios: {
+    contentInset: 'never',
+    scrollEnabled: true,
+    backgroundColor: '#FAF7F2',
+  },
   plugins: {
+    // iOS: leave WebView size alone (panels use visualViewport / keyboard inset).
+    // Android: resizeOnFullScreen shrinks the WebView with the IME. Combined with
+    // MainActivity adjustResize + decorFitsSystemWindows, this avoids overlay gaps.
+    Keyboard: {
+      resize: 'none',
+      resizeOnFullScreen: true,
+    },
     GoogleAuth: {
       scopes: ['profile', 'email'],
       // Web client ID — used by Android requestIdToken / strings.xml server_client_id

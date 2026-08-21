@@ -47,6 +47,8 @@ export const Footer = () => {
               <Link href="/broadcasts" className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors">Notes</Link>
               <Link href="/gallery" className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors">Gallery</Link>
               <Link href="/prayer-wall" className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors">Prayer Wall</Link>
+              <Link href="/support" className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors">Support</Link>
+              <Link href="/privacy-policy" className="block text-primary-foreground/80 hover:text-primary-foreground transition-colors">Privacy Policy</Link>
             </div>
           </div>
 

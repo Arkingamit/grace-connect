@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
@@ -69,11 +70,14 @@ export async function POST(req: Request) {
       status: 'pending',
       role: 'member',
       groups: [],
+      qrCode: randomUUID(),
     });
 
     return NextResponse.json({
       success: true,
       userId: String(newUser._id),
+      qrCode: newUser.qrCode,
+      email,
       message: 'Registration submitted for approval.',
     }, { status: 201 });
   } catch (error: any) {

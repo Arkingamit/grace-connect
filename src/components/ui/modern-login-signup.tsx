@@ -2,23 +2,32 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ViewRegistrationPassButton } from "@/components/ui/registration-pass-dialog";
+import {
+  AuthCard,
+  AuthModeToggle,
+  AuthPageShell,
+  authPrimaryBtnClass,
+  authSocialBtnClass,
+} from "@/components/ui/auth-layout";
+import graceLogo from "../../../assets/logo.png";
 
 export interface ModernLoginSignupProps {
   error?: string;
-  /** Neutral progress message, e.g. while an external sign-in is in flight */
   notice?: string;
   googleSlot?: React.ReactNode;
   appleSlot?: React.ReactNode;
   onGoogleClick?: () => void;
   onAppleClick?: () => void;
-  /** When true, show native-style buttons instead of OAuth widget slots */
   useNativeButtons?: boolean;
   showApple?: boolean;
   registerHref?: string;
   privacyHref?: string;
   termsHref?: string;
   initialMode?: "login" | "signup";
+  onScanCampus?: () => void;
+  loginHref?: string;
 }
 
 export default function ModernLoginSignup({
@@ -34,6 +43,8 @@ export default function ModernLoginSignup({
   privacyHref = "/privacy-policy",
   termsHref = "/privacy-policy",
   initialMode = "login",
+  onScanCampus,
+  loginHref,
 }: ModernLoginSignupProps) {
   const [isLogin, setIsLogin] = useState(initialMode === "login");
 
@@ -64,198 +75,131 @@ export default function ModernLoginSignup({
     </svg>
   );
 
-  const StatusMessages = (
-    <>
-      {error && (
-        <div className="mb-6 flex w-full items-center gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-left text-sm font-medium text-[#8B2323]">
-          <span className="text-lg">⚠️</span>
-          <span>{error}</span>
-        </div>
-      )}
-      {!error && notice && (
-        <div className="mb-6 flex w-full items-center gap-3 rounded-xl border border-[#E5D5C5] bg-[#FAF3EA] p-4 text-left text-sm font-medium text-[#7A6150]">
-          <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[#8B2323] border-t-transparent" />
-          <span>{notice}</span>
-        </div>
-      )}
-    </>
-  );
+  const hasSocial = useNativeButtons || Boolean(googleSlot) || Boolean(appleSlot);
 
-  const SocialButtons = useNativeButtons ? (
-    <div className="flex w-full flex-col gap-3">
-      <button
-        type="button"
-        onClick={onGoogleClick}
-        className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#E5D5C5] bg-white px-4 py-3 text-sm font-medium text-[#1A202C] shadow-sm transition-colors hover:bg-[#FAF7F2]"
-      >
-        {GoogleIcon}
-        {isLogin ? "Continue with Google" : "Sign up with Google"}
-      </button>
-      {showApple && (
-        <button
-          type="button"
-          onClick={onAppleClick}
-          className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#1A202C] bg-[#1A202C] px-4 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#2d3748]"
-        >
-          {AppleIcon}
-          {isLogin ? "Continue with Apple" : "Sign up with Apple"}
+  const socialSlotWrapClass =
+    "flex h-12 w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-[#E5D5C5]/60 bg-[#FAF7F2]";
+
+  const SocialRow = (
+    <div className={`grid w-full items-stretch gap-3 ${showApple ? "grid-cols-2" : "grid-cols-1"}`}>
+      {useNativeButtons ? (
+        <button type="button" onClick={onGoogleClick} className={authSocialBtnClass}>
+          {GoogleIcon}
+          Google
         </button>
+      ) : (
+        <div className={`${socialSlotWrapClass} [&>div]:!h-full [&>div]:!w-full [&>div>div]:!h-full [&>div>div]:!w-full [&_iframe]:!h-full [&_iframe]:!w-full`}>
+          {googleSlot}
+        </div>
       )}
-    </div>
-  ) : (
-    <div className="flex w-full flex-col items-center gap-3">
-      {googleSlot}
-      {showApple && appleSlot}
+      {showApple &&
+        (useNativeButtons ? (
+          <button type="button" onClick={onAppleClick} className={authSocialBtnClass}>
+            {AppleIcon}
+            Apple
+          </button>
+        ) : (
+          <div className={`${socialSlotWrapClass} [&_button]:!h-full [&_button]:!w-full [&_button]:!rounded-2xl [&_button]:!border-0 [&_button]:!bg-transparent`}>
+            {appleSlot}
+          </div>
+        ))}
     </div>
   );
 
   return (
-    <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#FAF7F2] px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[#1A202C]">
-      {/* Pattern + ambient accents */}
-      <div
-        className="pointer-events-none absolute inset-0 z-0 opacity-40"
-        style={{ backgroundImage: "var(--bg-pattern)", backgroundSize: "100px 100px" }}
-      />
-      <div className="pointer-events-none absolute right-[-5%] top-[-10%] h-[40rem] w-[40rem] rounded-full bg-[#8B2323]/5 blur-[100px]" />
-      <div className="pointer-events-none absolute bottom-[-10%] left-[-5%] h-[40rem] w-[40rem] rounded-full bg-[#5C1111]/5 blur-[100px]" />
+    <AuthPageShell>
+      <AuthCard>
+        <Link href="/" className="mb-6 flex justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={graceLogo.src}
+            alt="Grace Ahmedabad"
+            className="h-24 w-auto max-w-[320px] object-contain"
+          />
+        </Link>
 
-      <div className="relative z-10 w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="relative flex flex-col items-center overflow-hidden rounded-[2rem] border border-[#E5D5C5]/60 bg-white/80 p-8 shadow-xl backdrop-blur-xl sm:p-10">
-          <div className="pointer-events-none absolute inset-2 rounded-[1.5rem] border border-[#8B2323]/5" />
+        <AuthModeToggle
+          mode={isLogin ? "login" : "signup"}
+          onLogin={() => setIsLogin(true)}
+          onSignup={() => setIsLogin(false)}
+          loginHref={loginHref}
+        />
 
-          {isLogin ? (
-            <div className="relative z-10 flex w-full max-w-sm flex-col items-center text-center">
-              <div className="mb-6 flex items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/logo.png"
-                  alt="Grace Community"
-                  className="h-20 w-auto object-contain"
-                />
-              </div>
-
-              <h1 className="mb-2 font-serif text-3xl font-bold text-[#1A202C]">
-                Welcome Back
-              </h1>
-              <p className="mb-8 text-sm text-[#7A6150]">
-                Sign in to your account to access Grace Community.
-              </p>
-
-              {StatusMessages}
-
-              {SocialButtons}
-
-              <Link
-                href="/demo"
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#8B2323] bg-[#FBE8E8] px-4 py-3 text-sm font-semibold text-[#8B2323] shadow-sm transition-colors hover:bg-[#F3D4D4] active:scale-[0.99]"
-              >
-                <ShieldCheck className="h-4 w-4 shrink-0" />
-                App Store / Play reviewer access
-              </Link>
-
-              <div className="mt-8 w-full space-y-4 border-t border-[#E5D5C5]/50 pt-6">
-                <p className="text-sm text-[#7A6150]">
-                  Don&apos;t have an account?{" "}
-                  <button
-                    type="button"
-                    onClick={() => setIsLogin(false)}
-                    className="font-bold text-[#8B2323] underline-offset-4 transition-all hover:underline"
-                  >
-                    Sign Up
-                  </button>
-                </p>
-
-                <Link
-                  href="/"
-                  className="inline-flex items-center justify-center gap-1.5 text-sm text-[#7A6150] transition-colors hover:text-[#1A202C]"
-                >
-                  <ArrowLeft className="h-4 w-4" /> Back to Home
-                </Link>
-              </div>
-
-              <p className="mt-6 text-center text-xs leading-relaxed text-[#7A6150]/70">
-                By proceeding, you agree to Grace Community&apos;s{" "}
-                <Link href={termsHref} className="font-medium text-[#8B2323] hover:underline">
-                  Terms
-                </Link>{" "}
-                and{" "}
-                <Link href={privacyHref} className="font-medium text-[#8B2323] hover:underline">
-                  Privacy Policy
-                </Link>
-                .
-              </p>
-            </div>
-          ) : (
-            <div className="relative z-10 flex w-full max-w-sm flex-col items-center text-center">
-              <div className="mb-6 flex items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/logo.png"
-                  alt="Grace Community"
-                  className="h-20 w-auto object-contain"
-                />
-              </div>
-
-              <h1 className="mb-2 font-serif text-3xl font-bold text-[#1A202C]">
-                Join Grace
-              </h1>
-              <p className="mb-8 text-sm text-[#7A6150]">
-                Registration is available via campus QR codes.
-              </p>
-
-              <Link
-                href={registerHref}
-                className="mb-6 flex w-full items-center justify-center rounded-xl bg-[#8B2323] px-4 py-3.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#721515]"
-              >
-                Continue to Registration
-              </Link>
-
-              <div className="mb-6 h-px w-full bg-[#E5D5C5]/50" />
-
-              {StatusMessages}
-
-              {SocialButtons}
-
-              <Link
-                href="/demo"
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#8B2323] bg-[#FBE8E8] px-4 py-3 text-sm font-semibold text-[#8B2323] shadow-sm transition-colors hover:bg-[#F3D4D4] active:scale-[0.99]"
-              >
-                <ShieldCheck className="h-4 w-4 shrink-0" />
-                App Store / Play reviewer access
-              </Link>
-
-              <div className="mt-8 w-full space-y-4 border-t border-[#E5D5C5]/50 pt-6">
-                <p className="text-sm text-[#7A6150]">
-                  Already have an account?{" "}
-                  <button
-                    type="button"
-                    onClick={() => setIsLogin(true)}
-                    className="font-bold text-[#8B2323] underline-offset-4 transition-all hover:underline"
-                  >
-                    Sign In
-                  </button>
-                </p>
-              </div>
-
-              <p className="mt-6 text-center text-xs leading-relaxed text-[#7A6150]/70">
-                By proceeding, you agree to Grace Community&apos;s{" "}
-                <Link href={termsHref} className="font-medium text-[#8B2323] hover:underline">
-                  Terms
-                </Link>{" "}
-                and{" "}
-                <Link href={privacyHref} className="font-medium text-[#8B2323] hover:underline">
-                  Privacy Policy
-                </Link>
-                .
-              </p>
-            </div>
-          )}
+        <div className="mb-6 text-center">
+          <h1 className="text-3xl font-bold tracking-tight text-[#1A202C]">
+            {isLogin ? "Welcome Back" : "Create your account"}
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
+            {isLogin
+              ? "Sign in to your account to access Grace Community."
+              : "Join Grace Community. Scan your campus QR code to start registration."}
+          </p>
         </div>
 
-        <p className="mt-6 text-center text-xs font-medium text-[#7A6150]/60">
-          &copy; {new Date().getFullYear()} Grace Community Church
+        {error && (
+          <div className="mb-4 rounded-2xl border border-[#E5C5C5] bg-[#FBE8E8] px-4 py-3 text-left text-sm font-medium text-[#8B2323]">
+            {error}
+          </div>
+        )}
+        {!error && notice && (
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-[#E5D5C5]/60 bg-[#FAF7F2] px-4 py-3 text-left text-sm font-medium text-[#7A6150]">
+            <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[#8B2323] border-t-transparent" />
+            {notice}
+          </div>
+        )}
+
+        {isLogin ? (
+          <>{hasSocial && SocialRow}</>
+        ) : (
+          <>
+            {onScanCampus ? (
+              <button type="button" onClick={onScanCampus} className={authPrimaryBtnClass}>
+                Scan campus QR
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            ) : (
+              <Link href={registerHref} className={authPrimaryBtnClass}>
+                Continue to registration
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
+          </>
+        )}
+
+        <div className="mt-4">
+          <ViewRegistrationPassButton className="w-full border-[#E5D5C5]/60 text-[#8B2323]" />
+        </div>
+
+        <Link href="/demo" className={`${authPrimaryBtnClass} mt-3`}>
+          App Store / Play reviewer access
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+
+        <p className="mt-6 text-center text-xs leading-relaxed text-[#C4B0A0]">
+          By continuing you agree to Grace Community&apos;s{" "}
+          <Link href={termsHref} className="font-medium text-[#8B2323] hover:underline">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link href={privacyHref} className="font-medium text-[#8B2323] hover:underline">
+            Privacy Policy
+          </Link>
+          .{" "}
+          <Link href="/support" className="font-medium text-[#8B2323] hover:underline">
+            Support
+          </Link>
+          .
         </p>
-      </div>
-    </div>
+      </AuthCard>
+
+      <p className="mt-6 text-center">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-sm text-[#7A6150] hover:text-[#1A202C]"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to Home
+        </Link>
+      </p>
+    </AuthPageShell>
   );
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { requireAdminWithScope } from '@/lib/api-auth';
 import { memberUnderLeaderScope } from '@/lib/leader-scope';
 import connectToDatabase from '@/lib/db';
@@ -103,6 +104,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       body.rejectionReason = '';
       body.rejectionNote = '';
       body.rejectedAt = null;
+      // Keep the QR issued at registration so the member's confirmation card stays valid.
+      if (targetUser.qrCode) {
+        delete body.qrCode;
+      } else if (!body.qrCode) {
+        body.qrCode = randomUUID();
+      }
     }
 
     if (body.birthday && isFutureBirthday(body.birthday)) {

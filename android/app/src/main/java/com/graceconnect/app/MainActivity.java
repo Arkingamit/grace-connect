@@ -4,12 +4,14 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.WindowManager;
 import android.webkit.WebView;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.WindowCompat;
 
 import com.codetrixstudio.capacitor.GoogleAuth.GoogleAuth;
 import com.getcapacitor.BridgeActivity;
@@ -27,6 +29,12 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(GraceGoogleAuthPlugin.class);
         registerPlugin(GoogleAuth.class);
         super.onCreate(savedInstanceState);
+
+        // Android 15+ edge-to-edge ignores adjustResize unless decor fits system windows.
+        // Without this, the keyboard overlays the WebView and leaves gray gaps in dialogs.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+
         requestAppPermissions();
         registerNativeBackInterceptor();
     }

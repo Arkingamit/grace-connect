@@ -14,7 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  Church, User, Heart, Phone, Lock, ArrowRight, ArrowLeft, Check, Clock, Building2, ScanLine, Globe, QrCode as QrIcon, Users, Search, X, Camera, Pencil,
+  Church, User, Heart, Phone, Lock, ArrowRight, ArrowLeft, Check, Building2, ScanLine, Globe, QrCode as QrIcon, Users, Search, X, Camera, Pencil,
 } from 'lucide-react';
 import { QRScanner } from '@/components/ui/qr-scanner';
 import { AvatarUploader } from '@/components/ui/avatar-uploader';
@@ -25,7 +25,20 @@ import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
 import AppleLogin from 'react-apple-signin-auth';
-import { GraceGoogleAuth } from '@/lib/grace-google-auth';
+import { GraceGoogleAuth, googleNativeSignInError } from '@/lib/grace-google-auth';
+import { AnimatedTicket } from '@/components/ui/ticket-confirmation-card';
+import { RegistrationPassDialog } from '@/components/ui/registration-pass-dialog';
+import { CelebrationRibbon } from '@/components/ui/celebration-ribbon';
+import {
+  AuthCard,
+  AuthModeToggle,
+  AuthPageShell,
+  authSocialBtnClass,
+} from '@/components/ui/auth-layout';
+import {
+  saveRegistrationPass,
+  type RegistrationPass,
+} from '@/lib/registration-pass';
 
 interface RegistrationFormProps {
   /** When set, the campus is pre-selected and cannot be changed (QR flow) */
@@ -58,6 +71,9 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
   const [error, setError] = useState('');
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
+  const [registrationPass, setRegistrationPass] = useState<RegistrationPass | null>(null);
+  const [passOpen, setPassOpen] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [isNative, setIsNative] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -126,12 +142,39 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
   const displayName = `${form.firstName} ${form.lastName}`.trim() || 'Your profile';
   const initials = `${form.firstName?.[0] || ''}${form.lastName?.[0] || ''}`.toUpperCase() || '?';
 
-  const finishRegistration = (result: { success: boolean; error?: string; userId?: string }) => {
+  const finishRegistration = (result: {
+    success: boolean;
+    error?: string;
+    userId?: string;
+    qrCode?: string;
+    email?: string;
+  }) => {
     if (result.success) {
       if (result.userId && profilePhoto) {
         setStoredAvatar(result.userId, profilePhoto);
       }
+      const campusName = campuses.find(c => c.id === form.campusId)?.name || 'Grace Community';
+      const pass: RegistrationPass = {
+        userId: result.userId || crypto.randomUUID(),
+        qrCode: result.qrCode || crypto.randomUUID(),
+        firstName: form.firstName,
+        middleName: form.middleName || undefined,
+        lastName: form.lastName,
+        campusId: form.campusId,
+        campusName,
+        phone: form.phone,
+        whatsapp: whatsappSame ? form.phone : form.whatsapp,
+        gender: form.gender,
+        birthday: form.birthday,
+        maritalStatus: form.maritalStatus,
+        email: result.email,
+        submittedAt: new Date().toISOString(),
+      };
+      saveRegistrationPass(pass);
+      setRegistrationPass(pass);
       setSubmitted(true);
+      setShowCelebration(true);
+      setPassOpen(true);
     } else {
       setError(result.error || 'Registration failed');
     }
@@ -197,14 +240,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
       handleGoogleRegister({ credential: idToken });
     } catch (err: any) {
       console.error(err);
-      const message = err?.message || err?.errorMessage || '';
-      setError(
-        /cancel/i.test(message)
-          ? 'Google login was canceled.'
-          : /something went wrong|developer_error|error code: 10|12500|SHA-1/i.test(message)
-            ? 'Google sign-in failed (Android config). Add Play App Signing SHA-1 in Firebase for com.graceconnect.app, then rebuild.'
-            : message || 'Native Google login failed. Please try again.'
-      );
+      setError(googleNativeSignInError(err));
     }
   };
 
@@ -344,34 +380,25 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      {/* Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl" />
-      </div>
-
-      <div className="w-full max-w-lg relative z-10">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <Church className="w-6 h-6 text-white" />
-            </div>
-          </Link>
-          <h1 className="text-3xl font-bold">Join Grace Community</h1>
-          <p className="text-muted-foreground mt-2">
+    <AuthPageShell>
+      <AuthCard>
+        {!submitted && (
+          <AuthModeToggle mode="signup" loginHref="/login" />
+        )}
+        <div className="text-left mb-6">
+          <h1 className="text-3xl font-bold tracking-tight text-[#1A202C]">
+            {submitted ? 'Thank you' : 'Create your account'}
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
             {lockedCampus
-              ? <>Register at <span className="text-primary font-semibold">{lockedCampus.name}</span></>
-              : 'Create your church member account'
-            }
+              ? <>Register at <span className="font-semibold text-[#8B2323]">{lockedCampus.name}</span></>
+              : 'Create your church member account'}
           </p>
-          {/* Scan QR Code button — only when campus is NOT locked */}
           {!lockedCampus && !submitted && (
             <Button
               variant="outline"
               size="sm"
-              className="mt-4 gap-2 border-primary/30 text-primary hover:bg-primary/10"
+              className="mt-4 gap-2 rounded-full border-[#E5D5C5]/60 text-[#8B2323] hover:bg-[#FBE8E8]"
               onClick={() => setShowScanner(true)}
             >
               <ScanLine className="w-4 h-4" />
@@ -382,36 +409,62 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
 
         {/* QR Scanner Overlay */}
         {showScanner && <QRScanner onClose={() => setShowScanner(false)} />}
+        <CelebrationRibbon active={showCelebration} />
 
         {/* Success Screen */}
         {submitted ? (
-          <Card className="border-border/50 shadow-elevated">
-            <CardContent className="p-8 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto overflow-hidden">
-                {profilePhoto ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profilePhoto} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <Clock className="w-8 h-8 text-amber-500" />
-                )}
+          <div className="space-y-4">
+            {registrationPass ? (
+              <div className="flex justify-center">
+                <AnimatedTicket
+                  ticketId={`GR-${registrationPass.userId.slice(-8).toUpperCase()}`}
+                  date={new Date(registrationPass.submittedAt)}
+                  cardHolder={`${registrationPass.firstName} ${registrationPass.middleName ? `${registrationPass.middleName} ` : ''}${registrationPass.lastName}`.replace(/\s+/g, ' ').trim()}
+                  barcodeValue={registrationPass.qrCode}
+                  campusName={registrationPass.campusName}
+                  phone={registrationPass.phone}
+                  whatsapp={registrationPass.whatsapp}
+                  gender={registrationPass.gender}
+                  birthday={registrationPass.birthday}
+                  maritalStatus={registrationPass.maritalStatus}
+                  email={registrationPass.email}
+                  celebrate={false}
+                />
               </div>
-              <h2 className="text-xl font-bold">Registration Submitted!</h2>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                Your registration is pending approval from your campus pastor.
-                You&apos;ll be able to sign in once your request is approved.
-              </p>
-              <div className="bg-muted/30 rounded-lg p-4 text-left space-y-1">
-                <p className="text-xs text-muted-foreground">Submitted as:</p>
-                <p className="text-sm font-medium">{form.firstName} {form.lastName}</p>
-                <p className="text-xs text-muted-foreground">
-                  Campus: {campuses.find(c => c.id === form.campusId)?.name}
-                </p>
-              </div>
-              <Link href="/">
-                <Button variant="outline" className="mt-2">Back to Home</Button>
+            ) : (
+              <Card className="border-border/50 shadow-elevated">
+                <CardContent className="p-8 text-center space-y-4">
+                  <h2 className="text-xl font-bold">Registration Submitted!</h2>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    Your registration is pending approval from your campus pastor.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            <div className="flex flex-col gap-2">
+              {registrationPass ? (
+                <Button
+                  type="button"
+                  className="w-full gap-2 bg-[#8B2323] hover:bg-[#721515] text-white"
+                  onClick={() => setPassOpen(true)}
+                >
+                  <QrIcon className="w-4 h-4" />
+                  View confirmation card
+                </Button>
+              ) : null}
+              <Link href="/" className="w-full">
+                <Button variant="outline" className="w-full">Back to Home</Button>
               </Link>
-            </CardContent>
-          </Card>
+            </div>
+            {registrationPass ? (
+              <RegistrationPassDialog
+                pass={registrationPass}
+                open={passOpen}
+                onOpenChange={setPassOpen}
+                celebrate={false}
+              />
+            ) : null}
+          </div>
         ) : (
           <>
 
@@ -441,9 +494,8 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
           {step === 4 && 'Confirm your profile'}
         </div>
 
-        <Card className="border-border/50 shadow-elevated">
-          <CardContent className="p-6 space-y-5">
-            {/* Step 1: Personal Info */}
+        <Card className="border-[#E5D5C5]/60 shadow-none rounded-2xl bg-[#FAF7F2]/60">
+          <CardContent className="p-5 space-y-5 sm:p-6">
             {step === 1 && (
               <>
                 <div className="flex flex-col items-center gap-2 pb-2">
@@ -825,70 +877,71 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                   </Button>
                 </div>
 
-                <div className="mt-2 pt-4 border-t border-border/50 flex flex-col items-center space-y-4">
-                  <p className="text-sm font-medium">Verify & Register</p>
+                <div className="mt-2 pt-4 border-t border-[#E5D5C5]/60 flex flex-col items-center space-y-4">
+                  <p className="text-sm font-medium text-[#1A202C]">Verify & Register</p>
 
                   {!mounted ? (
-                    <div className="w-full space-y-3">
-                      <div className="w-full h-[44px] animate-pulse bg-[#F3EAE1]/50 rounded-lg"></div>
-                      <div className="w-full h-[44px] animate-pulse bg-[#F3EAE1]/50 rounded-lg"></div>
+                    <div className="grid w-full grid-cols-2 gap-3">
+                      <div className="h-12 animate-pulse rounded-2xl bg-[#FBE8E8]" />
+                      <div className="h-12 animate-pulse rounded-2xl bg-[#FBE8E8]" />
                     </div>
                   ) : isNative ? (
-                    <>
+                    <div className="grid w-full grid-cols-2 gap-3">
                       <button
+                        type="button"
                         onClick={handleNativeGoogleRegister}
-                        className="w-full bg-white text-gray-700 border border-gray-300 font-medium text-sm rounded-md py-2.5 px-4 flex items-center justify-center gap-3 hover:bg-gray-50 transition-colors shadow-sm"
+                        className={authSocialBtnClass}
                       >
-                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-                        Register with Google
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" className="w-5 h-5" />
+                        Google
                       </button>
                       {isIOS && (
                       <button
+                        type="button"
                         onClick={handleNativeAppleRegister}
-                        className="w-full bg-black text-white border border-black font-medium text-sm rounded-md py-2.5 px-4 flex items-center justify-center gap-3 hover:bg-gray-900 transition-colors shadow-sm"
+                        className={authSocialBtnClass}
                       >
-                        <svg viewBox="0 0 384 512" className="w-5 h-5 fill-white"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.1-44.6-35.9-2.8-74.3 22.7-93.1 22.7-18.9 0-50.1-22.1-78.8-22.1-41.1 0-79.6 23.3-100.9 61.2-42.9 76.5-11 190.2 30.6 248.9 20.4 28.7 44.5 61.2 75.3 60 30.3-1.2 41.5-19.6 77.9-19.6 36.1 0 46.5 19.3 78.2 19.3 32.5-.2 53.6-29.6 73.8-59 23.2-34 32.4-67.1 33-68.8-1-1-61.9-23.7-61.9-113.2zM250.7 77.7c16.5-20.1 27.6-47.8 24.6-75.7-24 1-52 14.1-69 32.2-15.1 16-27.9 44-24.3 71.1 26.6 2 52.2-14.8 68.7-27.6z"/></svg>
-                        Register with Apple
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.04 2.26-.79 3.59-.76 1.56.04 2.88.75 3.65 1.89-3.08 1.75-2.58 5.61.35 6.75-1.01 2.37-2.39 4.39-4.29 4.29zM12.03 7.25c-.15-2.23 1.66-4.07 3.72-4.25.36 2.38-1.92 4.34-3.72 4.25z"/></svg>
+                        Apple
                       </button>
                       )}
-                    </>
+                    </div>
                   ) : (
-                    <>
-                      <div className="w-full flex justify-center [&>div]:!w-full [&>div>div]:!w-full [&_iframe]:!w-full">
+                    <div className="grid w-full grid-cols-2 gap-3">
+                      <div className="flex min-h-12 items-center overflow-hidden rounded-2xl border border-[#E5D5C5]/60 bg-[#FAF7F2] [&>div]:!w-full [&>div>div]:!w-full [&_iframe]:!w-full">
                         <GoogleLogin
                           onSuccess={handleGoogleRegister}
                           onError={handleGoogleError}
                           useOneTap={false}
                           theme="outline"
                           size="large"
-                          shape="rectangular"
+                          shape="pill"
                           text="signup_with"
                           width="100%"
                         />
                       </div>
-                      <div className="w-full flex justify-center">
-                        <AppleLogin
-                          authOptions={{
-                            clientId: process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || 'com.graceconnect.web',
-                            redirectURI: typeof window !== 'undefined' ? `${window.location.origin}/register` : '',
-                            usePopup: true,
-                            scope: 'email name'
-                          }}
-                          uiType="dark"
-                          onSuccess={handleAppleWebRegister}
-                          onError={(error: any) => handleAppleWebRegister({ error })}
-                          render={(renderProps) => (
-                            <button
-                              onClick={renderProps.onClick}
-                              className="w-full bg-black text-white border border-black font-medium text-sm rounded-md py-2.5 px-4 flex items-center justify-center gap-3 hover:bg-gray-900 transition-colors shadow-sm"
-                            >
-                              <svg viewBox="0 0 384 512" className="w-5 h-5 fill-white"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.1-44.6-35.9-2.8-74.3 22.7-93.1 22.7-18.9 0-50.1-22.1-78.8-22.1-41.1 0-79.6 23.3-100.9 61.2-42.9 76.5-11 190.2 30.6 248.9 20.4 28.7 44.5 61.2 75.3 60 30.3-1.2 41.5-19.6 77.9-19.6 36.1 0 46.5 19.3 78.2 19.3 32.5-.2 53.6-29.6 73.8-59 23.2-34 32.4-67.1 33-68.8-1-1-61.9-23.7-61.9-113.2zM250.7 77.7c16.5-20.1 27.6-47.8 24.6-75.7-24 1-52 14.1-69 32.2-15.1 16-27.9 44-24.3 71.1 26.6 2 52.2-14.8 68.7-27.6z"/></svg>
-                              Register with Apple
-                            </button>
-                          )}
-                        />
-                      </div>
-                    </>
+                      <AppleLogin
+                        authOptions={{
+                          clientId: process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || 'com.graceconnect.web',
+                          redirectURI: typeof window !== 'undefined' ? `${window.location.origin}/register` : '',
+                          usePopup: true,
+                          scope: 'email name'
+                        }}
+                        uiType="dark"
+                        onSuccess={handleAppleWebRegister}
+                        onError={(error: any) => handleAppleWebRegister({ error })}
+                        render={(renderProps) => (
+                          <button
+                            type="button"
+                            onClick={renderProps.onClick}
+                            className={authSocialBtnClass}
+                          >
+                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.04 2.26-.79 3.59-.76 1.56.04 2.88.75 3.65 1.89-3.08 1.75-2.58 5.61.35 6.75-1.01 2.37-2.39 4.39-4.29 4.29zM12.03 7.25c-.15-2.23 1.66-4.07 3.72-4.25.36 2.38-1.92 4.34-3.72 4.25z"/></svg>
+                            Apple
+                          </button>
+                        )}
+                      />
+                    </div>
                   )}
                 </div>
               </>
@@ -896,15 +949,15 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
           </CardContent>
         </Card>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
+        <p className="text-center text-sm text-[#7A6150] mt-6">
           Already have an account?{' '}
-          <Link href="/login" className="text-primary font-semibold hover:underline">
-            Sign In
+          <Link href="/login" className="font-semibold text-[#8B2323] hover:underline">
+            Log In
           </Link>
         </p>
         </> /* end of !submitted */
         )}
-      </div>
-    </div>
+      </AuthCard>
+    </AuthPageShell>
   );
 }

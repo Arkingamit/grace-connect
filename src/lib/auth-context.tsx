@@ -10,7 +10,7 @@ interface AuthContextType {
   session: AuthSession | null;
   members: ChurchMember[];
   isLoading: boolean;
-  register: (data: Partial<ChurchMember> & { credential?: string; provider?: 'google' | 'apple' }) => Promise<{ success: boolean; error?: string; userId?: string }>;
+  register: (data: Partial<ChurchMember> & { credential?: string; provider?: 'google' | 'apple' }) => Promise<{ success: boolean; error?: string; userId?: string; qrCode?: string; email?: string }>;
   login: (credential: string, provider?: 'google' | 'apple', picture?: string) => Promise<{ success: boolean; error?: string }>;
   /** App Store / Play reviewer bypass — requires DEMO_LOGIN_ENABLED + matching secret */
   demoLogin: (code: string) => Promise<{ success: boolean; error?: string }>;
@@ -123,7 +123,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) return { success: false, error: result.error || 'Failed to register' };
 
       await fetchSession();
-      return { success: true, userId: result.userId ? String(result.userId) : undefined };
+      return {
+        success: true,
+        userId: result.userId ? String(result.userId) : undefined,
+        qrCode: result.qrCode ? String(result.qrCode) : undefined,
+        email: result.email ? String(result.email) : undefined,
+      };
     } catch (error: any) {
       return { success: false, error: 'Network error during registration' };
     }

@@ -85,8 +85,8 @@ export default function PrivacyPolicyPage() {
             </p>
             <p className="mt-2 font-medium">
               Grace Community Church<br />
-              Email: gfagapp@gmail.com<br />
-              Website: graceconnect.graceahmedabad.org
+              Email: <a href="mailto:gfagapp@gmail.com" className="text-[#8B2323] underline">gfagapp@gmail.com</a><br />
+              Support: <a href="/support" className="text-[#8B2323] underline">graceconnect.graceahmedabad.org/support</a>
             </p>
           </section>
         </div>

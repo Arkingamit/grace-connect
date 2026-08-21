@@ -355,6 +355,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
   // ── Fetch Initial Data ────────────────────────────────────────────────
   useEffect(() => {
     const fetchPublicData = async () => {
+      const timeout = window.setTimeout(() => setIsLoading(false), 5000);
       try {
         const [
           eventsRes,
@@ -401,6 +402,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.error('Failed to fetch public data:', err);
       } finally {
+        window.clearTimeout(timeout);
         setIsLoading(false);
       }
     };

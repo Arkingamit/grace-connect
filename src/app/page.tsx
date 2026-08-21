@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { HeroSection } from "@/components/ui/hero-section";
 import { AnnouncementsSection } from "@/components/ui/announcements-section";
 import { PrayerWall } from "@/components/ui/prayer-wall";
@@ -85,13 +86,18 @@ function RevealSection({
 export default function HomePage() {
   const { session } = useAuth();
   const { isLoading } = useAdminData();
+  const [isNative, setIsNative] = useState(false);
+
+  useEffect(() => {
+    setIsNative(Capacitor.isNativePlatform());
+  }, []);
 
   // Show skeleton loaders while data is being fetched
   if (isLoading) {
     return (
       <div className="min-h-screen bg-transparent selection:bg-primary/10 flex flex-col">
-        <MobileHomeSkeleton />
-        <DesktopHomeSkeleton />
+        <MobileHomeSkeleton forceVisible={isNative} />
+        {!isNative && <DesktopHomeSkeleton />}
       </div>
     );
   }
@@ -99,10 +105,11 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-transparent selection:bg-primary/10 flex flex-col">
       
-      {/* Mobile Custom View (Hidden on Desktop) */}
-      <MobileHomeView />
+      {/* Phone layout, plus the native iOS/Android shell (including iPad). */}
+      <MobileHomeView forceVisible={isNative} />
 
-      {/* Desktop Original View (Hidden on Mobile) */}
+      {/* Desktop Original View (Hidden on Mobile and in the native app) */}
+      {!isNative && (
       <div className="hidden md:flex flex-col">
         {session ? (
           <>
@@ -210,7 +217,7 @@ export default function HomePage() {
         {/* Restricted Community Features */}
         <AuthGate 
           title="Community Features" 
-          description="Features like Announcements, Events, Prayer Wall, and Photo Gallery are exclusive to Grace Community members. Please sign in or register to access this content."
+          description="These features are exclusive to Grace Community members. Please sign in or register to access this content."
         >
           <div className="flex flex-col">
             <section className="bg-transparent relative z-10 py-24 sm:py-32 border-b border-border/50">
@@ -248,6 +255,7 @@ export default function HomePage() {
           </>
         )}
       </div>
+      )}
 
     </div>
   );
