@@ -3,12 +3,10 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
 import AppleAuthSession from '@/models/AppleAuthSession';
-import { OAuth2Client } from 'google-auth-library';
 import { registerSchema } from '@/lib/validations';
 import { getOAuthPicture } from '@/lib/oauth-picture';
 import { verifyAppleIdToken } from '@/lib/apple-auth';
-
-const googleClient = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
+import { verifyGoogleIdToken } from '@/lib/google-auth';
 
 export async function POST(req: Request) {
   try {
@@ -49,13 +47,8 @@ export async function POST(req: Request) {
       if (!credential) {
         return NextResponse.json({ error: 'Google authentication failed. No ID token received.' }, { status: 400 });
       }
-      // Verify Google token
-      const ticket = await googleClient.verifyIdToken({
-        idToken: credential,
-        audience: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-      });
-      
-      const payload = ticket.getPayload();
+      // Verify Google token (accepts web + iOS audiences)
+      const payload = await verifyGoogleIdToken(credential);
       if (!payload || !payload.email) {
         return NextResponse.json({ error: 'Invalid Google token or missing email' }, { status: 400 });
       }

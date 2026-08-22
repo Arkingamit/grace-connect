@@ -60,8 +60,18 @@ export async function signInWithGoogleNative(): Promise<GraceGoogleAuthResult> {
 export function googleNativeSignInError(err: unknown): string {
   const anyErr = err as { message?: string; errorMessage?: string; code?: string } | null;
   const message = String(anyErr?.message || anyErr?.errorMessage || '');
+  const code = String(anyErr?.code || '');
 
-  if (/SHA-1|not in Firebase|not registered|developer_error|error code: 10|12500/i.test(message)) {
+  // The legacy Google Sign-In SDK in older app builds reports every configuration
+  // problem (unregistered signing key, wrong client ID) as "Something went wrong".
+  if (code === '10' || /developer_error|something went wrong/i.test(message)) {
+    return (
+      'Google sign-in is not available in this version of the app. Please install the latest ' +
+      'Grace Connect build, or continue with Apple.'
+    );
+  }
+
+  if (/SHA-1|not in Firebase|not registered|error code: 10|12500/i.test(message)) {
     return message;
   }
 

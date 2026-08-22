@@ -26,6 +26,7 @@ import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
 import AppleLogin from 'react-apple-signin-auth';
 import { signInWithGoogleNative, googleNativeSignInError } from '@/lib/grace-google-auth';
+import { startAppleBrowserFlow, waitForAppleFlow } from '@/lib/apple-browser-flow';
 import { AnimatedTicket } from '@/components/ui/ticket-confirmation-card';
 import { RegistrationPassDialog } from '@/components/ui/registration-pass-dialog';
 import { CelebrationRibbon } from '@/components/ui/celebration-ribbon';
@@ -78,6 +79,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
   const [isNative, setIsNative] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [appleWaiting, setAppleWaiting] = useState(false);
 
   React.useEffect(() => {
     setMounted(true);
@@ -142,7 +144,9 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
     if (!appleState) return;
 
     if (!draft?.form) {
-      setError('Your registration details expired after Apple sign-in. Please fill the form again, then tap Apple.');
+      // Apple ran in the system browser, so this page has no form details —
+      // the app itself is polling and will finish the registration there.
+      setError('Apple verified your email. Return to the Grace Connect app to finish registering.');
       window.history.replaceState({}, '', window.location.pathname);
       return;
     }
@@ -152,30 +156,8 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
     const sameWhatsapp = draft?.whatsappSame ?? whatsappSame;
     const photo = draft?.profilePhoto ?? profilePhoto;
 
-    void (async () => {
-      const authResult = await register({
-        appleState,
-        provider: 'apple',
-        firstName: snapshot.firstName,
-        middleName: snapshot.middleName,
-        lastName: snapshot.lastName,
-        gender: snapshot.gender as 'male' | 'female',
-        birthday: snapshot.birthday,
-        maritalStatus: snapshot.maritalStatus as 'single' | 'married',
-        marriageDate: snapshot.marriageDate,
-        campusId: snapshot.campusId || lockedCampusId,
-        phone: snapshot.phone,
-        whatsapp: sameWhatsapp ? snapshot.phone : snapshot.whatsapp,
-        ...(family ? { familyMemberId: family.id } : {}),
-      });
-      try {
-        sessionStorage.removeItem('grace-pending-registration');
-      } catch {
-        // ignore
-      }
-      window.history.replaceState({}, '', window.location.pathname);
-      finishRegistration(authResult, snapshot, photo, sameWhatsapp);
-    })();
+    window.history.replaceState({}, '', window.location.pathname);
+    void submitAppleRegistration(appleState, snapshot, family, sameWhatsapp, photo);
   }, []);
 
   // Family linking state
@@ -333,13 +315,72 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
     }
   };
 
+  const submitAppleRegistration = async (
+    appleState: string,
+    snapshot: typeof form,
+    family: ChurchMember | null,
+    sameWhatsapp: boolean,
+    photo: string,
+  ) => {
+    const authResult = await register({
+      appleState,
+      provider: 'apple',
+      firstName: snapshot.firstName,
+      middleName: snapshot.middleName,
+      lastName: snapshot.lastName,
+      gender: snapshot.gender as 'male' | 'female',
+      birthday: snapshot.birthday,
+      maritalStatus: snapshot.maritalStatus as 'single' | 'married',
+      marriageDate: snapshot.marriageDate,
+      campusId: snapshot.campusId || lockedCampusId,
+      phone: snapshot.phone,
+      whatsapp: sameWhatsapp ? snapshot.phone : snapshot.whatsapp,
+      ...(family ? { familyMemberId: family.id } : {}),
+    });
+
+    try {
+      sessionStorage.removeItem('grace-pending-registration');
+    } catch {
+      // private mode
+    }
+    setAppleWaiting(false);
+    finishRegistration(authResult, snapshot, photo, sameWhatsapp);
+  };
+
   const handleNativeAppleRegister = async () => {
-    // Android has no native Apple plugin — same WebView OAuth as login.
+    // Android has no native Apple plugin, so Apple runs as a web OAuth flow.
+    // The WebView may load it or hand it to the system browser, so we poll for
+    // the result and finish here either way.
     if (isNative && !isIOS) {
       setError('');
       persistRegistrationDraft();
+
+      const snapshot = form;
+      const family = selectedFamily;
+      const sameWhatsapp = whatsappSame;
+      const photo = profilePhoto;
       const returnTo = `${window.location.pathname}${window.location.search || ''}`;
-      window.location.href = `/api/auth/apple/start?intent=register&redirectTo=${encodeURIComponent(returnTo)}`;
+
+      try {
+        setAppleWaiting(true);
+        const flow = await startAppleBrowserFlow({ intent: 'register', redirectTo: returnTo });
+        const verified = waitForAppleFlow(flow.state);
+        window.location.href = flow.url;
+
+        const outcome = await verified;
+        if (!outcome.ok) {
+          setAppleWaiting(false);
+          if (!outcome.timedOut) {
+            setError(outcome.error || 'Apple sign-in failed. Please try again.');
+          }
+          return;
+        }
+
+        await submitAppleRegistration(flow.state, snapshot, family, sameWhatsapp, photo);
+      } catch (err: any) {
+        setAppleWaiting(false);
+        setError(err?.message || 'Could not start Apple sign-in. Please try again.');
+      }
       return;
     }
 
@@ -978,6 +1019,13 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                 <div className="mt-2 flex w-full min-w-0 flex-col items-center space-y-4 overflow-hidden border-t border-[#E5D5C5]/60 pt-4">
                   <p className="text-sm font-medium text-[#1A202C]">Verify & Register</p>
 
+                  {appleWaiting && (
+                    <div className="flex w-full items-center gap-3 rounded-2xl border border-[#E5D5C5]/60 bg-[#FAF7F2] px-4 py-3 text-left text-sm font-medium text-[#7A6150]">
+                      <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[#8B2323] border-t-transparent" />
+                      Waiting for Apple… finish signing in, then come back to this screen.
+                    </div>
+                  )}
+
                   {!mounted ? (
                     <div className="grid w-full min-w-0 grid-cols-2 gap-3">
                       <div className="h-12 animate-pulse rounded-2xl bg-[#FBE8E8]" />
@@ -1007,7 +1055,8 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                         <button
                           type="button"
                           onClick={handleGoogleClick}
-                          className={`${authSocialBtnClass} min-w-0 px-3`}
+                          disabled={appleWaiting}
+                          className={`${authSocialBtnClass} min-w-0 px-3 disabled:opacity-60`}
                         >
                           <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0">
                             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -1022,7 +1071,8 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                         <button
                           type="button"
                           onClick={handleNativeAppleRegister}
-                          className={`${authSocialBtnClass} min-w-0 px-3`}
+                          disabled={appleWaiting}
+                          className={`${authSocialBtnClass} min-w-0 px-3 disabled:opacity-60`}
                         >
                           <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 shrink-0">
                             <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.04 2.26-.79 3.59-.76 1.56.04 2.88.75 3.65 1.89-3.08 1.75-2.58 5.61.35 6.75-1.01 2.37-2.39 4.39-4.29 4.29zM12.03 7.25c-.15-2.23 1.66-4.07 3.72-4.25.36 2.38-1.92 4.34-3.72 4.25z" />

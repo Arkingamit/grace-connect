@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
-import AppleAuthSession from '@/models/AppleAuthSession';
+import AppleAuthSession, { type IAppleAuthSession } from '@/models/AppleAuthSession';
 import {
   APPLE_WEB_CLIENT_ID,
   safeRedirectPath,
@@ -21,9 +21,29 @@ function backToLogin(req: Request, message: string) {
 }
 
 /**
+ * Record the failure on the flow so a native shell polling /status sees it too,
+ * then send whoever is holding the page back with the same message.
+ */
+async function failFlow(
+  req: Request,
+  session: IAppleAuthSession,
+  message: string,
+  path: string,
+) {
+  session.status = 'error';
+  session.errorMessage = message;
+  await session.save();
+  return backWithError(req, message, path);
+}
+
+/**
  * Apple posts the sign-in result here (response_mode=form_post). We verify the
- * identity token, issue the session cookie, and send the member back into the
- * app — all inside the same WebView, so no cookie handoff is needed.
+ * identity token, then either issue the session cookie (login) or park the
+ * verified token for the registration form to redeem (register).
+ *
+ * This may run in the app's WebView or in the system browser, so the flow record
+ * survives until it is redeemed — that is what lets the app finish a sign-in
+ * that Android handed off to the browser.
  */
 export async function POST(req: Request) {
   let state = '';
@@ -35,7 +55,7 @@ export async function POST(req: Request) {
 
     await connectToDatabase();
 
-    const session = state ? await AppleAuthSession.findOne({ state }) : null;
+    const session = await AppleAuthSession.findOne({ state });
     if (!session || session.expiresAt.getTime() < Date.now()) {
       if (session) await session.deleteOne();
       return backToLogin(req, 'Apple sign-in expired. Please try again.');
@@ -43,15 +63,16 @@ export async function POST(req: Request) {
 
     const redirectTo = safeRedirectPath(session.redirectTo);
     const isRegister = session.intent === 'register';
+    const failurePath = isRegister ? redirectTo : '/login';
 
     if (appleError) {
-      await session.deleteOne();
-      return backWithError(
+      return failFlow(
         req,
+        session,
         /cancel/i.test(appleError)
           ? 'Apple sign-in was canceled.'
           : 'Apple sign-in failed. Please try again.',
-        isRegister ? redirectTo : '/login',
+        failurePath,
       );
     }
 
@@ -62,29 +83,33 @@ export async function POST(req: Request) {
 
     const email = typeof payload.email === 'string' ? payload.email.toLowerCase() : '';
     if (!email) {
-      await session.deleteOne();
-      return backWithError(
+      return failFlow(
         req,
+        session,
         'Apple did not share an email address. Please try again and choose to share your email.',
-        isRegister ? redirectTo : '/login',
+        failurePath,
       );
     }
 
+    session.status = 'verified';
+    session.email = email;
+    session.identityToken = idToken;
+    await session.save();
+
     if (isRegister) {
-      session.status = 'verified';
-      session.email = email;
-      session.identityToken = idToken;
-      await session.save();
       const dest = new URL(redirectTo, new URL(req.url).origin);
       dest.searchParams.set('appleState', session.state);
       return NextResponse.redirect(dest, 303);
     }
 
-    await session.deleteOne();
-
     const result = await signInVerifiedEmail(email, 'Apple', { returnCookie: true });
     if (!result.ok || !result.sessionCookie) {
-      return backToLogin(req, result.error || 'Apple sign-in failed. Please try again.');
+      return failFlow(
+        req,
+        session,
+        result.error || 'Apple sign-in failed. Please try again.',
+        '/login',
+      );
     }
 
     const response = NextResponse.redirect(

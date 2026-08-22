@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
-import { OAuth2Client } from 'google-auth-library';
 import { loginSchema } from '@/lib/validations';
 import { getOAuthPicture } from '@/lib/oauth-picture';
 import { verifyAppleIdToken } from '@/lib/apple-auth';
+import { verifyGoogleIdToken } from '@/lib/google-auth';
 import { signInVerifiedEmail } from '@/lib/social-login';
-
-// Module-level singleton — reuses cached Google public keys across requests
-const googleClient = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
 
 export async function POST(req: Request) {
   try {
@@ -32,13 +29,8 @@ export async function POST(req: Request) {
       email = payload.email.toLowerCase();
       picture = getOAuthPicture(payload);
     } else {
-      // Verify Google token (reuses cached JWKS)
-      const ticket = await googleClient.verifyIdToken({
-        idToken: credential,
-        audience: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-      });
-
-      const payload = ticket.getPayload();
+      // Verify Google token (reuses cached JWKS, accepts web + iOS audiences)
+      const payload = await verifyGoogleIdToken(credential);
       if (!payload || !payload.email) {
         return NextResponse.json({ error: 'Invalid Google token or missing email' }, { status: 400 });
       }

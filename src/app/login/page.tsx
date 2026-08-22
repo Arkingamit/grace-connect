@@ -10,6 +10,7 @@ import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import AppleLogin from "react-apple-signin-auth";
 import ModernLoginSignup from "@/components/ui/modern-login-signup";
 import { signInWithGoogleNative, googleNativeSignInError } from "@/lib/grace-google-auth";
+import { startAppleBrowserFlow, waitForAppleFlow } from "@/lib/apple-browser-flow";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -134,12 +135,44 @@ export default function LoginPage() {
   };
 
   const handleAppleLogin = async () => {
-    // The native plugin is iOS-only; Android uses Apple's web OAuth redirect,
-    // which Capacitor loads in the WebView via allowNavigation.
+    // The native plugin is iOS-only; Android uses Apple's web OAuth redirect.
+    // Capacitor may load it in the WebView or hand it to the system browser, so
+    // we poll for the verified flow and redeem the session cookie here either way.
     if (isNative && !isIOS) {
       setError("");
       setNotice("Opening Apple sign-in…");
-      window.location.href = "/api/auth/apple/start?redirectTo=/";
+
+      try {
+        const flow = await startAppleBrowserFlow({ intent: "login", redirectTo: "/" });
+        const verified = waitForAppleFlow(flow.state);
+        window.location.href = flow.url;
+
+        const outcome = await verified;
+        if (!outcome.ok) {
+          setNotice("");
+          if (!outcome.timedOut) {
+            setError(outcome.error || "Apple sign-in failed. Please try again.");
+          }
+          return;
+        }
+
+        setNotice("Finishing Apple sign-in…");
+        const res = await fetch("/api/auth/apple/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ state: flow.state }),
+        });
+        const data = await res.json().catch(() => ({}));
+        setNotice("");
+        if (!res.ok || !data?.success) {
+          setError(data?.error || "Apple sign-in failed. Please try again.");
+          return;
+        }
+        window.location.href = "/";
+      } catch (err: any) {
+        setNotice("");
+        setError(err?.message || "Could not start Apple sign-in. Please try again.");
+      }
       return;
     }
 
