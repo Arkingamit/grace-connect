@@ -78,7 +78,7 @@ export const authSocialBtnClass =
   "flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#E5D5C5]/60 bg-[#FAF7F2] text-sm font-semibold text-[#1A202C] transition-colors hover:bg-[#FBE8E8]";
 
 export const authPrimaryBtnClass =
-  "flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#C94A4A] text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#B83A3A] active:bg-[#8B2323]";
+  "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#C94A4A] px-4 py-3 text-center text-sm font-semibold leading-tight text-white shadow-sm transition-colors hover:bg-[#B83A3A] active:bg-[#8B2323]";
 
 export const authSecondaryBtnClass =
-  "flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#C94A4A] text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#B83A3A] active:bg-[#8B2323]";
+  "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#C94A4A] px-4 py-3 text-center text-sm font-semibold leading-tight text-white shadow-sm transition-colors hover:bg-[#B83A3A] active:bg-[#8B2323]";

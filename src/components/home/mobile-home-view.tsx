@@ -1264,6 +1264,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                 <AuthGate
                   title="Community Features"
                   description="These features are exclusive to Grace Community members. Please sign in or register to access this content."
+                  showBack={false}
                 >
                   <div className="flex flex-col space-y-8">
                     {/* 2. Announcements */}

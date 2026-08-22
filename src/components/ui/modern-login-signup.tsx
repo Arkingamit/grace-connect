@@ -171,8 +171,8 @@ export default function ModernLoginSignup({
         </div>
 
         <Link href="/demo" className={`${authPrimaryBtnClass} mt-3`}>
-          App Store / Play reviewer access
-          <ArrowRight className="h-4 w-4" />
+          <span>App Store / Play reviewer access</span>
+          <ArrowRight className="h-4 w-4 shrink-0" />
         </Link>
 
         <p className="mt-6 text-center text-xs leading-relaxed text-[#C4B0A0]">

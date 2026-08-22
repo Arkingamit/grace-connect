@@ -12,6 +12,8 @@ import {
 export default function QRCodesPage() {
   const { campuses, currentUser } = useAdminData();
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = React.useState<string | null>(null);
+  const [downloadError, setDownloadError] = React.useState('');
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -45,26 +47,32 @@ export default function QRCodesPage() {
     setTimeout(() => setCopiedId(null), 2000);
   }, []);
 
-  const downloadQR = useCallback((campusId: string, campusName: string) => {
-    const url = getQRImageUrl(campusId, 512);
-    const link = document.createElement('a');
-    link.download = `${campusName.replace(/\s+/g, '-').toLowerCase()}-qr-code.png`;
-    link.href = url;
-    link.target = '_blank';
-
-    // Fetch and download as blob to force download
-    fetch(url)
-      .then(res => res.blob())
-      .then(blob => {
-        const blobUrl = URL.createObjectURL(blob);
-        link.href = blobUrl;
-        link.click();
-        URL.revokeObjectURL(blobUrl);
-      })
-      .catch(() => {
-        // Fallback: open in new tab
-        window.open(url, '_blank');
+  const downloadQR = useCallback(async (campusId: string, campusName: string) => {
+    const filename = `${campusName.replace(/\s+/g, '-').toLowerCase()}-qr-code.png`;
+    setDownloadError('');
+    setDownloadingId(campusId);
+    try {
+      const res = await fetch(`/api/admin/campus-qr?campusId=${encodeURIComponent(campusId)}&size=512`, {
+        credentials: 'include',
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Could not download the QR code.');
+      }
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : 'Could not download the QR code.');
+    } finally {
+      setDownloadingId(null);
+    }
   }, []);
 
   return (
@@ -95,6 +103,12 @@ export default function QRCodesPage() {
           </p>
         </div>
       </div>
+
+      {downloadError && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {downloadError}
+        </div>
+      )}
 
       {/* QR Code Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -142,9 +156,10 @@ export default function QRCodesPage() {
                     size="sm"
                     className="gap-1.5 text-xs"
                     onClick={() => downloadQR(campus.id, campus.name)}
+                    disabled={downloadingId === campus.id}
                   >
                     <Download className="w-3.5 h-3.5" />
-                    Download PNG
+                    {downloadingId === campus.id ? 'Downloading…' : 'Download PNG'}
                   </Button>
                   <Button
                     variant="outline"

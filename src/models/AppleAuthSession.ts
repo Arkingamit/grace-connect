@@ -9,10 +9,14 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 export interface IAppleAuthSession extends Document {
   state: string;
   nonce: string;
-  status: 'pending' | 'complete' | 'error';
+  status: 'pending' | 'verified' | 'complete' | 'error';
+  /** login (default) signs the member in; register finishes campus sign-up */
+  intent?: 'login' | 'register';
   /** Path within the site to return the member to once signed in */
   redirectTo?: string;
   email?: string;
+  /** Verified Apple identity token, kept briefly for the register callback */
+  identityToken?: string;
   errorMessage?: string;
   expiresAt: Date;
   createdAt: Date;
@@ -23,9 +27,11 @@ const AppleAuthSessionSchema = new Schema<IAppleAuthSession>(
   {
     state: { type: String, required: true, unique: true },
     nonce: { type: String, required: true },
-    status: { type: String, enum: ['pending', 'complete', 'error'], default: 'pending' },
+    status: { type: String, enum: ['pending', 'verified', 'complete', 'error'], default: 'pending' },
+    intent: { type: String, enum: ['login', 'register'], default: 'login' },
     redirectTo: { type: String, default: '/' },
     email: { type: String },
+    identityToken: { type: String },
     errorMessage: { type: String },
     expiresAt: { type: Date, required: true, expires: 0 },
   },

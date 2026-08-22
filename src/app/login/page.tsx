@@ -9,7 +9,7 @@ import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import AppleLogin from "react-apple-signin-auth";
 import ModernLoginSignup from "@/components/ui/modern-login-signup";
-import { GraceGoogleAuth, googleNativeSignInError } from "@/lib/grace-google-auth";
+import { signInWithGoogleNative, googleNativeSignInError } from "@/lib/grace-google-auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -112,23 +112,9 @@ export default function LoginPage() {
     try {
       setError("");
       // Android: Credential Manager (Grace Music strategy). iOS: Codetrix GoogleAuth.
-      const isAndroid = Capacitor.getPlatform() === "android";
-      let idToken = "";
-      let picture: string | undefined;
-
-      if (isAndroid) {
-        const resultNative = await GraceGoogleAuth.signIn();
-        idToken = resultNative.idToken;
-        picture = resultNative.imageUrl;
-      } else {
-        const user = await GoogleAuth.signIn();
-        if (!user.authentication?.idToken) {
-          setError("Google authentication failed. No ID Token received.");
-          return;
-        }
-        idToken = user.authentication.idToken;
-        picture = user.imageUrl;
-      }
+      const resultNative = await signInWithGoogleNative();
+      const idToken = resultNative.idToken;
+      const picture = resultNative.imageUrl;
 
       if (!idToken) {
         setError("Google authentication failed. No ID Token received.");

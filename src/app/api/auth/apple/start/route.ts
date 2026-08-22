@@ -18,7 +18,9 @@ const FLOW_TTL_MS = 10 * 60 * 1000;
  * result back to /api/auth/apple/callback.
  */
 export async function GET(req: Request) {
-  const redirectTo = safeRedirectPath(new URL(req.url).searchParams.get('redirectTo'));
+  const url = new URL(req.url);
+  const redirectTo = safeRedirectPath(url.searchParams.get('redirectTo'));
+  const intent = url.searchParams.get('intent') === 'register' ? 'register' : 'login';
 
   try {
     await connectToDatabase();
@@ -29,6 +31,7 @@ export async function GET(req: Request) {
       state,
       nonce,
       status: 'pending',
+      intent,
       redirectTo,
       expiresAt: new Date(Date.now() + FLOW_TTL_MS),
     });
@@ -36,7 +39,7 @@ export async function GET(req: Request) {
     return NextResponse.redirect(createAppleAuthorizeUrl(state, nonce), 302);
   } catch (error) {
     console.error('Apple start error:', error);
-    const failure = new URL('/login', new URL(req.url).origin);
+    const failure = new URL(intent === 'register' ? redirectTo : '/login', url.origin);
     failure.searchParams.set('appleError', 'Could not start Apple sign-in. Please try again.');
     return NextResponse.redirect(failure, 302);
   }

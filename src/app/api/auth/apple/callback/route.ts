@@ -10,10 +10,14 @@ import { signInVerifiedEmail } from '@/lib/social-login';
 
 export const dynamic = 'force-dynamic';
 
-function backToLogin(req: Request, message: string) {
-  const url = new URL('/login', new URL(req.url).origin);
+function backWithError(req: Request, message: string, path = '/login') {
+  const url = new URL(safeRedirectPath(path), new URL(req.url).origin);
   url.searchParams.set('appleError', message);
   return NextResponse.redirect(url, 303);
+}
+
+function backToLogin(req: Request, message: string) {
+  return backWithError(req, message, '/login');
 }
 
 /**
@@ -31,20 +35,23 @@ export async function POST(req: Request) {
 
     await connectToDatabase();
 
-    // Single use: consume the state record whatever the outcome.
-    const session = state ? await AppleAuthSession.findOneAndDelete({ state }) : null;
+    const session = state ? await AppleAuthSession.findOne({ state }) : null;
     if (!session || session.expiresAt.getTime() < Date.now()) {
+      if (session) await session.deleteOne();
       return backToLogin(req, 'Apple sign-in expired. Please try again.');
     }
 
     const redirectTo = safeRedirectPath(session.redirectTo);
+    const isRegister = session.intent === 'register';
 
     if (appleError) {
-      return backToLogin(
+      await session.deleteOne();
+      return backWithError(
         req,
         /cancel/i.test(appleError)
           ? 'Apple sign-in was canceled.'
           : 'Apple sign-in failed. Please try again.',
+        isRegister ? redirectTo : '/login',
       );
     }
 
@@ -55,11 +62,25 @@ export async function POST(req: Request) {
 
     const email = typeof payload.email === 'string' ? payload.email.toLowerCase() : '';
     if (!email) {
-      return backToLogin(
+      await session.deleteOne();
+      return backWithError(
         req,
         'Apple did not share an email address. Please try again and choose to share your email.',
+        isRegister ? redirectTo : '/login',
       );
     }
+
+    if (isRegister) {
+      session.status = 'verified';
+      session.email = email;
+      session.identityToken = idToken;
+      await session.save();
+      const dest = new URL(redirectTo, new URL(req.url).origin);
+      dest.searchParams.set('appleState', session.state);
+      return NextResponse.redirect(dest, 303);
+    }
+
+    await session.deleteOne();
 
     const result = await signInVerifiedEmail(email, 'Apple', { returnCookie: true });
     if (!result.ok || !result.sessionCookie) {

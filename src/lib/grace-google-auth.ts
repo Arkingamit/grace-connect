@@ -1,4 +1,5 @@
-import { registerPlugin } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 export interface GraceGoogleAuthResult {
   idToken: string;
@@ -17,6 +18,43 @@ interface GraceGoogleAuthPlugin {
 
 /** Android Credential Manager Google sign-in (Grace Music strategy). */
 export const GraceGoogleAuth = registerPlugin<GraceGoogleAuthPlugin>('GraceGoogleAuth');
+
+function pluginMissing(err: unknown) {
+  return /not implemented/i.test(
+    String((err as { message?: string; errorMessage?: string } | null)?.message
+      || (err as { errorMessage?: string } | null)?.errorMessage
+      || ''),
+  );
+}
+
+/**
+ * Native Google ID token. Prefer Credential Manager on Android when the APK
+ * includes GraceGoogleAuth; otherwise use Codetrix (already in older builds).
+ */
+export async function signInWithGoogleNative(): Promise<GraceGoogleAuthResult> {
+  if (Capacitor.getPlatform() === 'android' && Capacitor.isPluginAvailable('GraceGoogleAuth')) {
+    try {
+      const result = await GraceGoogleAuth.signIn();
+      if (result.idToken) return result;
+    } catch (err) {
+      if (!pluginMissing(err)) throw err;
+    }
+  }
+
+  const user = await GoogleAuth.signIn();
+  const idToken = user.authentication?.idToken;
+  if (!idToken) {
+    throw new Error('Google authentication failed. No ID Token received.');
+  }
+  return {
+    idToken,
+    email: user.email,
+    displayName: user.name,
+    givenName: user.givenName,
+    familyName: user.familyName,
+    imageUrl: user.imageUrl,
+  };
+}
 
 /** Map native / Capacitor Google errors to a message members can act on. */
 export function googleNativeSignInError(err: unknown): string {

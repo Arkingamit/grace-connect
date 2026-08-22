@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
+import AppleAuthSession from '@/models/AppleAuthSession';
 import { OAuth2Client } from 'google-auth-library';
 import { registerSchema } from '@/lib/validations';
 import { getOAuthPicture } from '@/lib/oauth-picture';
@@ -16,20 +17,38 @@ export async function POST(req: Request) {
     if (!parseResult.success) {
       return NextResponse.json({ error: parseResult.error.errors[0].message }, { status: 400 });
     }
-    const { credential, provider, firstName, middleName, lastName, gender, birthday, maritalStatus, marriageDate, campusId, phone, whatsapp, familyMemberId } = parseResult.data;
+    const { credential, appleState, provider, firstName, middleName, lastName, gender, birthday, maritalStatus, marriageDate, campusId, phone, whatsapp, familyMemberId } = parseResult.data;
 
     let email = '';
     let picture: string | undefined;
 
-    if (provider === 'apple') {
-      // Verifies issuer + our allowed client IDs (audience) via shared helper
-      const payload = await verifyAppleIdToken(credential);
+    if (provider === 'apple' || appleState) {
+      let appleToken = credential;
+      if (appleState) {
+        await connectToDatabase();
+        const appleSession = await AppleAuthSession.findOneAndDelete({
+          state: appleState,
+          intent: 'register',
+          status: 'verified',
+        });
+        if (!appleSession?.identityToken || appleSession.expiresAt.getTime() < Date.now()) {
+          return NextResponse.json({ error: 'Apple sign-in expired. Please try again.' }, { status: 400 });
+        }
+        appleToken = appleSession.identityToken;
+      }
+      if (!appleToken) {
+        return NextResponse.json({ error: 'Apple authentication failed. No ID token received.' }, { status: 400 });
+      }
+      const payload = await verifyAppleIdToken(appleToken);
       if (!payload || !payload.email || typeof payload.email !== 'string') {
         return NextResponse.json({ error: 'Invalid Apple token or missing email' }, { status: 400 });
       }
       email = payload.email.toLowerCase();
       picture = getOAuthPicture(payload);
     } else {
+      if (!credential) {
+        return NextResponse.json({ error: 'Google authentication failed. No ID token received.' }, { status: 400 });
+      }
       // Verify Google token
       const ticket = await googleClient.verifyIdToken({
         idToken: credential,
@@ -49,7 +68,7 @@ export async function POST(req: Request) {
     // Check if user exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return NextResponse.json({ error: 'This Google account is already registered' }, { status: 400 });
+      return NextResponse.json({ error: 'This account is already registered. Please log in.' }, { status: 400 });
     }
 
     const newUser = await User.create({

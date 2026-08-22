@@ -218,6 +218,7 @@ export default function HomePage() {
         <AuthGate 
           title="Community Features" 
           description="These features are exclusive to Grace Community members. Please sign in or register to access this content."
+          showBack={false}
         >
           <div className="flex flex-col">
             <section className="bg-transparent relative z-10 py-24 sm:py-32 border-b border-border/50">

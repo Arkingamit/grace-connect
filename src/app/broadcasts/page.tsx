@@ -20,7 +20,7 @@ export default function BroadcastsPage() {
         </Button>
       </div>
       <div className="px-4 md:px-0">
-        <AuthGate title="Note Share" className="mt-4 md:mt-8">
+        <AuthGate title="Note Share" className="mt-4 md:mt-8" showBack={false}>
           <NoteShareSection variant="page" />
         </AuthGate>
       </div>

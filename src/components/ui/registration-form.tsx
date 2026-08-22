@@ -25,7 +25,7 @@ import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
 import AppleLogin from 'react-apple-signin-auth';
-import { GraceGoogleAuth, googleNativeSignInError } from '@/lib/grace-google-auth';
+import { signInWithGoogleNative, googleNativeSignInError } from '@/lib/grace-google-auth';
 import { AnimatedTicket } from '@/components/ui/ticket-confirmation-card';
 import { RegistrationPassDialog } from '@/components/ui/registration-pass-dialog';
 import { CelebrationRibbon } from '@/components/ui/celebration-ribbon';
@@ -105,6 +105,77 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
       }
     };
     initNative();
+
+    const params = new URLSearchParams(window.location.search);
+    const appleError = params.get('appleError');
+    const appleState = params.get('appleState');
+
+    type Draft = {
+      form?: typeof form;
+      whatsappSame?: boolean;
+      selectedFamily?: ChurchMember | null;
+      profilePhoto?: string;
+      step?: number;
+    };
+    let draft: Draft | null = null;
+    try {
+      const raw = sessionStorage.getItem('grace-pending-registration');
+      if (raw) draft = JSON.parse(raw) as Draft;
+    } catch {
+      draft = null;
+    }
+
+    if (draft?.form) {
+      setForm((current) => ({ ...current, ...draft!.form }));
+      if (typeof draft.whatsappSame === 'boolean') setWhatsappSame(draft.whatsappSame);
+      if (draft.selectedFamily) setSelectedFamily(draft.selectedFamily);
+      if (draft.profilePhoto) setProfilePhoto(draft.profilePhoto);
+      if (draft.step) setStep(draft.step);
+    }
+
+    if (appleError) {
+      setError(appleError);
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+
+    if (!appleState) return;
+
+    if (!draft?.form) {
+      setError('Your registration details expired after Apple sign-in. Please fill the form again, then tap Apple.');
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+
+    const snapshot = { ...form, ...draft.form };
+    const family = draft?.selectedFamily ?? selectedFamily;
+    const sameWhatsapp = draft?.whatsappSame ?? whatsappSame;
+    const photo = draft?.profilePhoto ?? profilePhoto;
+
+    void (async () => {
+      const authResult = await register({
+        appleState,
+        provider: 'apple',
+        firstName: snapshot.firstName,
+        middleName: snapshot.middleName,
+        lastName: snapshot.lastName,
+        gender: snapshot.gender as 'male' | 'female',
+        birthday: snapshot.birthday,
+        maritalStatus: snapshot.maritalStatus as 'single' | 'married',
+        marriageDate: snapshot.marriageDate,
+        campusId: snapshot.campusId || lockedCampusId,
+        phone: snapshot.phone,
+        whatsapp: sameWhatsapp ? snapshot.phone : snapshot.whatsapp,
+        ...(family ? { familyMemberId: family.id } : {}),
+      });
+      try {
+        sessionStorage.removeItem('grace-pending-registration');
+      } catch {
+        // ignore
+      }
+      window.history.replaceState({}, '', window.location.pathname);
+      finishRegistration(authResult, snapshot, photo, sameWhatsapp);
+    })();
   }, []);
 
   // Family linking state
@@ -142,31 +213,36 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
   const displayName = `${form.firstName} ${form.lastName}`.trim() || 'Your profile';
   const initials = `${form.firstName?.[0] || ''}${form.lastName?.[0] || ''}`.toUpperCase() || '?';
 
-  const finishRegistration = (result: {
-    success: boolean;
-    error?: string;
-    userId?: string;
-    qrCode?: string;
-    email?: string;
-  }) => {
+  const finishRegistration = (
+    result: {
+      success: boolean;
+      error?: string;
+      userId?: string;
+      qrCode?: string;
+      email?: string;
+    },
+    snapshot = form,
+    photo = profilePhoto,
+    sameWhatsapp = whatsappSame,
+  ) => {
     if (result.success) {
-      if (result.userId && profilePhoto) {
-        setStoredAvatar(result.userId, profilePhoto);
+      if (result.userId && photo) {
+        setStoredAvatar(result.userId, photo);
       }
-      const campusName = campuses.find(c => c.id === form.campusId)?.name || 'Grace Community';
+      const campusName = campuses.find(c => c.id === snapshot.campusId)?.name || 'Grace Community';
       const pass: RegistrationPass = {
         userId: result.userId || crypto.randomUUID(),
         qrCode: result.qrCode || crypto.randomUUID(),
-        firstName: form.firstName,
-        middleName: form.middleName || undefined,
-        lastName: form.lastName,
-        campusId: form.campusId,
+        firstName: snapshot.firstName,
+        middleName: snapshot.middleName || undefined,
+        lastName: snapshot.lastName,
+        campusId: snapshot.campusId,
         campusName,
-        phone: form.phone,
-        whatsapp: whatsappSame ? form.phone : form.whatsapp,
-        gender: form.gender,
-        birthday: form.birthday,
-        maritalStatus: form.maritalStatus,
+        phone: snapshot.phone,
+        whatsapp: sameWhatsapp ? snapshot.phone : snapshot.whatsapp,
+        gender: snapshot.gender,
+        birthday: snapshot.birthday,
+        maritalStatus: snapshot.maritalStatus,
         email: result.email,
         submittedAt: new Date().toISOString(),
       };
@@ -218,33 +294,45 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
   const handleNativeGoogleRegister = async () => {
     try {
       setError('');
-      const isAndroid = Capacitor.getPlatform() === 'android';
-      let idToken = '';
-
-      if (isAndroid) {
-        const resultNative = await GraceGoogleAuth.signIn();
-        idToken = resultNative.idToken;
-      } else {
-        const user = await GoogleAuth.signIn();
-        if (!user.authentication?.idToken) {
-          setError('Google authentication failed. No ID Token received.');
-          return;
-        }
-        idToken = user.authentication.idToken;
-      }
-
-      if (!idToken) {
+      const resultNative = await signInWithGoogleNative();
+      if (!resultNative.idToken) {
         setError('Google authentication failed. No ID Token received.');
         return;
       }
-      handleGoogleRegister({ credential: idToken });
+      handleGoogleRegister({ credential: resultNative.idToken });
     } catch (err: any) {
       console.error(err);
       setError(googleNativeSignInError(err));
     }
   };
 
+  const persistRegistrationDraft = () => {
+    try {
+      sessionStorage.setItem(
+        'grace-pending-registration',
+        JSON.stringify({
+          form,
+          whatsappSame,
+          selectedFamily,
+          profilePhoto,
+          step,
+        }),
+      );
+    } catch {
+      // private mode
+    }
+  };
+
   const handleNativeAppleRegister = async () => {
+    // Android has no native Apple plugin — same WebView OAuth as login.
+    if (isNative && !isIOS) {
+      setError('');
+      persistRegistrationDraft();
+      const returnTo = `${window.location.pathname}${window.location.search || ''}`;
+      window.location.href = `/api/auth/apple/start?intent=register&redirectTo=${encodeURIComponent(returnTo)}`;
+      return;
+    }
+
     try {
       setError('');
       const result = await SignInWithApple.authorize({
@@ -895,7 +983,6 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" className="w-5 h-5" />
                         Google
                       </button>
-                      {isIOS && (
                       <button
                         type="button"
                         onClick={handleNativeAppleRegister}
@@ -904,7 +991,6 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                         <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.04 2.26-.79 3.59-.76 1.56.04 2.88.75 3.65 1.89-3.08 1.75-2.58 5.61.35 6.75-1.01 2.37-2.39 4.39-4.29 4.29zM12.03 7.25c-.15-2.23 1.66-4.07 3.72-4.25.36 2.38-1.92 4.34-3.72 4.25z"/></svg>
                         Apple
                       </button>
-                      )}
                     </div>
                   ) : (
                     <div className="grid w-full grid-cols-2 gap-3">

@@ -2,13 +2,14 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import {
   AuthCard,
   AuthModeToggle,
   authPrimaryBtnClass,
 } from "@/components/ui/auth-layout";
+import { useNavigationHistory } from "@/components/ui/navigation-history-provider";
 import graceLogo from "../../../assets/logo.png";
 
 interface AuthGateProps {
@@ -16,10 +17,18 @@ interface AuthGateProps {
   title: string;
   description?: string;
   className?: string;
+  showBack?: boolean;
 }
 
-export function AuthGate({ children, title, description, className = "" }: AuthGateProps) {
+export function AuthGate({
+  children,
+  title,
+  description,
+  className = "",
+  showBack = true,
+}: AuthGateProps) {
   const { session } = useAuth();
+  const { goBack } = useNavigationHistory();
   const [mode, setMode] = useState<"login" | "signup">("signup");
 
   if (session) {
@@ -40,6 +49,16 @@ export function AuthGate({ children, title, description, className = "" }: AuthG
         aria-hidden
       />
       <div className="relative z-10 w-full max-w-[400px]">
+        {showBack && (
+          <button
+            type="button"
+            onClick={() => goBack("/")}
+            className="mb-4 inline-flex items-center gap-2 pl-1 text-[#7A6150] transition-colors hover:text-[#8B2323]"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span className="text-lg font-medium">Back</span>
+          </button>
+        )}
         <AuthCard>
           <Link href="/" className="mb-6 flex justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -98,8 +117,8 @@ export function AuthGate({ children, title, description, className = "" }: AuthG
           )}
 
           <Link href="/demo" className={`${authPrimaryBtnClass} mt-3`}>
-            App Store / Play reviewer access
-            <ArrowRight className="h-4 w-4" />
+            <span>App Store / Play reviewer access</span>
+            <ArrowRight className="h-4 w-4 shrink-0" />
           </Link>
 
           <p className="mt-6 text-center text-xs leading-relaxed text-[#C4B0A0]">

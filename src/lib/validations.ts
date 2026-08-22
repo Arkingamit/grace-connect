@@ -12,7 +12,8 @@ export const loginSchema = z.object({
 });
 
 export const registerSchema = z.object({
-  credential: z.string().min(1, 'Authentication credential is required'),
+  credential: z.string().optional(),
+  appleState: z.string().optional(),
   provider: z.enum(['google', 'apple']).default('google'),
   firstName: z.string().min(2, 'First name is required'),
   middleName: z.string().optional(),
@@ -25,6 +26,9 @@ export const registerSchema = z.object({
   phone: z.string().optional(),
   whatsapp: z.string().optional(),
   familyMemberId: z.string().optional(),
+}).refine((data) => Boolean(data.credential || data.appleState), {
+  message: 'Authentication credential is required',
+  path: ['credential'],
 });
 
 // Event Schema
