@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { saveJsPdf } from '@/lib/save-image';
 import * as XLSX from 'xlsx';
 import { getMapsUrl } from '@/lib/maps';
 import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
@@ -164,7 +165,7 @@ export default function EventsPage() {
       headStyles: { fillColor: [139, 35, 35] },
     });
 
-    doc.save(`${event.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_responses.pdf`);
+    void saveJsPdf(doc, `${event.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_responses.pdf`);
   };
 
   const handleExportPDF = (broadcastUsers: any[]) => {
@@ -187,7 +188,7 @@ export default function EventsPage() {
       body: tableData,
     });
 
-    doc.save(`event-audience-${new Date().toISOString().slice(0, 10)}.pdf`);
+    void saveJsPdf(doc, `event-audience-${new Date().toISOString().slice(0, 10)}.pdf`);
     import('sonner').then(({ toast }) => toast.success('PDF exported successfully'));
   };
 

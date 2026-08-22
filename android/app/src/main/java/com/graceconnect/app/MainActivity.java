@@ -27,6 +27,7 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         // Credential Manager Google (Grace Music strategy) + Codetrix for iOS parity if present.
         registerPlugin(GraceGoogleAuthPlugin.class);
+        registerPlugin(GraceMediaPlugin.class);
         registerPlugin(GoogleAuth.class);
         super.onCreate(savedInstanceState);
 

@@ -97,7 +97,7 @@ const AnimatedTicket = React.forwardRef<HTMLDivElement, TicketProps>(
   (
     {
       className,
-      ticketId,
+      ticketId: _ticketId,
       amount,
       date,
       cardHolder,
@@ -187,19 +187,13 @@ const AnimatedTicket = React.forwardRef<HTMLDivElement, TicketProps>(
           <div className="space-y-6 px-8 pb-8">
             <DashedLine />
 
-            <div className="grid grid-cols-2 gap-4 text-left">
-              <div>
-                <p className="text-xs uppercase text-muted-foreground">Ticket ID</p>
-                <p className="font-mono font-medium">{ticketId}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs uppercase text-muted-foreground">
-                  {formattedAmount ? "Amount" : "Status"}
-                </p>
-                <p className="text-lg font-semibold">
-                  {formattedAmount || statusLabel}
-                </p>
-              </div>
+            <div className="text-center">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                {formattedAmount ? "Amount" : "Status"}
+              </p>
+              <p className="text-lg font-semibold">
+                {formattedAmount || statusLabel}
+              </p>
             </div>
 
             <div>

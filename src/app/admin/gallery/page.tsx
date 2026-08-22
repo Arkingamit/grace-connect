@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { saveJsPdf } from '@/lib/save-image';
 import * as XLSX from 'xlsx';
 import { Badge } from '@/components/ui/badge';
 import { CompactStackedList, mapUsersToStackedMembers } from '@/components/ui/stacked-list';
@@ -155,7 +156,7 @@ export default function GalleryManagementPage() {
       body: tableData,
     });
 
-    doc.save(`gallery-audience-${new Date().toISOString().slice(0, 10)}.pdf`);
+    void saveJsPdf(doc, `gallery-audience-${new Date().toISOString().slice(0, 10)}.pdf`);
     import('sonner').then(({ toast }) => toast.success('PDF exported successfully'));
   };
 

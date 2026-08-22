@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, Bell, Megaphone, User as UserIcon, Check, X, ShieldAlert, Users, CheckCircle, Link2 } from 'lucide-react';
 import { useAdminData } from '@/lib/admin-data-context';
@@ -16,7 +16,6 @@ import { toast } from 'sonner';
 import { RejectMemberDialog } from '@/components/ui/reject-member-dialog';
 
 const DISMISSED_KEY = 'grace_dismissed_notifications';
-const ACTIONABLE_TYPES = new Set(['user-approval', 'prayer-approval']);
 
 function readDismissedIds(): string[] {
   if (typeof window === 'undefined') return [];
@@ -47,19 +46,9 @@ export default function NotificationsPage() {
   const [approving, setApproving] = useState(false);
   const [rejectDialogUser, setRejectDialogUser] = useState<any | null>(null);
   const [rejecting, setRejecting] = useState(false);
-  const dismissibleIdsRef = useRef<string[]>([]);
-  const canAutoDismissRef = useRef(false);
 
   useEffect(() => {
     setDismissedIds(readDismissedIds());
-  }, []);
-
-  // After the page has been open briefly, mark non-actionable items to clear on leave
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      canAutoDismissRef.current = true;
-    }, 400);
-    return () => clearTimeout(timer);
   }, []);
 
   const persistDismissed = (idsToAdd: string[]) => {
@@ -68,21 +57,6 @@ export default function NotificationsPage() {
     writeDismissedIds(updated);
     setDismissedIds(updated);
   };
-
-  // When leaving the notifications page, clear everything except pending approvals
-  useEffect(() => {
-    const dismissNonActionable = () => {
-      if (!canAutoDismissRef.current) return;
-      const ids = dismissibleIdsRef.current;
-      if (!ids.length) return;
-      const updated = Array.from(new Set([...readDismissedIds(), ...ids]));
-      writeDismissedIds(updated);
-    };
-
-    return () => {
-      dismissNonActionable();
-    };
-  }, []);
 
   useEffect(() => {
     // Only fetch pending approvals for campus leaders and admins
@@ -317,16 +291,12 @@ export default function NotificationsPage() {
       .sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [announcements, pendingPrayers, pendingUsers, dismissedIds, usersById]);
 
-  // Keep a live list of non-actionable notification ids to clear on leave
-  useEffect(() => {
-    dismissibleIdsRef.current = notifications
-      .filter((n) => !ACTIONABLE_TYPES.has(n.type))
-      .map((n) => n.id);
-  }, [notifications]);
+  const handleDismissOne = (id: string) => {
+    persistDismissed([id]);
+  };
 
-  const handleLeaveNotifications = () => {
-    canAutoDismissRef.current = true;
-    persistDismissed(dismissibleIdsRef.current);
+  const handleClearAll = () => {
+    persistDismissed(notifications.map((n) => n.id));
   };
 
   return (
@@ -337,12 +307,11 @@ export default function NotificationsPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            onClick={handleLeaveNotifications}
             className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#7A6150] shadow-sm shrink-0 hover:bg-[#F3EAE1] transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <h1 className="text-xl font-bold font-serif text-[#1A202C]">Notifications</h1>
             {notifications.length > 0 && (
               <span className="bg-[#8B2323] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -350,6 +319,15 @@ export default function NotificationsPage() {
               </span>
             )}
           </div>
+          {notifications.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearAll}
+              className="shrink-0 rounded-full bg-white px-3 py-2 text-xs font-semibold text-[#8B2323] shadow-sm transition-colors hover:bg-[#FBE8E8]"
+            >
+              Clear all
+            </button>
+          )}
         </div>
       </div>
 
@@ -368,19 +346,25 @@ export default function NotificationsPage() {
             {notifications.map((notif) => {
               const Icon = notif.icon;
               return (
-                <Card key={notif.id} className="p-4 border-0 shadow-sm bg-white/90 backdrop-blur-sm rounded-2xl flex flex-col gap-3 hover:bg-white transition-colors duration-150">
+                <Card key={notif.id} className="relative flex flex-col gap-3 rounded-2xl border-0 bg-white/90 p-4 shadow-sm backdrop-blur-sm transition-colors duration-150 hover:bg-white">
+                  <button
+                    type="button"
+                    onClick={() => handleDismissOne(notif.id)}
+                    className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full text-[#7A6150] transition-colors hover:bg-[#F3EAE1] hover:text-[#8B2323]"
+                    aria-label="Remove notification"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                   <div className="flex gap-4">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${notif.bgColor}`}>
                       <Icon className={`w-5 h-5 ${notif.color}`} />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start mb-1">
-                        <h4 className="font-bold text-sm text-[#1A202C] truncate pr-2">{notif.title}</h4>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[10px] font-bold text-[#7A6150] whitespace-nowrap">
-                            {notif.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </span>
-                        </div>
+                    <div className="min-w-0 flex-1 pr-7">
+                      <div className="mb-1 flex items-start justify-between gap-2">
+                        <h4 className="truncate pr-2 text-sm font-bold text-[#1A202C]">{notif.title}</h4>
+                        <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-[#7A6150]">
+                          {notif.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
                       </div>
                       <p className="text-xs text-[#7A6150] leading-relaxed line-clamp-3">
                         {notif.content}

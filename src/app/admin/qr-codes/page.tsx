@@ -8,12 +8,14 @@ import { Badge } from '@/components/ui/badge';
 import {
   QrCode, Download, Copy, Check, Building2, ExternalLink,
 } from 'lucide-react';
+import { savePngToDevice } from '@/lib/save-image';
 
 export default function QRCodesPage() {
   const { campuses, currentUser } = useAdminData();
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
   const [downloadingId, setDownloadingId] = React.useState<string | null>(null);
   const [downloadError, setDownloadError] = React.useState('');
+  const [downloadNotice, setDownloadNotice] = React.useState('');
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -50,6 +52,7 @@ export default function QRCodesPage() {
   const downloadQR = useCallback(async (campusId: string, campusName: string) => {
     const filename = `${campusName.replace(/\s+/g, '-').toLowerCase()}-qr-code.png`;
     setDownloadError('');
+    setDownloadNotice('');
     setDownloadingId(campusId);
     try {
       const res = await fetch(`/api/admin/campus-qr?campusId=${encodeURIComponent(campusId)}&size=512`, {
@@ -60,16 +63,16 @@ export default function QRCodesPage() {
         throw new Error(body.error || 'Could not download the QR code.');
       }
       const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+      const dest = await savePngToDevice(blob, filename);
+      if (dest === 'preview') {
+        setDownloadNotice('Saved to Photos. Choose Gallery or Photos to preview it.');
+      } else if (dest === 'share') {
+        setDownloadNotice('Use Save image or Photos in the share sheet to add it to your gallery.');
+      }
     } catch (err) {
-      setDownloadError(err instanceof Error ? err.message : 'Could not download the QR code.');
+      const message = err instanceof Error ? err.message : 'Could not download the QR code.';
+      if (/abort|cancel/i.test(message)) return;
+      setDownloadError(message);
     } finally {
       setDownloadingId(null);
     }
@@ -107,6 +110,11 @@ export default function QRCodesPage() {
       {downloadError && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {downloadError}
+        </div>
+      )}
+      {downloadNotice && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700">
+          {downloadNotice}
         </div>
       )}
 

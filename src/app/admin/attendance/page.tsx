@@ -35,6 +35,7 @@ import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { saveJsPdf } from '@/lib/save-image';
 import * as XLSX from 'xlsx';
 
 const DEFAULT_ABSENT_MESSAGE = 'We missed you at church today! Hope you are doing well.';
@@ -425,7 +426,7 @@ export default function AdminAttendancePage() {
       head: [['Name', 'Campus', 'Groups']],
       body: tableData,
     });
-    doc.save(`attendance-audience-${new Date().toISOString().slice(0, 10)}.pdf`);
+    void saveJsPdf(doc, `attendance-audience-${new Date().toISOString().slice(0, 10)}.pdf`);
     toast.success('PDF exported successfully');
   };
 

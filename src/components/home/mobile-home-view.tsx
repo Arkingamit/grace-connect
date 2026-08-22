@@ -478,24 +478,33 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
+    let dismissed: string[] = [];
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('grace_dismissed_notifications');
-      if (stored) {
-        try {
-          setDismissedIds(JSON.parse(stored));
-        } catch (e) { }
+      try {
+        dismissed = JSON.parse(localStorage.getItem('grace_dismissed_notifications') || '[]');
+        setDismissedIds(dismissed);
+      } catch {
+        dismissed = [];
       }
     }
 
-    // Fetch pending counts for admins
+    // Fetch pending counts for admins, skipping items the member already dismissed
     if (session?.role === 'campus_leader' || session?.role === 'admin' || session?.role === 'super_admin') {
       Promise.all([
         fetch('/api/admin/prayers').then(res => res.ok ? res.json() : []),
         fetch('/api/admin/users').then(res => res.ok ? res.json() : [])
       ]).then(([prayers, users]) => {
         let count = 0;
-        if (Array.isArray(prayers)) count += prayers.filter(p => p.status === 'pending').length;
-        if (Array.isArray(users)) count += users.filter(u => u.status === 'pending').length;
+        if (Array.isArray(prayers)) {
+          count += prayers.filter((p: any) =>
+            p.status === 'pending' && !dismissed.includes(`pending-pr-${p._id || p.id}`)
+          ).length;
+        }
+        if (Array.isArray(users)) {
+          count += users.filter((u: any) =>
+            u.status === 'pending' && !dismissed.includes(`pending-user-${u._id || u.id}`)
+          ).length;
+        }
         setPendingCount(count);
       }).catch(() => { });
     }

@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { saveJsPdf } from '@/lib/save-image';
 import * as XLSX from 'xlsx';
 
 const ANNOUNCEMENT_CATEGORIES = ['Worship', 'Youth', 'Outreach', 'Membership', 'Urgent'];
@@ -201,7 +202,7 @@ export default function AnnouncementsPage() {
       body: tableData,
     });
 
-    doc.save(`broadcast-members-${new Date().toISOString().slice(0, 10)}.pdf`);
+    void saveJsPdf(doc, `broadcast-members-${new Date().toISOString().slice(0, 10)}.pdf`);
     toast.success('PDF exported successfully');
   };
 

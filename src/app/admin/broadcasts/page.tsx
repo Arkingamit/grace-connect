@@ -15,6 +15,7 @@ import { DEFAULT_HIGHLIGHT_FIELDS, withHighlightExpiry } from '@/lib/highlight-u
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { saveJsPdf } from '@/lib/save-image';
 import * as XLSX from 'xlsx';
 
 const emptyForm = {
@@ -175,7 +176,7 @@ export default function AdminBroadcastsPage() {
       body: tableData,
     });
 
-    doc.save(`broadcast-members-${new Date().toISOString().slice(0, 10)}.pdf`);
+    void saveJsPdf(doc, `broadcast-members-${new Date().toISOString().slice(0, 10)}.pdf`);
     toast.success('PDF exported successfully');
   };
 
