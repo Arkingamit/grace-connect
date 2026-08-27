@@ -17,7 +17,9 @@ export interface ModernLoginSignupProps {
   error?: string;
   notice?: string;
   googleSlot?: React.ReactNode;
+  appleSlot?: React.ReactNode;
   onGoogleClick?: () => void;
+  onAppleClick?: () => void;
   useNativeButtons?: boolean;
   registerHref?: string;
   privacyHref?: string;
@@ -31,7 +33,9 @@ export default function ModernLoginSignup({
   error,
   notice,
   googleSlot,
+  appleSlot,
   onGoogleClick,
+  onAppleClick,
   useNativeButtons = false,
   registerHref = "/register",
   privacyHref = "/privacy-policy",
@@ -63,13 +67,19 @@ export default function ModernLoginSignup({
     </svg>
   );
 
-  const hasSocial = useNativeButtons || Boolean(googleSlot);
+  const AppleIcon = (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 shrink-0">
+      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.04 2.26-.79 3.59-.76 1.56.04 2.88.75 3.65 1.89-3.08 1.75-2.58 5.61.35 6.75-1.01 2.37-2.39 4.39-4.29 4.29zM12.03 7.25c-.15-2.23 1.66-4.07 3.72-4.25.36 2.38-1.92 4.34-3.72 4.25z" />
+    </svg>
+  );
+
+  const hasSocial = useNativeButtons || Boolean(googleSlot) || Boolean(appleSlot);
 
   const socialSlotWrapClass =
     "flex h-12 w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-[#E5D5C5]/60 bg-[#FAF7F2]";
 
   const SocialRow = (
-    <div className="grid w-full grid-cols-1 items-stretch gap-3">
+    <div className="flex w-full flex-col items-stretch gap-3">
       {useNativeButtons ? (
         <button type="button" onClick={onGoogleClick} className={authSocialBtnClass}>
           {GoogleIcon}
@@ -78,6 +88,16 @@ export default function ModernLoginSignup({
       ) : (
         <div className={`${socialSlotWrapClass} [&>div]:!h-full [&>div]:!w-full [&>div>div]:!h-full [&>div>div]:!w-full [&_iframe]:!h-full [&_iframe]:!w-full`}>
           {googleSlot}
+        </div>
+      )}
+      {useNativeButtons ? (
+        <button type="button" onClick={onAppleClick} className={authSocialBtnClass}>
+          {AppleIcon}
+          Apple
+        </button>
+      ) : (
+        <div className={`${socialSlotWrapClass} [&_button]:!h-full [&_button]:!w-full [&_button]:!rounded-2xl [&_button]:!border-0 [&_button]:!bg-transparent`}>
+          {appleSlot}
         </div>
       )}
     </div>
@@ -103,14 +123,38 @@ export default function ModernLoginSignup({
         />
 
         <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-[#1A202C]">
-            {isLogin ? "Welcome Back" : "Create your account"}
-          </h1>
-          <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
-            {isLogin
-              ? "Sign in to your account to access Grace Community."
-              : "Join Grace Community. Scan your campus QR code to start registration."}
-          </p>
+          {isLogin ? (
+            <>
+              <h1 className="text-3xl font-bold tracking-tight text-[#1A202C]">Welcome Back</h1>
+              <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
+                Sign in to your account to access Grace Community.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold tracking-tight text-[#1A202C]">
+                Sign in to view Community Features
+              </h1>
+              <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
+                These features are exclusive to Grace Community members. Please sign in or register to access this content.
+              </p>
+              <ul className="mt-4 space-y-2 text-left text-sm text-[#7A6150]">
+                {[
+                  "Announcements",
+                  "Events",
+                  "Prayer Wall",
+                  "Photo Gallery",
+                  "Notes",
+                  "Exclusive Sermons",
+                ].map((feature) => (
+                  <li key={feature} className="flex items-start gap-2.5">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B2323]" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
 
         {error && (
@@ -127,20 +171,16 @@ export default function ModernLoginSignup({
 
         {isLogin ? (
           <>{hasSocial && SocialRow}</>
+        ) : onScanCampus ? (
+          <button type="button" onClick={onScanCampus} className={authPrimaryBtnClass}>
+            Scan campus QR
+            <ArrowRight className="h-4 w-4" />
+          </button>
         ) : (
-          <>
-            {onScanCampus ? (
-              <button type="button" onClick={onScanCampus} className={authPrimaryBtnClass}>
-                Scan campus QR
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            ) : (
-              <Link href={registerHref} className={authPrimaryBtnClass}>
-                Continue to registration
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            )}
-          </>
+          <Link href={registerHref} className={authPrimaryBtnClass}>
+            Scan campus QR
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         )}
 
         <div className="mt-4">

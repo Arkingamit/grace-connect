@@ -1,20 +1,28 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Capacitor } from "@capacitor/core";
 import { GoogleLogin } from "@react-oauth/google";
 import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
+import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import ModernLoginSignup from "@/components/ui/modern-login-signup";
 import { signInWithGoogleNative, googleNativeSignInError } from "@/lib/grace-google-auth";
+import { startAppleBrowserFlow, waitForAppleFlow } from "@/lib/apple-browser-flow";
+import { appleWebStartHref } from "@/lib/apple-web-config";
+import { QRScanner } from "@/components/ui/qr-scanner";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [mounted, setMounted] = useState(false);
   const [isNative, setIsNative] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -30,6 +38,7 @@ export default function LoginPage() {
 
       if (isCapacitor || isAndroidWebView) {
         setIsNative(true);
+        setIsIOS(Capacitor.getPlatform() === "ios");
         try {
           // On Android the native plugin must use the Web client ID for requestIdToken.
           // Prefer capacitor.config / strings.xml; only pass iOS client on iOS.
@@ -57,6 +66,14 @@ export default function LoginPage() {
     initNative();
     setTimeout(initNative, 500);
   }, [router]);
+
+  useEffect(() => {
+    const appleError = searchParams.get("appleError");
+    if (appleError) {
+      setNotice("");
+      setError(appleError);
+    }
+  }, [searchParams]);
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     setError("");
@@ -95,6 +112,75 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error(err);
       setError(googleNativeSignInError(err));
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    if (isNative && !isIOS) {
+      setError("");
+      setNotice("Opening Apple sign-in…");
+
+      try {
+        const flow = await startAppleBrowserFlow({ intent: "login", redirectTo: "/" });
+        const verified = waitForAppleFlow(flow.state);
+        window.location.href = flow.url;
+
+        const outcome = await verified;
+        if (!outcome.ok) {
+          setNotice("");
+          if (!outcome.timedOut) {
+            setError(outcome.error || "Apple sign-in failed. Please try again.");
+          }
+          return;
+        }
+
+        setNotice("Finishing Apple sign-in…");
+        const res = await fetch("/api/auth/apple/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ state: flow.state }),
+        });
+        const data = await res.json().catch(() => ({}));
+        setNotice("");
+        if (!res.ok || !data?.success) {
+          setError(data?.error || "Apple sign-in failed. Please try again.");
+          return;
+        }
+        window.location.href = "/";
+      } catch (err: any) {
+        setNotice("");
+        setError(err?.message || "Could not start Apple sign-in. Please try again.");
+      }
+      return;
+    }
+
+    try {
+      setError("");
+      setNotice("");
+      const result = await SignInWithApple.authorize({
+        clientId:
+          process.env.NEXT_PUBLIC_APPLE_IOS_CLIENT_ID || "com.graceconnect.app",
+        scopes: "email name",
+        redirectURI: "https://graceconnect.graceahmedabad.org/login",
+      });
+      if (result.response && result.response.identityToken) {
+        const authResult = await login(result.response.identityToken, "apple");
+        if (authResult.success) {
+          router.push("/");
+        } else {
+          setError(authResult.error || "Login failed");
+        }
+      } else {
+        setError("Apple authentication failed. No ID token received.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      const message = err?.message || err?.errorMessage || "";
+      setError(
+        /cancel/i.test(message)
+          ? "Apple login was canceled."
+          : message || "Native Apple login failed. Please try again."
+      );
     }
   };
 
@@ -159,15 +245,41 @@ export default function LoginPage() {
     </div>
   );
 
+  const appleSlot = !mounted ? (
+    <div className="h-12 w-full animate-pulse rounded-2xl bg-[#FBE8E8]" />
+  ) : (
+    <button
+      type="button"
+      onClick={() => {
+        setError("");
+        setNotice("Opening Apple sign-in…");
+        window.location.href = appleWebStartHref({ intent: "login", redirectTo: "/" });
+      }}
+      className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-transparent px-3 text-sm font-semibold text-[#1A202C]"
+    >
+      <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 shrink-0">
+        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.04 2.26-.79 3.59-.76 1.56.04 2.88.75 3.65 1.89-3.08 1.75-2.58 5.61.35 6.75-1.01 2.37-2.39 4.39-4.29 4.29zM12.03 7.25c-.15-2.23 1.66-4.07 3.72-4.25.36 2.38-1.92 4.34-3.72 4.25z" />
+      </svg>
+      Apple
+    </button>
+  );
+
   return (
+    <>
     <ModernLoginSignup
       initialMode="signup"
       error={error}
+      notice={notice}
       useNativeButtons={isNative}
       onGoogleClick={handleContinue}
+      onAppleClick={handleAppleLogin}
       googleSlot={googleSlot}
+      appleSlot={appleSlot}
+      onScanCampus={() => setShowScanner(true)}
       registerHref="/register"
       privacyHref="/privacy-policy"
     />
+    {showScanner && <QRScanner onClose={() => setShowScanner(false)} />}
+    </>
   );
 }

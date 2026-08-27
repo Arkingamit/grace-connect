@@ -24,9 +24,9 @@ import { GoogleLogin } from '@react-oauth/google';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
-import AppleLogin from 'react-apple-signin-auth';
 import { signInWithGoogleNative, googleNativeSignInError } from '@/lib/grace-google-auth';
 import { startAppleBrowserFlow, waitForAppleFlow } from '@/lib/apple-browser-flow';
+import { appleWebStartHref } from '@/lib/apple-web-config';
 import { AnimatedTicket } from '@/components/ui/ticket-confirmation-card';
 import { RegistrationPassDialog } from '@/components/ui/registration-pass-dialog';
 import { CelebrationRibbon } from '@/components/ui/celebration-ribbon';
@@ -424,50 +424,6 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
           ? 'Apple login was canceled.'
           : message || 'Native Apple login failed. Please try again.'
       );
-    }
-  };
-
-  const handleAppleWebRegister = async (response: any) => {
-    setError('');
-    if (response.error) {
-      setError('Apple authentication failed or was canceled.');
-      return;
-    }
-    const idToken = response.authorization?.id_token;
-    if (!idToken) {
-      setError('Apple authentication failed. No ID token received.');
-      return;
-    }
-
-    let appleFirstName = form.firstName;
-    let appleLastName = form.lastName;
-    if (response.user) {
-      try {
-        const userObj = typeof response.user === 'string' ? JSON.parse(response.user) : response.user;
-        appleFirstName = userObj.name?.firstName || appleFirstName;
-        appleLastName = userObj.name?.lastName || appleLastName;
-      } catch (e) {}
-    }
-
-    const authResult = await register({
-      credential: idToken,
-      provider: 'apple',
-      firstName: appleFirstName,
-      middleName: form.middleName,
-      lastName: appleLastName,
-      gender: form.gender as 'male' | 'female',
-      birthday: form.birthday,
-      maritalStatus: form.maritalStatus as 'single' | 'married',
-      marriageDate: form.marriageDate,
-      campusId: form.campusId,
-      phone: form.phone,
-      whatsapp: whatsappSame ? form.phone : form.whatsapp,
-      ...(selectedFamily ? { familyMemberId: selectedFamily.id } : {}),
-    });
-    if (authResult.success) {
-      finishRegistration(authResult);
-    } else {
-      setError(authResult.error || 'Registration failed');
     }
   };
 
@@ -1080,29 +1036,22 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                           Apple
                         </button>
                       ) : (
-                        <AppleLogin
-                          authOptions={{
-                            clientId: process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || 'com.graceconnect.web',
-                            redirectURI: typeof window !== 'undefined' ? `${window.location.origin}/register` : '',
-                            usePopup: true,
-                            scope: 'email name',
+                        <button
+                          type="button"
+                          onClick={() => {
+                            persistRegistrationDraft();
+                            window.location.href = appleWebStartHref({
+                              intent: 'register',
+                              redirectTo: `${window.location.pathname}${window.location.search || ''}`,
+                            });
                           }}
-                          uiType="dark"
-                          onSuccess={handleAppleWebRegister}
-                          onError={(error: any) => handleAppleWebRegister({ error })}
-                          render={(renderProps) => (
-                            <button
-                              type="button"
-                              onClick={renderProps.onClick}
-                              className={`${authSocialBtnClass} min-w-0 px-3`}
-                            >
-                              <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 shrink-0">
-                                <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.04 2.26-.79 3.59-.76 1.56.04 2.88.75 3.65 1.89-3.08 1.75-2.58 5.61.35 6.75-1.01 2.37-2.39 4.39-4.29 4.29zM12.03 7.25c-.15-2.23 1.66-4.07 3.72-4.25.36 2.38-1.92 4.34-3.72 4.25z" />
-                              </svg>
-                              Apple
-                            </button>
-                          )}
-                        />
+                          className={`${authSocialBtnClass} min-w-0 px-3`}
+                        >
+                          <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 shrink-0">
+                            <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.04 2.26-.79 3.59-.76 1.56.04 2.88.75 3.65 1.89-3.08 1.75-2.58 5.61.35 6.75-1.01 2.37-2.39 4.39-4.29 4.29zM12.03 7.25c-.15-2.23 1.66-4.07 3.72-4.25.36 2.38-1.92 4.34-3.72 4.25z" />
+                          </svg>
+                          Apple
+                        </button>
                       )}
                     </div>
                   )}

@@ -76,31 +76,38 @@ export function AuthGate({
           />
 
           <div className="mb-6 text-center">
-            <h3 className="text-3xl font-bold tracking-tight text-[#1A202C]">
-              {isLogin ? "Welcome Back" : `Sign in to view ${title}`}
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
-              {isLogin
-                ? "Sign in to your account to access Grace Community."
-                : description ||
-                  "These features are exclusive to Grace Community members. Please sign in or register to access this content."}
-            </p>
-            {!isLogin && (
-              <ul className="mt-4 space-y-2 text-left text-sm text-[#7A6150]">
-                {[
-                  "Announcements",
-                  "Events",
-                  "Prayer Wall",
-                  "Photo Gallery",
-                  "Notes",
-                  "Exclusive Sermons",
-                ].map((feature) => (
-                  <li key={feature} className="flex items-start gap-2.5">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B2323]" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
+            {isLogin ? (
+              <>
+                <h3 className="text-3xl font-bold tracking-tight text-[#1A202C]">Welcome Back</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
+                  Sign in to your account to access Grace Community.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-3xl font-bold tracking-tight text-[#1A202C]">
+                  Sign in to view Community Features
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
+                  {description ||
+                    "These features are exclusive to Grace Community members. Please sign in or register to access this content."}
+                </p>
+                <ul className="mt-4 space-y-2 text-left text-sm text-[#7A6150]">
+                  {[
+                    "Announcements",
+                    "Events",
+                    "Prayer Wall",
+                    "Photo Gallery",
+                    "Notes",
+                    "Exclusive Sermons",
+                  ].map((feature) => (
+                    <li key={feature} className="flex items-start gap-2.5">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B2323]" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </div>
 
@@ -111,7 +118,7 @@ export function AuthGate({
             </Link>
           ) : (
             <Link href="/register" className={authPrimaryBtnClass}>
-              Continue to registration
+              Scan campus QR
               <ArrowRight className="h-4 w-4" />
             </Link>
           )}
