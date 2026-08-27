@@ -30,6 +30,7 @@ function ticketFromPass(pass: RegistrationPass) {
     birthday: pass.birthday,
     maritalStatus: pass.maritalStatus,
     email: pass.email,
+    statusLabel: "Registered",
   };
 }
 
@@ -45,8 +46,11 @@ export function RegistrationPassDialog({
   celebrate?: boolean;
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] max-w-md overflow-y-auto border-0 bg-transparent p-0 shadow-none sm:rounded-2xl">
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      <DialogContent
+        className="pointer-events-auto max-h-[90dvh] max-w-md overflow-y-auto border-0 bg-transparent p-0 shadow-none sm:rounded-2xl"
+        overlayClassName="pointer-events-none"
+      >
         <DialogHeader className="sr-only">
           <DialogTitle>Registration confirmation</DialogTitle>
         </DialogHeader>

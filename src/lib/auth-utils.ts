@@ -55,7 +55,15 @@ export async function buildSessionCookie(
   permissions: string[] = [],
 ): Promise<SessionCookie> {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-  const session = await encrypt({ userId, email, name, role, permissions, expiresAt });
+  const session = await encrypt({
+    userId,
+    email,
+    name,
+    role,
+    // jose structuredClone-s the payload; Mongoose arrays are not cloneable.
+    permissions: Array.from(permissions || []).map(String),
+    expiresAt,
+  });
 
   return {
     name: 'session',

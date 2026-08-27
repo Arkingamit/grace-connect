@@ -110,7 +110,7 @@ const AnimatedTicket = React.forwardRef<HTMLDivElement, TicketProps>(
       birthday,
       maritalStatus,
       email,
-      statusLabel = "Pending approval",
+      statusLabel = "Registered",
       celebrate = true,
       eventTitle,
       extraFields,

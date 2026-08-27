@@ -1,6 +1,5 @@
 import User from '@/models/User';
 import { buildSessionCookie, createSession, SessionCookie } from '@/lib/auth-utils';
-import { formatRejectionMessage } from '@/lib/rejection-reasons';
 
 export interface SocialLoginResult {
   ok: boolean;
@@ -9,12 +8,16 @@ export interface SocialLoginResult {
   error?: string;
   rejectionReason?: string;
   rejectionNote?: string;
+  /** First-time Google/Apple — finish the registration form before a session is issued */
+  needsRegistration?: boolean;
   /** Only set when the caller asked to attach the cookie itself */
   sessionCookie?: SessionCookie;
 }
 
 export interface SocialLoginOptions {
   picture?: string;
+  firstName?: string;
+  lastName?: string;
   /**
    * Return the session cookie instead of setting it, for callers building their
    * own response (an OAuth callback redirect, for example).
@@ -22,9 +25,42 @@ export interface SocialLoginOptions {
   returnCookie?: boolean;
 }
 
+export function namesFromOAuth(input: {
+  email?: string;
+  givenName?: string;
+  familyName?: string;
+  given_name?: string;
+  family_name?: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+}): { firstName: string; lastName: string } {
+  const emailLocal = String(input.email || 'member').split('@')[0] || 'Member';
+  const fromDisplay = String(input.name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const firstName = (
+    input.firstName ||
+    input.givenName ||
+    input.given_name ||
+    fromDisplay[0] ||
+    emailLocal
+  ).trim() || 'Member';
+  const lastName = (
+    input.lastName ||
+    input.familyName ||
+    input.family_name ||
+    fromDisplay.slice(1).join(' ') ||
+    'Member'
+  ).trim() || 'Member';
+  return { firstName, lastName };
+}
+
 /**
  * Shared tail end of every social login: look the member up by their verified
- * email, enforce approval status, then issue the session cookie.
+ * email, then issue the session cookie. First-time visitors must finish the
+ * registration form instead of getting an account here.
  * Caller must have already connected to the database and verified the token.
  */
 export async function signInVerifiedEmail(
@@ -44,38 +80,19 @@ export async function signInVerifiedEmail(
       role: 1,
       status: 1,
       permissions: 1,
-      rejectionReason: 1,
-      rejectionNote: 1,
     }
   ).lean();
 
   if (!user) {
-    return {
-      ok: false,
-      status: 404,
-      error: `No account found with this ${providerLabel} account. Please register first.`,
-    };
+    return { ok: false, status: 404, needsRegistration: true };
   }
 
-  if (user.status === 'pending') {
-    return {
-      ok: false,
-      status: 403,
-      error: 'Your registration is pending approval from your campus pastor',
-    };
-  }
-
-  if (user.status === 'rejected') {
-    return {
-      ok: false,
-      status: 403,
-      error: formatRejectionMessage(
-        (user as any).rejectionReason,
-        (user as any).rejectionNote,
-      ),
-      rejectionReason: (user as any).rejectionReason || '',
-      rejectionNote: (user as any).rejectionNote || '',
-    };
+  if (user.status === 'pending' || user.status === 'rejected') {
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { status: 'approved', rejectionReason: '', rejectionNote: '', rejectedAt: null } },
+    );
+    (user as { status: string }).status = 'approved';
   }
 
   // Embed role and permissions in the session JWT so requireAdmin needs no DB call

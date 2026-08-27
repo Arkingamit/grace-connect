@@ -7,6 +7,7 @@ import { registerSchema } from '@/lib/validations';
 import { getOAuthPicture } from '@/lib/oauth-picture';
 import { verifyAppleIdToken } from '@/lib/apple-auth';
 import { verifyGoogleIdToken } from '@/lib/google-auth';
+import { createSession } from '@/lib/auth-utils';
 
 export async function POST(req: Request) {
   try {
@@ -26,7 +27,6 @@ export async function POST(req: Request) {
         await connectToDatabase();
         const appleSession = await AppleAuthSession.findOneAndDelete({
           state: appleState,
-          intent: 'register',
           status: 'verified',
         });
         if (!appleSession?.identityToken || appleSession.expiresAt.getTime() < Date.now()) {
@@ -79,18 +79,26 @@ export async function POST(req: Request) {
       whatsapp,
       familyMemberId,
       avatar: picture || '',
-      status: 'pending',
+      status: 'approved',
       role: 'member',
       groups: [],
       qrCode: randomUUID(),
     });
+
+    await createSession(
+      String(newUser._id),
+      email,
+      newUser.name,
+      newUser.role,
+      Array.from(newUser.permissions || []).map(String),
+    );
 
     return NextResponse.json({
       success: true,
       userId: String(newUser._id),
       qrCode: newUser.qrCode,
       email,
-      message: 'Registration submitted for approval.',
+      message: 'Registration complete.',
     }, { status: 201 });
   } catch (error: any) {
     console.error('Registration Error:', error);

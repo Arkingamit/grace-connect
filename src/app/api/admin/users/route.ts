@@ -109,9 +109,8 @@ export async function POST(req: Request) {
       body.gender = 'male'; // Defaulting to pass validation if missing in admin form
     }
 
-    // Set user status to pending, and record the admin who added them.
-    // The creator admin must explicitly approve this request before the user can log in.
-    body.status = 'pending';
+    // New members can sign in immediately — no pastor approval step.
+    body.status = 'approved';
     body.createdBy = admin.userId;
 
     // Enforce permission scopes

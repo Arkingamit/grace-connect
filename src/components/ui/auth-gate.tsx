@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { useAuth } from "@/lib/auth-context";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import {
   AuthCard,
-  AuthModeToggle,
   authPrimaryBtnClass,
 } from "@/components/ui/auth-layout";
 import { useNavigationHistory } from "@/components/ui/navigation-history-provider";
@@ -29,13 +28,10 @@ export function AuthGate({
 }: AuthGateProps) {
   const { session } = useAuth();
   const { goBack } = useNavigationHistory();
-  const [mode, setMode] = useState<"login" | "signup">("signup");
 
   if (session) {
     return <>{children}</>;
   }
-
-  const isLogin = mode === "login";
 
   return (
     <div className={`relative w-full flex items-center justify-center px-4 py-10 ${className}`}>
@@ -69,59 +65,17 @@ export function AuthGate({
             />
           </Link>
 
-          <AuthModeToggle
-            mode={mode}
-            onLogin={() => setMode("login")}
-            onSignup={() => setMode("signup")}
-          />
-
           <div className="mb-6 text-center">
-            {isLogin ? (
-              <>
-                <h3 className="text-3xl font-bold tracking-tight text-[#1A202C]">Welcome Back</h3>
-                <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
-                  Sign in to your account to access Grace Community.
-                </p>
-              </>
-            ) : (
-              <>
-                <h3 className="text-3xl font-bold tracking-tight text-[#1A202C]">
-                  Sign in to view Community Features
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
-                  {description ||
-                    "These features are exclusive to Grace Community members. Please sign in or register to access this content."}
-                </p>
-                <ul className="mt-4 space-y-2 text-left text-sm text-[#7A6150]">
-                  {[
-                    "Announcements",
-                    "Events",
-                    "Prayer Wall",
-                    "Photo Gallery",
-                    "Notes",
-                    "Exclusive Sermons",
-                  ].map((feature) => (
-                    <li key={feature} className="flex items-start gap-2.5">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B2323]" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
+            <h3 className="text-3xl font-bold tracking-tight text-[#1A202C]">Welcome Back</h3>
+            <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
+              {description || "Sign in to your account to access Grace Community."}
+            </p>
           </div>
 
-          {isLogin ? (
-            <Link href="/login" className={authPrimaryBtnClass}>
-              Log In
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          ) : (
-            <Link href="/register" className={authPrimaryBtnClass}>
-              Scan campus QR
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          )}
+          <Link href="/login" className={authPrimaryBtnClass}>
+            Log In
+            <ArrowRight className="h-4 w-4" />
+          </Link>
 
           <p className="mt-6 text-center text-xs leading-relaxed text-[#C4B0A0]">
             By continuing you agree to Grace Community&apos;s{" "}

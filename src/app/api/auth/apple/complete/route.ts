@@ -21,20 +21,34 @@ export async function POST(req: Request) {
     await connectToDatabase();
 
     // Single use: the verified flow is spent whatever happens next.
-    const session = await AppleAuthSession.findOneAndDelete({
+    const session = await AppleAuthSession.findOne({
       state,
-      intent: 'login',
       status: 'verified',
     });
 
     if (!session?.email || session.expiresAt.getTime() < Date.now()) {
+      if (session) await session.deleteOne();
       return NextResponse.json(
         { error: 'Apple sign-in expired. Please try again.' },
         { status: 400 },
       );
     }
 
-    const result = await signInVerifiedEmail(session.email, 'Apple');
+    const result = await signInVerifiedEmail(session.email, 'Apple', {
+      firstName: session.firstName,
+      lastName: session.lastName,
+    });
+    if (result.needsRegistration) {
+      return NextResponse.json({
+        needsRegistration: true,
+        appleState: session.state,
+        firstName: session.firstName || '',
+        lastName: session.lastName || '',
+        email: session.email,
+      });
+    }
+
+    await session.deleteOne();
     if (!result.ok) {
       return NextResponse.json(
         {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/lib/auth-context';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Bell, Calendar, Megaphone, BookOpen, Heart, Music, FileText, X, Radio } from 'lucide-react';
@@ -66,6 +67,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const { session } = useAuth();
   const [toasts, setToasts] = useState<NotificationToast[]>([]);
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
   const lastPollRef = useRef<string | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const swRegistered = useRef(false);
@@ -224,6 +226,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
   // ── Lifecycle ──
   useEffect(() => {
     if (!session) return;
@@ -244,44 +250,52 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     <>
       {children}
 
-      {/* ── Permission Prompt Banner ── */}
-      <AnimatePresence>
-        {showPermissionPrompt && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed top-0 left-0 right-0 z-[10000] p-4 bg-white shadow-md border-b border-[#E5D5C5] flex flex-col sm:flex-row items-center justify-between gap-4"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                <Bell className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="font-bold text-sm text-[#1A202C]">Stay Updated</p>
-                <p className="text-xs text-[#7A6150]">Enable push notifications so you don't miss important church updates and events.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <button
-                onClick={() => setShowPermissionPrompt(false)}
-                className="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium text-[#7A6150] bg-[#FAF7F2] hover:bg-[#F2EAE0] transition-colors"
+      {/* ── Permission Prompt Banner ──
+          Portaled to document.body so a registration dialog cannot swallow taps.
+          Registration pass uses a non-modal dialog for the same reason. */}
+      {portalReady &&
+        createPortal(
+          <AnimatePresence>
+            {showPermissionPrompt && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="pointer-events-auto fixed top-0 left-0 right-0 z-[10050] p-4 bg-white shadow-md border-b border-[#E5D5C5] flex flex-col sm:flex-row items-center justify-between gap-4"
               >
-                Not Now
-              </button>
-              <button
-                onClick={() => {
-                  setShowPermissionPrompt(false);
-                  registerPush(true);
-                }}
-                className="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#8B2323] hover:bg-[#721c1c] transition-colors"
-              >
-                Enable
-              </button>
-            </div>
-          </motion.div>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                    <Bell className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm text-[#1A202C]">Stay Updated</p>
+                    <p className="text-xs text-[#7A6150]">Enable push notifications so you don't miss important church updates and events.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setShowPermissionPrompt(false)}
+                    className="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium text-[#7A6150] bg-[#FAF7F2] hover:bg-[#F2EAE0] transition-colors"
+                  >
+                    Not Now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPermissionPrompt(false);
+                      registerPush(true);
+                    }}
+                    className="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#8B2323] hover:bg-[#721c1c] transition-colors"
+                  >
+                    Enable
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body
         )}
-      </AnimatePresence>
 
       {/* ── Floating Toast Stack ── */}
       <div

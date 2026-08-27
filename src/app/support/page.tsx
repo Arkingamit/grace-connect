@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowLeft, Mail, MapPin, Clock, MessageCircle, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Mail, MapPin, Clock, MessageCircle } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Support | Grace Connect",
@@ -63,7 +63,7 @@ export default function SupportPage() {
           <h2 className="text-xl font-semibold text-[#1A202C]">What we can help with</h2>
           <ul className="list-disc space-y-2 pl-5 text-sm text-[#7A6150]">
             <li>Signing in with Google or Apple</li>
-            <li>Member registration and campus approval</li>
+            <li>Member registration</li>
             <li>Event RSVPs, ePass, and attendance check-in</li>
             <li>Notifications, account, or profile issues</li>
             <li>Privacy requests, including account deletion</li>
@@ -76,14 +76,6 @@ export default function SupportPage() {
             <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#8B2323]" />
             Include your name, the email on your Grace Connect account, your device (iPhone, iPad,
             or Android), and a short description of the issue.
-          </p>
-          <p className="flex items-start gap-2 text-sm text-[#7A6150]">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#8B2323]" />
-            App Store and Google Play reviewers can use the in-app{" "}
-            <Link href="/demo" className="font-medium text-[#8B2323] underline">
-              reviewer access
-            </Link>{" "}
-            page.
           </p>
         </section>
 

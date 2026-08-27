@@ -14,11 +14,13 @@ import {
 } from "./dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "./avatar";
 import { AvatarGroup } from "./avatar-group";
-import { QrCode, UserPlus, LogOut, User } from "lucide-react";
+import { QrCode, UserPlus, LogOut, User, Trash2 } from "lucide-react";
 import { AddFamilyMemberDialog } from "./add-family-member-dialog";
 import { LogoutConfirmDialog } from "./logout-confirm-dialog";
+import { DeleteAccountDialog } from "./delete-account-dialog";
 import { resolveMemberAvatar } from "@/lib/avatar-storage";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 function getInitials(name: string) {
   return name
@@ -42,11 +44,13 @@ export function ProfileSwitcher({
   align = "end",
 }: ProfileSwitcherProps) {
   const router = useRouter();
-  const { session, getSessionMember, linkedProfiles, logout } = useAuth();
+  const { session, getSessionMember, linkedProfiles, logout, deleteAccount } = useAuth();
   const activeMember = getSessionMember();
   const [isAdding, setIsAdding] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
 
@@ -222,6 +226,16 @@ export function ProfileSwitcher({
             <LogOut className="mr-2 h-4 w-4" />
             Sign Out
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              setDeleteConfirmOpen(true);
+            }}
+            className="cursor-pointer rounded-lg font-medium text-red-600 focus:bg-red-50 focus:text-red-700"
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Account
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -237,6 +251,25 @@ export function ProfileSwitcher({
             window.location.href = "/";
           } finally {
             setLoggingOut(false);
+          }
+        }}
+      />
+      <DeleteAccountDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        loading={deleting}
+        onConfirm={async () => {
+          setDeleting(true);
+          try {
+            const result = await deleteAccount();
+            if (!result.success) {
+              setDeleting(false);
+              toast.error(result.error || "Failed to delete account");
+              return;
+            }
+            window.location.href = "/";
+          } catch {
+            setDeleting(false);
           }
         }}
       />

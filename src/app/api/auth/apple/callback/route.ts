@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import AppleAuthSession, { type IAppleAuthSession } from '@/models/AppleAuthSession';
+import User from '@/models/User';
 import {
   APPLE_WEB_CLIENT_ID,
   safeRedirectPath,
@@ -38,8 +39,8 @@ async function failFlow(
 
 /**
  * Apple posts the sign-in result here (response_mode=form_post). We verify the
- * identity token, then either issue the session cookie (login) or park the
- * verified token for the registration form to redeem (register).
+ * identity token, then either issue a session cookie or send first-time members
+ * to the registration form.
  *
  * This may run in the app's WebView or in the system browser, so the flow record
  * survives until it is redeemed — that is what lets the app finish a sign-in
@@ -62,8 +63,6 @@ export async function POST(req: Request) {
     }
 
     const redirectTo = safeRedirectPath(session.redirectTo);
-    const isRegister = session.intent === 'register';
-    const failurePath = isRegister ? redirectTo : '/login';
 
     if (appleError) {
       return failFlow(
@@ -72,7 +71,7 @@ export async function POST(req: Request) {
         /cancel/i.test(appleError)
           ? 'Apple sign-in was canceled.'
           : 'Apple sign-in failed. Please try again.',
-        failurePath,
+        '/login',
       );
     }
 
@@ -87,22 +86,44 @@ export async function POST(req: Request) {
         req,
         session,
         'Apple did not share an email address. Please try again and choose to share your email.',
-        failurePath,
+        '/login',
       );
+    }
+
+    let firstName = '';
+    let lastName = '';
+    const rawUser = form.get('user');
+    if (typeof rawUser === 'string' && rawUser) {
+      try {
+        const appleUser = JSON.parse(rawUser);
+        firstName = String(appleUser?.name?.firstName || '').trim();
+        lastName = String(appleUser?.name?.lastName || '').trim();
+      } catch {
+        // Apple only sends the name JSON on the first authorization.
+      }
     }
 
     session.status = 'verified';
     session.email = email;
     session.identityToken = idToken;
+    if (firstName) session.firstName = firstName;
+    if (lastName) session.lastName = lastName;
     await session.save();
 
-    if (isRegister) {
-      const dest = new URL(redirectTo, new URL(req.url).origin);
+    const existing = await User.findOne({ email }, { _id: 1 }).lean();
+    if (!existing) {
+      const dest = new URL('/register', new URL(req.url).origin);
       dest.searchParams.set('appleState', session.state);
+      if (session.firstName) dest.searchParams.set('firstName', session.firstName);
+      if (session.lastName) dest.searchParams.set('lastName', session.lastName);
       return NextResponse.redirect(dest, 303);
     }
 
-    const result = await signInVerifiedEmail(email, 'Apple', { returnCookie: true });
+    const result = await signInVerifiedEmail(email, 'Apple', {
+      returnCookie: true,
+      firstName: session.firstName,
+      lastName: session.lastName,
+    });
     if (!result.ok || !result.sessionCookie) {
       return failFlow(
         req,

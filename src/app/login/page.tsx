@@ -11,7 +11,7 @@ import ModernLoginSignup from "@/components/ui/modern-login-signup";
 import { signInWithGoogleNative, googleNativeSignInError } from "@/lib/grace-google-auth";
 import { startAppleBrowserFlow, waitForAppleFlow } from "@/lib/apple-browser-flow";
 import { appleWebStartHref } from "@/lib/apple-web-config";
-import { QRScanner } from "@/components/ui/qr-scanner";
+import { saveOauthRegistrationDraft } from "@/lib/oauth-registration";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,7 +22,6 @@ export default function LoginPage() {
   const [mounted, setMounted] = useState(false);
   const [isNative, setIsNative] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -32,9 +31,11 @@ export default function LoginPage() {
       // Android-only WebView UA check never matches iOS WKWebView — so iOS
       // was falling back to Google's web widget, which Google blocks in-app.
       const isCapacitor = Capacitor.isNativePlatform();
+      // Only the Android System WebView includes `; wv)`. Chrome on Android and
+      // Chrome DevTools device mode both contain `Android` + `AppleWebKit`, so
+      // treating those as native made Google try Capacitor and fail in the browser.
       const isAndroidWebView =
-        typeof navigator !== "undefined" &&
-        /wv|Android.*AppleWebKit/i.test(navigator.userAgent);
+        typeof navigator !== "undefined" && /;\s*wv\)/i.test(navigator.userAgent);
 
       if (isCapacitor || isAndroidWebView) {
         setIsNative(true);
@@ -75,6 +76,19 @@ export default function LoginPage() {
     }
   }, [searchParams]);
 
+  const goToRegistration = (draft: {
+    credential?: string;
+    appleState?: string;
+    provider: "google" | "apple";
+    picture?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  }) => {
+    saveOauthRegistrationDraft(draft);
+    router.push("/register");
+  };
+
   const handleGoogleSuccess = async (credentialResponse: any) => {
     setError("");
     if (!credentialResponse.credential) {
@@ -83,6 +97,17 @@ export default function LoginPage() {
     }
 
     const result = await login(credentialResponse.credential, "google");
+    if (result.needsRegistration) {
+      goToRegistration({
+        credential: credentialResponse.credential,
+        provider: "google",
+        picture: result.picture,
+        firstName: result.firstName,
+        lastName: result.lastName,
+        email: result.email,
+      });
+      return;
+    }
     if (result.success) {
       router.push("/");
     } else {
@@ -103,7 +128,21 @@ export default function LoginPage() {
         return;
       }
 
-      const result = await login(idToken, "google", picture);
+      const result = await login(idToken, "google", picture, {
+        givenName: resultNative.givenName,
+        familyName: resultNative.familyName,
+      });
+      if (result.needsRegistration) {
+        goToRegistration({
+          credential: idToken,
+          provider: "google",
+          picture,
+          firstName: result.firstName || resultNative.givenName,
+          lastName: result.lastName || resultNative.familyName,
+          email: result.email || resultNative.email,
+        });
+        return;
+      }
       if (result.success) {
         router.push("/");
       } else {
@@ -142,6 +181,16 @@ export default function LoginPage() {
         });
         const data = await res.json().catch(() => ({}));
         setNotice("");
+        if (data?.needsRegistration) {
+          goToRegistration({
+            appleState: data.appleState || flow.state,
+            provider: "apple",
+            firstName: data.firstName,
+            lastName: data.lastName,
+            email: data.email,
+          });
+          return;
+        }
         if (!res.ok || !data?.success) {
           setError(data?.error || "Apple sign-in failed. Please try again.");
           return;
@@ -164,7 +213,20 @@ export default function LoginPage() {
         redirectURI: "https://graceconnect.graceahmedabad.org/login",
       });
       if (result.response && result.response.identityToken) {
-        const authResult = await login(result.response.identityToken, "apple");
+        const authResult = await login(result.response.identityToken, "apple", undefined, {
+          givenName: result.response.givenName,
+          familyName: result.response.familyName,
+        });
+        if (authResult.needsRegistration) {
+          goToRegistration({
+            credential: result.response.identityToken,
+            provider: "apple",
+            firstName: authResult.firstName || result.response.givenName,
+            lastName: authResult.lastName || result.response.familyName,
+            email: authResult.email,
+          });
+          return;
+        }
         if (authResult.success) {
           router.push("/");
         } else {
@@ -265,9 +327,7 @@ export default function LoginPage() {
   );
 
   return (
-    <>
     <ModernLoginSignup
-      initialMode="signup"
       error={error}
       notice={notice}
       useNativeButtons={isNative}
@@ -275,11 +335,7 @@ export default function LoginPage() {
       onAppleClick={handleAppleLogin}
       googleSlot={googleSlot}
       appleSlot={appleSlot}
-      onScanCampus={() => setShowScanner(true)}
-      registerHref="/register"
       privacyHref="/privacy-policy"
     />
-    {showScanner && <QRScanner onClose={() => setShowScanner(false)} />}
-    </>
   );
 }

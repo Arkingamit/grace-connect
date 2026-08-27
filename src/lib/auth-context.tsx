@@ -11,10 +11,17 @@ interface AuthContextType {
   members: ChurchMember[];
   isLoading: boolean;
   register: (data: Partial<ChurchMember> & { credential?: string; appleState?: string; provider?: 'google' | 'apple' }) => Promise<{ success: boolean; error?: string; userId?: string; qrCode?: string; email?: string }>;
-  login: (credential: string, provider?: 'google' | 'apple', picture?: string) => Promise<{ success: boolean; error?: string }>;
-  /** App Store / Play reviewer bypass — requires DEMO_LOGIN_ENABLED + matching secret */
-  demoLogin: (code: string) => Promise<{ success: boolean; error?: string }>;
+  login: (credential: string, provider?: 'google' | 'apple', picture?: string, profile?: { givenName?: string; familyName?: string }) => Promise<{
+    success: boolean;
+    error?: string;
+    needsRegistration?: boolean;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    picture?: string;
+  }>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<{ success: boolean; error?: string }>;
   getMember: (id: string) => ChurchMember | undefined;
   getSessionMember: () => ChurchMember | undefined;
   getPendingRequests: (campusId?: string) => ChurchMember[];
@@ -134,37 +141,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const login = useCallback(async (credential: string, provider: 'google' | 'apple' = 'google', picture?: string) => {
+  const login = useCallback(async (
+    credential: string,
+    provider: 'google' | 'apple' = 'google',
+    picture?: string,
+    profile?: { givenName?: string; familyName?: string },
+  ) => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential, provider, picture }),
+        body: JSON.stringify({
+          credential,
+          provider,
+          picture,
+          givenName: profile?.givenName,
+          familyName: profile?.familyName,
+        }),
       });
       const result = await res.json();
+      if (result?.needsRegistration) {
+        return {
+          success: false,
+          needsRegistration: true,
+          firstName: result.firstName ? String(result.firstName) : undefined,
+          lastName: result.lastName ? String(result.lastName) : undefined,
+          email: result.email ? String(result.email) : undefined,
+          picture: result.picture ? String(result.picture) : undefined,
+        };
+      }
       if (!res.ok) return { success: false, error: result.error || 'Login failed' };
 
       await fetchSession();
       return { success: true };
     } catch (error: any) {
       return { success: false, error: 'Network error during login' };
-    }
-  }, []);
-
-  const demoLogin = useCallback(async (code: string) => {
-    try {
-      const res = await fetch('/api/auth/demo-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-      const result = await res.json();
-      if (!res.ok) return { success: false, error: result.error || 'Demo login failed' };
-
-      await fetchSession();
-      return { success: true };
-    } catch {
-      return { success: false, error: 'Network error during demo login' };
     }
   }, []);
 
@@ -176,6 +187,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setActiveProfileId(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('activeProfileId');
+    }
+  }, []);
+
+  const deleteAccount = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/account', { method: 'DELETE' });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: result.error || 'Failed to delete account' };
+      }
+      setSession(null);
+      setSessionMember(null);
+      setLinkedProfiles([]);
+      setActiveProfileId(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('activeProfileId');
+      }
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Network error while deleting account' };
     }
   }, []);
 
@@ -298,7 +329,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       session, members, isLoading,
-      register, login, demoLogin, logout,
+      register, login, logout, deleteAccount,
       getMember, getSessionMember,
       getPendingRequests, approveMember, rejectMember,
       getApprovedMembers, getEffectiveGroups,

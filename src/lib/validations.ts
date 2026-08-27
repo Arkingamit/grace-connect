@@ -9,6 +9,8 @@ export const loginSchema = z.object({
   credential: z.string().min(1, 'Authentication credential is required'),
   provider: z.enum(['google', 'apple']).default('google'),
   picture: z.string().optional(),
+  givenName: z.string().optional(),
+  familyName: z.string().optional(),
 });
 
 export const registerSchema = z.object({

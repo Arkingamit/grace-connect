@@ -14,20 +14,23 @@ import { AvatarUploader } from '@/components/ui/avatar-uploader';
 import { AvatarGroup } from '@/components/ui/avatar-group';
 import {
   Church, User, Mail, Phone, Calendar, Building2, Heart, Users,
-  ArrowLeft, QrCode, Shield, LogOut, Cake, MessageSquare, Pencil, ChevronRight, Camera
+  ArrowLeft, QrCode, Shield, LogOut, Cake, MessageSquare, Pencil, ChevronRight, Camera, Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { setStoredAvatar, fileToDataUrl, resolveMemberAvatar } from '@/lib/avatar-storage';
 import { LogoutConfirmDialog } from '@/components/ui/logout-confirm-dialog';
+import { DeleteAccountDialog } from '@/components/ui/delete-account-dialog';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { goBack } = useNavigationHistory();
-  const { session, logout, getSessionMember, linkedProfiles } = useAuth();
+  const { session, logout, deleteAccount, getSessionMember, linkedProfiles } = useAuth();
   const { campuses } = useAdminData();
   const [photo, setPhoto] = useState<string>("");
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const member = getSessionMember();
 
@@ -66,6 +69,22 @@ export default function ProfilePage() {
     } catch {
       toast.error('Failed to sign out');
       setLoggingOut(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const result = await deleteAccount();
+      if (!result.success) {
+        toast.error(result.error || 'Failed to delete account');
+        setDeleting(false);
+        return;
+      }
+      window.location.href = '/';
+    } catch {
+      toast.error('Failed to delete account');
+      setDeleting(false);
     }
   };
 
@@ -157,9 +176,11 @@ export default function ProfilePage() {
               {member.firstName} {member.middleName ? `${member.middleName} ` : ''}{member.lastName}
             </h2>
             <div className="flex items-center justify-center gap-2 flex-wrap">
-              <span className="px-3 py-1 bg-muted/60 text-muted-foreground text-xs font-semibold rounded-full capitalize">
-                {member.gender}
-              </span>
+              {member.gender ? (
+                <span className="px-3 py-1 bg-muted/60 text-muted-foreground text-xs font-semibold rounded-full capitalize">
+                  {member.gender}
+                </span>
+              ) : null}
               <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-semibold rounded-full border border-emerald-500/20">
                 Active Member
               </span>
@@ -293,7 +314,7 @@ export default function ProfilePage() {
             </div>
             <div className="flex flex-col min-w-0">
               <span className="text-xs font-medium text-muted-foreground">Church Campus</span>
-              <span className="text-sm font-semibold text-[#1A202C] dark:text-foreground truncate">{campus?.name || member.campusId}</span>
+              <span className="text-sm font-semibold text-[#1A202C] dark:text-foreground truncate">{campus?.name || member.campusId || 'Not set'}</span>
             </div>
           </div>
 
@@ -327,6 +348,22 @@ export default function ProfilePage() {
             </div>
           )}
         </section>
+
+        <section className="bg-white dark:bg-card border border-red-100 dark:border-red-900/40 shadow-[0px_4px_20px_rgba(0,0,0,0.04)] rounded-3xl p-6 space-y-3">
+          <h2 className="text-sm font-semibold text-red-700 dark:text-red-400">Delete account</h2>
+          <p className="text-sm text-muted-foreground">
+            Permanently delete your Grace Connect account and any family profiles linked to it. This cannot be undone.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
+            onClick={() => setDeleteConfirmOpen(true)}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete account
+          </Button>
+        </section>
       </main>
 
       <LogoutConfirmDialog
@@ -334,6 +371,12 @@ export default function ProfilePage() {
         onOpenChange={setLogoutConfirmOpen}
         loading={loggingOut}
         onConfirm={handleLogout}
+      />
+      <DeleteAccountDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        loading={deleting}
+        onConfirm={handleDeleteAccount}
       />
     </div>
   );
