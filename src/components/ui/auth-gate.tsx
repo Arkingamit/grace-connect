@@ -116,11 +116,6 @@ export function AuthGate({
             </Link>
           )}
 
-          <Link href="/demo" className={`${authPrimaryBtnClass} mt-3`}>
-            <span>App Store / Play reviewer access</span>
-            <ArrowRight className="h-4 w-4 shrink-0" />
-          </Link>
-
           <p className="mt-6 text-center text-xs leading-relaxed text-[#C4B0A0]">
             By continuing you agree to Grace Community&apos;s{" "}
             <Link href="/privacy-policy" className="font-medium text-[#8B2323] hover:underline">

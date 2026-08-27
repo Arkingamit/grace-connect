@@ -17,11 +17,8 @@ export interface ModernLoginSignupProps {
   error?: string;
   notice?: string;
   googleSlot?: React.ReactNode;
-  appleSlot?: React.ReactNode;
   onGoogleClick?: () => void;
-  onAppleClick?: () => void;
   useNativeButtons?: boolean;
-  showApple?: boolean;
   registerHref?: string;
   privacyHref?: string;
   termsHref?: string;
@@ -34,11 +31,8 @@ export default function ModernLoginSignup({
   error,
   notice,
   googleSlot,
-  appleSlot,
   onGoogleClick,
-  onAppleClick,
   useNativeButtons = false,
-  showApple = true,
   registerHref = "/register",
   privacyHref = "/privacy-policy",
   termsHref = "/privacy-policy",
@@ -69,19 +63,13 @@ export default function ModernLoginSignup({
     </svg>
   );
 
-  const AppleIcon = (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 shrink-0">
-      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.04 2.26-.79 3.59-.76 1.56.04 2.88.75 3.65 1.89-3.08 1.75-2.58 5.61.35 6.75-1.01 2.37-2.39 4.39-4.29 4.29zM12.03 7.25c-.15-2.23 1.66-4.07 3.72-4.25.36 2.38-1.92 4.34-3.72 4.25z" />
-    </svg>
-  );
-
-  const hasSocial = useNativeButtons || Boolean(googleSlot) || Boolean(appleSlot);
+  const hasSocial = useNativeButtons || Boolean(googleSlot);
 
   const socialSlotWrapClass =
     "flex h-12 w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-[#E5D5C5]/60 bg-[#FAF7F2]";
 
   const SocialRow = (
-    <div className={`grid w-full items-stretch gap-3 ${showApple ? "grid-cols-2" : "grid-cols-1"}`}>
+    <div className="grid w-full grid-cols-1 items-stretch gap-3">
       {useNativeButtons ? (
         <button type="button" onClick={onGoogleClick} className={authSocialBtnClass}>
           {GoogleIcon}
@@ -92,17 +80,6 @@ export default function ModernLoginSignup({
           {googleSlot}
         </div>
       )}
-      {showApple &&
-        (useNativeButtons ? (
-          <button type="button" onClick={onAppleClick} className={authSocialBtnClass}>
-            {AppleIcon}
-            Apple
-          </button>
-        ) : (
-          <div className={`${socialSlotWrapClass} [&_button]:!h-full [&_button]:!w-full [&_button]:!rounded-2xl [&_button]:!border-0 [&_button]:!bg-transparent`}>
-            {appleSlot}
-          </div>
-        ))}
     </div>
   );
 
@@ -169,11 +146,6 @@ export default function ModernLoginSignup({
         <div className="mt-4">
           <ViewRegistrationPassButton className="w-full border-[#E5D5C5]/60 text-[#8B2323]" />
         </div>
-
-        <Link href="/demo" className={`${authPrimaryBtnClass} mt-3`}>
-          <span>App Store / Play reviewer access</span>
-          <ArrowRight className="h-4 w-4 shrink-0" />
-        </Link>
 
         <p className="mt-6 text-center text-xs leading-relaxed text-[#C4B0A0]">
           By continuing you agree to Grace Community&apos;s{" "}
