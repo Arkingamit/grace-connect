@@ -1,12 +1,14 @@
 import mongoose from 'mongoose';
 import { ensureIndexes } from './ensure-indexes';
 
-const MONGODB_URI = process.env.MONGODB_URI!;
-
-if (!MONGODB_URI) {
-  throw new Error(
-    'Please define the MONGODB_URI environment variable inside .env.local'
-  );
+function getMongoUri(): string {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error(
+      'Please define the MONGODB_URI environment variable (e.g. in .env.local on the server).'
+    );
+  }
+  return uri;
 }
 
 /**
@@ -36,7 +38,7 @@ async function connectToDatabase() {
       maxIdleTimeMS: 10000,         // close idle connections (good for serverless)
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then(async (mongoose) => {
+    cached.promise = mongoose.connect(getMongoUri(), opts).then(async (mongoose) => {
       // Ensure compound indexes on first connection (non-blocking)
       await ensureIndexes().catch(() => {});
       return mongoose;
