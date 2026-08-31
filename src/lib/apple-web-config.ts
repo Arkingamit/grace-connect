@@ -2,6 +2,10 @@
 export const APPLE_WEB_CLIENT_ID =
   process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || 'com.graceconnect.web';
 
+/** Bundle ID — audience of identity tokens from the native iOS sheet. */
+export const APPLE_IOS_CLIENT_ID =
+  process.env.NEXT_PUBLIC_APPLE_IOS_CLIENT_ID || 'com.graceconnect.app';
+
 /**
  * Live site registered on the Apple Services ID. Apple rejects localhost
  * Return URLs, so local testing has to start the flow on this origin.
