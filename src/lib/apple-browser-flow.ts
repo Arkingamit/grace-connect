@@ -4,7 +4,8 @@
  * Android WebViews frequently refuse to load Apple's pages and hand them to the
  * system browser instead. When that happens the app never receives the redirect
  * back, so the shell starts the flow, then polls until Apple has verified it and
- * redeems the result itself. Web and iOS keep using their own native paths.
+ * redeems the result itself. iOS uses the same path so we avoid the native
+ * Capacitor plugin, which surfaces AuthorizationError 1000 when misconfigured.
  */
 
 export interface AppleFlowStart {

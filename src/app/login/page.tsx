@@ -6,12 +6,77 @@ import { useAuth } from "@/lib/auth-context";
 import { Capacitor } from "@capacitor/core";
 import { GoogleLogin } from "@react-oauth/google";
 import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
-import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import ModernLoginSignup from "@/components/ui/modern-login-signup";
 import { signInWithGoogleNative, googleNativeSignInError } from "@/lib/grace-google-auth";
 import { startAppleBrowserFlow, waitForAppleFlow } from "@/lib/apple-browser-flow";
 import { appleWebStartHref } from "@/lib/apple-web-config";
 import { saveOauthRegistrationDraft } from "@/lib/oauth-registration";
+import { formatAppleAuthError } from "@/lib/apple-error-message";
+
+async function runNativeAppleBrowserLogin(options: {
+  intent: "login" | "register";
+  redirectTo: string;
+  onWaiting: () => void;
+  onNotice: (message: string) => void;
+  onClearNotice: () => void;
+  onError: (message: string) => void;
+  onNeedsRegistration: (draft: {
+    appleState: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  }) => void;
+  onSuccess: () => void;
+}) {
+  options.onWaiting();
+
+  try {
+    const flow = await startAppleBrowserFlow({
+      intent: options.intent,
+      redirectTo: options.redirectTo,
+    });
+    const verified = waitForAppleFlow(flow.state);
+    window.location.href = flow.url;
+
+    const outcome = await verified;
+    if (!outcome.ok) {
+      options.onClearNotice();
+      if (!outcome.timedOut) {
+        options.onError(formatAppleAuthError(outcome.error || ""));
+      }
+      return;
+    }
+
+    options.onNotice("Finishing Apple sign-in…");
+    const res = await fetch("/api/auth/apple/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ state: flow.state }),
+    });
+    const data = await res.json().catch(() => ({}));
+    options.onClearNotice();
+
+    if (data?.needsRegistration) {
+      options.onNeedsRegistration({
+        appleState: data.appleState || flow.state,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+      });
+      return;
+    }
+
+    if (!res.ok || !data?.success) {
+      options.onError(data?.error || "Apple sign-in failed. Please try again.");
+      return;
+    }
+
+    options.onSuccess();
+  } catch (err: any) {
+    options.onClearNotice();
+    options.onError(formatAppleAuthError(err?.message || ""));
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,7 +86,6 @@ export default function LoginPage() {
   const [notice, setNotice] = useState("");
   const [mounted, setMounted] = useState(false);
   const [isNative, setIsNative] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -39,7 +103,6 @@ export default function LoginPage() {
 
       if (isCapacitor || isAndroidWebView) {
         setIsNative(true);
-        setIsIOS(Capacitor.getPlatform() === "ios");
         try {
           // On Android the native plugin must use the Web client ID for requestIdToken.
           // Prefer capacitor.config / strings.xml; only pass iOS client on iOS.
@@ -72,7 +135,7 @@ export default function LoginPage() {
     const appleError = searchParams.get("appleError");
     if (appleError) {
       setNotice("");
-      setError(appleError);
+      setError(formatAppleAuthError(appleError));
     }
   }, [searchParams]);
 
@@ -155,95 +218,31 @@ export default function LoginPage() {
   };
 
   const handleAppleLogin = async () => {
-    if (isNative && !isIOS) {
-      setError("");
-      setNotice("Opening Apple sign-in…");
-
-      try {
-        const flow = await startAppleBrowserFlow({ intent: "login", redirectTo: "/" });
-        const verified = waitForAppleFlow(flow.state);
-        window.location.href = flow.url;
-
-        const outcome = await verified;
-        if (!outcome.ok) {
-          setNotice("");
-          if (!outcome.timedOut) {
-            setError(outcome.error || "Apple sign-in failed. Please try again.");
-          }
-          return;
-        }
-
-        setNotice("Finishing Apple sign-in…");
-        const res = await fetch("/api/auth/apple/complete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ state: flow.state }),
-        });
-        const data = await res.json().catch(() => ({}));
-        setNotice("");
-        if (data?.needsRegistration) {
-          goToRegistration({
-            appleState: data.appleState || flow.state,
-            provider: "apple",
-            firstName: data.firstName,
-            lastName: data.lastName,
-            email: data.email,
-          });
-          return;
-        }
-        if (!res.ok || !data?.success) {
-          setError(data?.error || "Apple sign-in failed. Please try again.");
-          return;
-        }
-        window.location.href = "/";
-      } catch (err: any) {
-        setNotice("");
-        setError(err?.message || "Could not start Apple sign-in. Please try again.");
-      }
+    // Native iOS and Android both use Apple's registered web OAuth flow. The
+    // Capacitor native plugin rejects a web redirectURI and surfaces
+    // AuthorizationError 1000 to users (including App Review on iPad).
+    if (isNative) {
+      await runNativeAppleBrowserLogin({
+        intent: "login",
+        redirectTo: "/",
+        onWaiting: () => {
+          setError("");
+          setNotice("Opening Apple sign-in…");
+        },
+        onNotice: setNotice,
+        onClearNotice: () => setNotice(""),
+        onError: setError,
+        onNeedsRegistration: (draft) => goToRegistration({ ...draft, provider: "apple" }),
+        onSuccess: () => {
+          window.location.href = "/";
+        },
+      });
       return;
     }
 
-    try {
-      setError("");
-      setNotice("");
-      const result = await SignInWithApple.authorize({
-        clientId:
-          process.env.NEXT_PUBLIC_APPLE_IOS_CLIENT_ID || "com.graceconnect.app",
-        scopes: "email name",
-        redirectURI: "https://graceconnect.graceahmedabad.org/login",
-      });
-      if (result.response && result.response.identityToken) {
-        const authResult = await login(result.response.identityToken, "apple", undefined, {
-          givenName: result.response.givenName,
-          familyName: result.response.familyName,
-        });
-        if (authResult.needsRegistration) {
-          goToRegistration({
-            credential: result.response.identityToken,
-            provider: "apple",
-            firstName: authResult.firstName || result.response.givenName,
-            lastName: authResult.lastName || result.response.familyName,
-            email: authResult.email,
-          });
-          return;
-        }
-        if (authResult.success) {
-          router.push("/");
-        } else {
-          setError(authResult.error || "Login failed");
-        }
-      } else {
-        setError("Apple authentication failed. No ID token received.");
-      }
-    } catch (err: any) {
-      console.error(err);
-      const message = err?.message || err?.errorMessage || "";
-      setError(
-        /cancel/i.test(message)
-          ? "Apple login was canceled."
-          : message || "Native Apple login failed. Please try again."
-      );
-    }
+    setError("");
+    setNotice("Opening Apple sign-in…");
+    window.location.href = appleWebStartHref({ intent: "login", redirectTo: "/" });
   };
 
   const handleGoogleError = () => {
