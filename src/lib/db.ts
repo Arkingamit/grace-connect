@@ -1,11 +1,16 @@
 import mongoose from 'mongoose';
 import { ensureIndexes } from './ensure-indexes';
 
+/**
+ * Read lazily rather than at module scope: `next build` imports every route
+ * module to collect page data, so throwing here fails the build on hosts that
+ * only supply the connection string at runtime (PM2 env, systemd, Docker).
+ */
 function getMongoUri(): string {
   const uri = process.env.MONGODB_URI;
   if (!uri) {
     throw new Error(
-      'Please define the MONGODB_URI environment variable (e.g. in .env.local on the server).'
+      'Please define the MONGODB_URI environment variable inside .env.local'
     );
   }
   return uri;
