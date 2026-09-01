@@ -13,7 +13,7 @@
 
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
-import { APPLE_IOS_CLIENT_ID } from './apple-web-config';
+import { APPLE_IOS_CLIENT_ID, appleWebStartHref } from './apple-web-config';
 import { formatAppleAuthError } from './apple-error-message';
 
 export type AppleSignInOutcome =
@@ -21,6 +21,8 @@ export type AppleSignInOutcome =
   | { kind: 'token'; idToken: string; firstName?: string; lastName?: string; email?: string }
   /** Browser flow already established the session cookie. */
   | { kind: 'session' }
+  /** Navigated the WebView to Apple — page will unload. */
+  | { kind: 'redirected' }
   | {
       kind: 'needs-registration';
       appleState: string;
@@ -181,6 +183,16 @@ async function browserAppleFlow(options: {
   redirectTo: string;
   onStatus?: (message: string) => void;
 }): Promise<AppleSignInOutcome> {
+  // Play Store APKs shipped before @capacitor/browser was synced throw
+  // "Browser plugin is not implemented on android". Keep Apple in the WebView
+  // (apple.com is already on allowNavigation) so those installs still work.
+  if (!Capacitor.isPluginAvailable('Browser')) {
+    window.location.assign(
+      appleWebStartHref({ intent: options.intent, redirectTo: options.redirectTo }),
+    );
+    return { kind: 'redirected' };
+  }
+
   const flow = await startFlow(options);
 
   let dismissed = false;

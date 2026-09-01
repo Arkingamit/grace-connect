@@ -167,7 +167,7 @@ export default function LoginPage() {
       });
       setNotice("");
 
-      if (outcome.kind === "canceled") return;
+      if (outcome.kind === "canceled" || outcome.kind === "redirected") return;
 
       if (outcome.kind === "error") {
         setError(formatAppleAuthError(outcome.message));
