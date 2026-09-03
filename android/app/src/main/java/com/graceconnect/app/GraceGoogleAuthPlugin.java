@@ -87,13 +87,8 @@ public class GraceGoogleAuthPlugin extends Plugin {
                     }
                     String sha1 = signingSha1();
                     if (e instanceof GetCredentialCancellationException) {
-                        call.reject(
-                            "Google Sign-In canceled. If you did not cancel, this APK SHA-1 is not in Firebase: "
-                                + sha1
-                                + ". Add it under Project settings → Your apps → com.graceconnect.app, wait a few minutes, then retry. "
-                                + (e.getMessage() != null ? e.getMessage() : ""),
-                            "SIGN_IN_CANCELED"
-                        );
+                        Log.i(TAG, "Google Sign-In canceled by user (APK SHA-1: " + sha1 + ")");
+                        call.reject("canceled", "SIGN_IN_CANCELED");
                         return;
                     }
                     String detail = e.getClass().getSimpleName();

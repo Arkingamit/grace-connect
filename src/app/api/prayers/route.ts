@@ -4,6 +4,7 @@ import PrayerRequest from '@/models/PrayerRequest';
 import User from '@/models/User';
 import { verifySession } from '@/lib/auth-utils';
 import { prayerRequestSchema } from '@/lib/validations';
+import { screenContent } from '@/lib/content-moderation';
 
 export async function GET(req: Request) {
   try {
@@ -23,10 +24,21 @@ export async function GET(req: Request) {
       }
     }
 
-    const prayers = await PrayerRequest.find({
+    const query: Record<string, unknown> = {
       privacy: { $in: allowedPrivacy },
       status: 'approved',
-    })
+    };
+
+    // Blocked accounts disappear from the feed immediately (App Store 1.2).
+    if (session.isAuth && session.userId) {
+      const viewer = await User.findById(session.userId, { blockedUsers: 1 }).lean();
+      const blocked = ((viewer as any)?.blockedUsers || []).map(String);
+      if (blocked.length > 0) {
+        query.authorId = { $nin: blocked };
+      }
+    }
+
+    const prayers = await PrayerRequest.find(query)
       .sort({ createdAt: -1 })
       .lean();
 
@@ -57,11 +69,29 @@ export async function POST(req: Request) {
     }
 
     const data = parseResult.data;
+
+    // Zero tolerance for objectionable content — reject before it is ever stored.
+    const screening = screenContent(data.title, data.content, data.authorName);
+    if (!screening.ok) {
+      return NextResponse.json({ error: screening.reason }, { status: 400 });
+    }
+
     const session = await verifySession();
 
     let authorName = data.isAnonymous ? 'Anonymous' : (data.authorName || 'Anonymous');
     let authorId = undefined;
     let campusId = data.campusId || 'global';
+
+    // Members ejected for objectionable content cannot post again.
+    if (session.isAuth && session.userId) {
+      const account = await User.findById(session.userId, { suspendedAt: 1 }).lean();
+      if ((account as any)?.suspendedAt) {
+        return NextResponse.json(
+          { error: 'Your account has been suspended for breaching the Terms of Use.' },
+          { status: 403 },
+        );
+      }
+    }
 
     // Only query DB if we need the user's campusId (anonymous posts can skip)
     if (session.isAuth && session.userId && !data.isAnonymous) {

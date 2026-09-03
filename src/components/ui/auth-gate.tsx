@@ -79,7 +79,7 @@ export function AuthGate({
 
           <p className="mt-6 text-center text-xs leading-relaxed text-[#C4B0A0]">
             By continuing you agree to Grace Community&apos;s{" "}
-            <Link href="/privacy-policy" className="font-medium text-[#8B2323] hover:underline">
+            <Link href="/terms" className="font-medium text-[#8B2323] hover:underline">
               Terms
             </Link>{" "}
             and{" "}

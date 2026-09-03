@@ -66,6 +66,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
   });
 
   const [whatsappSame, setWhatsappSame] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState('');
   const [error, setError] = useState('');
   const [step, setStep] = useState(1);
@@ -219,19 +220,23 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
     }
   };
 
+  // Only the name and campus are needed to join a campus community. Gender,
+  // birthday, marital status and phone numbers stay optional.
   const canProceedStep1 =
     form.firstName &&
     form.lastName &&
-    form.gender &&
-    form.birthday &&
     !isFutureBirthday(form.birthday);
-  const canProceedStep2 = form.maritalStatus && form.campusId;
-  const canProceedStep3 = form.phone && (form.whatsapp || whatsappSame);
+  const canProceedStep2 = Boolean(form.campusId);
+  const canProceedStep3 = true;
 
   const handleCompleteRegistration = async () => {
     if (!oauthAuth?.credential && !oauthAuth?.appleState) {
       setError('Please sign in with Google or Apple first.');
       router.replace('/login');
+      return;
+    }
+    if (!acceptedTerms) {
+      setError('Please accept the Terms of Use to create your account.');
       return;
     }
     setError('');
@@ -249,6 +254,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
       campusId: form.campusId || lockedCampusId,
       phone: form.phone,
       whatsapp: whatsappSame ? form.phone : form.whatsapp,
+      acceptedTerms: true,
       ...(selectedFamily ? { familyMemberId: selectedFamily.id } : {}),
     });
     finishRegistration(result);
@@ -428,7 +434,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Gender *</Label>
+                    <Label>Gender <span className="text-muted-foreground font-normal">(optional)</span></Label>
                     <Select value={form.gender} onValueChange={v => updateField('gender', v)}>
                       <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>
@@ -438,7 +444,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Birthday *</Label>
+                    <Label>Birthday <span className="text-muted-foreground font-normal">(optional)</span></Label>
                     <Input
                       type="date"
                       max={getMaxBirthdayDate()}
@@ -482,7 +488,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                   )}
                 </div>
                 <div className="space-y-3">
-                  <Label>Marital Status *</Label>
+                  <Label>Marital Status <span className="text-muted-foreground font-normal">(optional)</span></Label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
@@ -634,8 +640,12 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
             {/* Step 3: Contact & Account */}
             {step === 3 && (
               <>
+                <p className="text-xs text-muted-foreground">
+                  Contact numbers are optional. Share them only if you would like your
+                  campus pastor to be able to reach you.
+                </p>
                 <div className="space-y-2">
-                  <Label>Phone Number *</Label>
+                  <Label>Phone Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
@@ -659,7 +669,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                 </div>
                 {!whatsappSame && (
                   <div className="space-y-2 animate-in slide-in-from-top-2">
-                    <Label>WhatsApp Number *</Label>
+                    <Label>WhatsApp Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
                     <Input
                       type="tel"
                       value={form.whatsapp}
@@ -737,6 +747,30 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                   </div>
                 </div>
 
+                <div className="rounded-xl border border-[#E5D5C5]/60 bg-white p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="accept-terms"
+                      className="mt-0.5"
+                      checked={acceptedTerms}
+                      onCheckedChange={(c) => setAcceptedTerms(!!c)}
+                    />
+                    <Label htmlFor="accept-terms" className="cursor-pointer text-xs leading-relaxed font-normal">
+                      I agree to the{' '}
+                      <Link href="/terms" target="_blank" className="font-semibold text-[#8B2323] underline">
+                        Terms of Use (EULA)
+                      </Link>{' '}
+                      and{' '}
+                      <Link href="/privacy-policy" target="_blank" className="font-semibold text-[#8B2323] underline">
+                        Privacy Policy
+                      </Link>
+                      . I understand that Grace Connect has zero tolerance for objectionable
+                      content or abusive behaviour, and that my account may be removed if I
+                      post such content.
+                    </Label>
+                  </div>
+                </div>
+
                 {error && (
                   <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
                     {error}
@@ -746,6 +780,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                 <div className="flex w-full flex-col gap-2">
                   <Button
                     className="h-12 w-full gap-1.5 px-4"
+                    disabled={!acceptedTerms}
                     onClick={() => void handleCompleteRegistration()}
                   >
                     Complete registration

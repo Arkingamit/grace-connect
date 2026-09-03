@@ -41,7 +41,8 @@ import {
   FileText,
   Camera,
   FlipHorizontal,
-  Gift
+  Gift,
+  Flag
 } from 'lucide-react';
 
 const roleIcons: Record<UserRole, React.ElementType> = {
@@ -122,6 +123,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
     { label: 'Sermons', href: '/admin/sermons', icon: Tv, minRole: 'admin' as UserRole, module: 'sermons' },
     { label: 'Worship Videos', href: '/admin/worship', icon: Music, minRole: 'admin' as UserRole, module: 'worship' },
     { label: 'Prayer Wall', href: '/admin/prayers', icon: Heart, minRole: 'campus_leader' as UserRole },
+    { label: 'Moderation', href: '/admin/moderation', icon: Flag, minRole: 'campus_leader' as UserRole },
     { label: 'Greetings', href: '/admin/greetings', icon: Gift, minRole: 'campus_leader' as UserRole, module: 'greetings' },
     { label: 'Daily Verses', href: '/admin/verses', icon: BookOpen, minRole: 'admin' as UserRole },
     { label: 'Highlights Cards', href: '/admin/hero-cards', icon: FlipHorizontal, minRole: 'admin' as UserRole },

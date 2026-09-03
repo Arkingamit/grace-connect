@@ -111,11 +111,11 @@ export const Footer = () => {
             © 2026 Grace Community Church. All rights reserved.
           </p>
           <div className="flex gap-6 text-sm">
-            <a href="#privacy" className="text-primary-foreground/80 hover:text-primary-foreground transition-colors">
+            <a href="/privacy-policy" className="text-primary-foreground/80 hover:text-primary-foreground transition-colors">
               Privacy Policy
             </a>
-            <a href="#terms" className="text-primary-foreground/80 hover:text-primary-foreground transition-colors">
-              Terms of Service
+            <a href="/terms" className="text-primary-foreground/80 hover:text-primary-foreground transition-colors">
+              Terms of Use
             </a>
           </div>
         </div>

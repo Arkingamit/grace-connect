@@ -29,6 +29,14 @@ export interface IUser extends Document {
   rejectionReason?: string;
   rejectionNote?: string;
   rejectedAt?: Date | null;
+  /** Accounts this member has blocked — their content is hidden from this member. */
+  blockedUsers: mongoose.Types.ObjectId[];
+  /** Set when the member accepted the Terms of Use (EULA). */
+  termsAcceptedAt?: Date | null;
+  termsVersion?: string;
+  /** Set when a moderator ejects the member for posting objectionable content. */
+  suspendedAt?: Date | null;
+  suspensionReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -70,6 +78,11 @@ const UserSchema = new Schema<IUser>(
     rejectionReason: { type: String, default: '' },
     rejectionNote: { type: String, default: '' },
     rejectedAt: { type: Date, default: null },
+    blockedUsers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    termsAcceptedAt: { type: Date, default: null },
+    termsVersion: { type: String, default: '' },
+    suspendedAt: { type: Date, default: null },
+    suspensionReason: { type: String, default: '' },
   },
   { timestamps: true }
 );

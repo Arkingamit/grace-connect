@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { setStoredAvatar, fileToDataUrl, resolveMemberAvatar } from '@/lib/avatar-storage';
 import { LogoutConfirmDialog } from '@/components/ui/logout-confirm-dialog';
 import { DeleteAccountDialog } from '@/components/ui/delete-account-dialog';
+import { BlockedAccountsSection } from '@/components/ui/blocked-accounts-section';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -347,6 +348,21 @@ export default function ProfilePage() {
               </div>
             </div>
           )}
+        </section>
+
+        <BlockedAccountsSection />
+
+        <section className="bg-white dark:bg-card border border-border/50 shadow-[0px_4px_20px_rgba(0,0,0,0.04)] rounded-3xl p-6 space-y-2">
+          <h2 className="text-sm font-semibold text-[#1A202C] dark:text-foreground">Community standards</h2>
+          <p className="text-sm text-muted-foreground">
+            Grace Connect has zero tolerance for objectionable content or abusive members.
+            Reported content is reviewed and actioned within 24 hours.
+          </p>
+          <div className="flex flex-wrap gap-4 pt-1 text-sm font-semibold text-[#8B2323]">
+            <Link href="/terms" className="hover:underline">Terms of Use (EULA)</Link>
+            <Link href="/privacy-policy" className="hover:underline">Privacy Policy</Link>
+            <Link href="/support" className="hover:underline">Report a problem</Link>
+          </div>
         </section>
 
         <section className="bg-white dark:bg-card border border-red-100 dark:border-red-900/40 shadow-[0px_4px_20px_rgba(0,0,0,0.04)] rounded-3xl p-6 space-y-3">

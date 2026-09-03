@@ -10,7 +10,7 @@ interface AuthContextType {
   session: AuthSession | null;
   members: ChurchMember[];
   isLoading: boolean;
-  register: (data: Partial<ChurchMember> & { credential?: string; appleState?: string; provider?: 'google' | 'apple' }) => Promise<{ success: boolean; error?: string; userId?: string; qrCode?: string; email?: string }>;
+  register: (data: Partial<ChurchMember> & { credential?: string; appleState?: string; provider?: 'google' | 'apple'; acceptedTerms?: boolean }) => Promise<{ success: boolean; error?: string; userId?: string; qrCode?: string; email?: string }>;
   login: (credential: string, provider?: 'google' | 'apple', picture?: string, profile?: { givenName?: string; familyName?: string }) => Promise<{
     success: boolean;
     error?: string;
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Members are only loaded lazily when needed (admin routes)
   }, [fetchSession]);
 
-  const register = useCallback(async (data: Partial<ChurchMember> & { credential?: string; appleState?: string; provider?: 'google' | 'apple' }) => {
+  const register = useCallback(async (data: Partial<ChurchMember> & { credential?: string; appleState?: string; provider?: 'google' | 'apple'; acceptedTerms?: boolean }) => {
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',

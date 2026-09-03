@@ -8,6 +8,8 @@ import {
   AuthPageShell,
   authSocialBtnClass,
 } from "@/components/ui/auth-layout";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import graceLogo from "../../../assets/logo.png";
 
 export interface ModernLoginSignupProps {
@@ -20,6 +22,9 @@ export interface ModernLoginSignupProps {
   useNativeButtons?: boolean;
   privacyHref?: string;
   termsHref?: string;
+  /** Terms must be accepted before signing in (App Store guideline 1.2). */
+  termsAccepted?: boolean;
+  onTermsAcceptedChange?: (accepted: boolean) => void;
 }
 
 export default function ModernLoginSignup({
@@ -31,7 +36,9 @@ export default function ModernLoginSignup({
   onAppleClick,
   useNativeButtons = false,
   privacyHref = "/privacy-policy",
-  termsHref = "/privacy-policy",
+  termsHref = "/terms",
+  termsAccepted = false,
+  onTermsAcceptedChange,
 }: ModernLoginSignupProps) {
   const GoogleIcon = (
     <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0">
@@ -96,8 +103,36 @@ export default function ModernLoginSignup({
           </div>
         )}
 
+        <div className="mb-4 flex items-start gap-3 rounded-2xl border border-[#E5D5C5]/60 bg-[#FAF7F2] px-4 py-3 text-left">
+          <Checkbox
+            id="accept-terms-login"
+            className="mt-0.5"
+            checked={termsAccepted}
+            onCheckedChange={(c) => onTermsAcceptedChange?.(!!c)}
+          />
+          <Label
+            htmlFor="accept-terms-login"
+            className="cursor-pointer text-xs font-normal leading-relaxed text-[#7A6150]"
+          >
+            I agree to the{" "}
+            <Link href={termsHref} className="font-semibold text-[#8B2323] underline">
+              Terms of Use (EULA)
+            </Link>{" "}
+            and{" "}
+            <Link href={privacyHref} className="font-semibold text-[#8B2323] underline">
+              Privacy Policy
+            </Link>
+            . Grace Connect has zero tolerance for objectionable content or abusive users.
+          </Label>
+        </div>
+
         {hasSocial && (
-          <div className="flex w-full flex-col items-stretch gap-3">
+          <div
+            className={`flex w-full flex-col items-stretch gap-3 transition-opacity ${
+              termsAccepted ? "" : "pointer-events-none select-none opacity-50"
+            }`}
+            aria-disabled={!termsAccepted}
+          >
             {useNativeButtons ? (
               <button type="button" onClick={onGoogleClick} className={authSocialBtnClass}>
                 {GoogleIcon}
@@ -121,16 +156,14 @@ export default function ModernLoginSignup({
           </div>
         )}
 
+        {!termsAccepted && hasSocial && (
+          <p className="mt-3 text-center text-xs text-[#8B2323]">
+            Please accept the Terms of Use to continue.
+          </p>
+        )}
+
         <p className="mt-6 text-center text-xs leading-relaxed text-[#C4B0A0]">
-          By continuing you agree to Grace Community&apos;s{" "}
-          <Link href={termsHref} className="font-medium text-[#8B2323] hover:underline">
-            Terms
-          </Link>{" "}
-          and{" "}
-          <Link href={privacyHref} className="font-medium text-[#8B2323] hover:underline">
-            Privacy Policy
-          </Link>
-          .{" "}
+          Need help? Visit{" "}
           <Link href="/support" className="font-medium text-[#8B2323] hover:underline">
             Support
           </Link>

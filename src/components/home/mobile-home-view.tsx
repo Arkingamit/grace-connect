@@ -25,6 +25,7 @@ import { NoteShareSection } from '@/components/ui/note-share-section';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { AuthGate } from '@/components/ui/auth-gate';
+import { ContentModerationMenu } from '@/components/ui/content-moderation-menu';
 import { ProfileSwitcher } from '@/components/ui/profile-switcher';
 import { ViewRegistrationPassButton } from '@/components/ui/registration-pass-dialog';
 import { getMapsUrl } from '@/lib/maps';
@@ -952,7 +953,11 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                         .slice(0, 3)
                         .map(prayer => (
                           <div key={prayer.id} className="w-full">
-                            <PrayerCard prayer={prayer} session={session} />
+                            <PrayerCard
+                              prayer={prayer}
+                              session={session}
+                              onHidden={(id) => setPublicPrayers(prev => prev.filter((p: any) => p.id !== id))}
+                            />
                           </div>
                         ))
                       }
@@ -1502,7 +1507,15 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
   );
 }
 
-function PrayerCard({ prayer, session }: { prayer: any, session: any }) {
+function PrayerCard({
+  prayer,
+  session,
+  onHidden,
+}: {
+  prayer: any;
+  session: any;
+  onHidden?: (id: string) => void;
+}) {
   const [prayedCount, setPrayedCount] = useState(prayer.prayedCount || 0);
   const [hasPrayed, setHasPrayed] = useState(
     prayer.prayedBy && session && prayer.prayedBy.includes(session.memberId)
@@ -1540,9 +1553,17 @@ function PrayerCard({ prayer, session }: { prayer: any, session: any }) {
     <div className="bg-white rounded-3xl p-5 shadow-sm border border-[#F3EAE1]">
       <div className="flex justify-between items-start mb-2">
         <h4 className="font-bold text-[#1A202C] leading-tight">{prayer.title}</h4>
-        <span className="text-[10px] text-[#7A6150] font-medium bg-[#F1E8DC] px-2 py-1 rounded-full whitespace-nowrap ml-2">
-          {new Date(prayer.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-        </span>
+        <div className="flex items-center gap-1 ml-2 shrink-0">
+          <span className="text-[10px] text-[#7A6150] font-medium bg-[#F1E8DC] px-2 py-1 rounded-full whitespace-nowrap">
+            {new Date(prayer.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </span>
+          <ContentModerationMenu
+            contentId={prayer.id}
+            authorId={prayer.isAnonymous ? undefined : (prayer.authorId ? String(prayer.authorId) : undefined)}
+            authorName={prayer.authorName}
+            onHidden={onHidden}
+          />
+        </div>
       </div>
       <p className="text-[#7A6150] text-sm line-clamp-2 mb-3">{prayer.content}</p>
 

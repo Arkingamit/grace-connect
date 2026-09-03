@@ -56,8 +56,21 @@ export async function signInWithGoogleNative(): Promise<GraceGoogleAuthResult> {
   };
 }
 
-/** Map native / Capacitor Google errors to a message members can act on. */
+function isGoogleSignInCanceled(err: unknown): boolean {
+  const anyErr = err as { message?: string; errorMessage?: string; code?: string } | null;
+  const message = String(anyErr?.message || anyErr?.errorMessage || '');
+  const code = String(anyErr?.code || '');
+  return (
+    code === 'SIGN_IN_CANCELED' ||
+    code === '12501' ||
+    /cancel+ed|activity is cancelled by the user/i.test(message)
+  );
+}
+
+/** Map native / Capacitor Google errors to a message members can act on. Empty if they canceled. */
 export function googleNativeSignInError(err: unknown): string {
+  if (isGoogleSignInCanceled(err)) return '';
+
   const anyErr = err as { message?: string; errorMessage?: string; code?: string } | null;
   const message = String(anyErr?.message || anyErr?.errorMessage || '');
   const code = String(anyErr?.code || '');
@@ -73,13 +86,6 @@ export function googleNativeSignInError(err: unknown): string {
 
   if (/SHA-1|not in Firebase|not registered|error code: 10|12500/i.test(message)) {
     return message;
-  }
-
-  if (/cancel/i.test(message)) {
-    return (
-      'Google login was canceled. If you did not cancel, add this APK’s SHA-1 in Firebase ' +
-      '(Project settings → Your apps → com.graceconnect.app), wait a few minutes, then retry.'
-    );
   }
 
   return message || 'Google login failed. Please try again.';

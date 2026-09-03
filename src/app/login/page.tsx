@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [notice, setNotice] = useState("");
   const [mounted, setMounted] = useState(false);
   const [isNative, setIsNative] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -88,6 +89,10 @@ export default function LoginPage() {
   };
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
+    if (!termsAccepted) {
+      setError("Please accept the Terms of Use to continue.");
+      return;
+    }
     setError("");
     if (!credentialResponse.credential) {
       setError("Google authentication failed. No credential received.");
@@ -114,6 +119,10 @@ export default function LoginPage() {
   };
 
   const handleNativeGoogleLogin = async () => {
+    if (!termsAccepted) {
+      setError("Please accept the Terms of Use to continue.");
+      return;
+    }
     try {
       setError("");
       // Android: Credential Manager (Grace Music strategy). iOS: Codetrix GoogleAuth.
@@ -147,12 +156,18 @@ export default function LoginPage() {
         setError(result.error || "Login failed");
       }
     } catch (err: any) {
+      const message = googleNativeSignInError(err);
+      if (!message) return;
       console.error(err);
-      setError(googleNativeSignInError(err));
+      setError(message);
     }
   };
 
   const handleAppleLogin = async () => {
+    if (!termsAccepted) {
+      setError("Please accept the Terms of Use to continue.");
+      return;
+    }
     // In the app, Apple sign-in stays in the app: the native sheet on iOS, an
     // in-app browser elsewhere. Only a real desktop/mobile browser gets the
     // full-page redirect below.
@@ -308,6 +323,9 @@ export default function LoginPage() {
       googleSlot={googleSlot}
       appleSlot={appleSlot}
       privacyHref="/privacy-policy"
+      termsHref="/terms"
+      termsAccepted={termsAccepted}
+      onTermsAcceptedChange={setTermsAccepted}
     />
   );
 }

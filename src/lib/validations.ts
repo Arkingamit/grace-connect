@@ -1,10 +1,14 @@
 import { z } from 'zod';
 import { isFutureBirthday } from '@/lib/date-utils';
 
-const birthdaySchema = z
+/**
+ * Birthday is optional (App Store guideline 5.1.1(v) — only require data the
+ * app needs to function), but a supplied date still has to be in the past.
+ */
+const optionalBirthdaySchema = z
   .string()
-  .min(1, 'Birthday is required')
-  .refine((val) => !isFutureBirthday(val), 'Birthday cannot be in the future');
+  .optional()
+  .refine((val) => !val || !isFutureBirthday(val), 'Birthday cannot be in the future');
 export const loginSchema = z.object({
   credential: z.string().min(1, 'Authentication credential is required'),
   provider: z.enum(['google', 'apple']).default('google'),
@@ -20,14 +24,24 @@ export const registerSchema = z.object({
   firstName: z.string().min(2, 'First name is required'),
   middleName: z.string().optional(),
   lastName: z.string().min(2, 'Last name is required'),
-  gender: z.enum(['male', 'female']),
-  birthday: birthdaySchema,
-  maritalStatus: z.enum(['single', 'married']).optional(),
+  // Empty strings come from cleared form fields — store them as "not provided".
+  gender: z
+    .union([z.enum(['male', 'female']), z.literal('')])
+    .optional()
+    .transform((v) => v || undefined),
+  birthday: optionalBirthdaySchema.transform((v) => v || undefined),
+  maritalStatus: z
+    .union([z.enum(['single', 'married']), z.literal('')])
+    .optional()
+    .transform((v) => v || undefined),
   marriageDate: z.string().optional(),
   campusId: z.string().min(1, 'Campus is required'),
   phone: z.string().optional(),
   whatsapp: z.string().optional(),
   familyMemberId: z.string().optional(),
+  acceptedTerms: z.literal(true, {
+    errorMap: () => ({ message: 'You must accept the Terms of Use to create an account' }),
+  }),
 }).refine((data) => Boolean(data.credential || data.appleState), {
   message: 'Authentication credential is required',
   path: ['credential'],
@@ -91,6 +105,14 @@ export const userSchema = z.object({
   status: z.enum(['pending', 'approved', 'rejected']),
   campusId: z.string(),
   groups: z.array(z.string()).optional(),
+});
+
+// Objectionable-content report (App Store guideline 1.2)
+export const reportSchema = z.object({
+  contentType: z.literal('prayer').default('prayer'),
+  contentId: z.string().min(1, 'Content is required'),
+  reason: z.enum(['offensive', 'harassment', 'sexual', 'violence', 'spam', 'other']),
+  details: z.string().max(1000).optional(),
 });
 
 // Prayer Request Schema

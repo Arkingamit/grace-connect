@@ -8,6 +8,7 @@ import { getOAuthPicture } from '@/lib/oauth-picture';
 import { verifyAppleIdToken } from '@/lib/apple-auth';
 import { verifyGoogleIdToken } from '@/lib/google-auth';
 import { createSession } from '@/lib/auth-utils';
+import { TERMS_VERSION } from '@/lib/terms';
 
 export async function POST(req: Request) {
   try {
@@ -83,6 +84,8 @@ export async function POST(req: Request) {
       role: 'member',
       groups: [],
       qrCode: randomUUID(),
+      termsAcceptedAt: new Date(),
+      termsVersion: TERMS_VERSION,
     });
 
     await createSession(

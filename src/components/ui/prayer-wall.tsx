@@ -11,12 +11,14 @@ import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth-context';
 import { useAdminData } from "@/lib/admin-data-context";
 import { motion, AnimatePresence } from "framer-motion";
+import { ContentModerationMenu } from "@/components/ui/content-moderation-menu";
 
 interface PrayerRequest {
   id: string;
   title: string;
   content: string;
   authorName: string;
+  authorId?: string;
   isAnonymous: boolean;
   privacy: string;
   category: string;
@@ -119,6 +121,10 @@ function PrayerWallWidgetLayout() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const hidePrayer = (id: string) => {
+    setPrayers(prev => prev.filter(p => p.id !== id));
   };
 
   const handlePray = async (id: string) => {
@@ -277,6 +283,12 @@ function PrayerWallWidgetLayout() {
                           </div>
                         </div>
                       </div>
+                      <ContentModerationMenu
+                        contentId={request.id}
+                        authorId={request.isAnonymous ? undefined : request.authorId}
+                        authorName={request.authorName}
+                        onHidden={hidePrayer}
+                      />
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
@@ -459,7 +471,12 @@ function PrayerWallPageLayout() {
             .filter((p: any) => p.status === "approved" || p.status === undefined)
             .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
             .map((prayer: any) => (
-              <PrayerPageCard key={prayer.id} prayer={prayer} session={session} />
+              <PrayerPageCard
+                key={prayer.id}
+                prayer={prayer}
+                session={session}
+                onHidden={(id) => setPublicPrayers(prev => prev.filter((p: any) => p.id !== id))}
+              />
             ))
           }
 
@@ -475,7 +492,15 @@ function PrayerWallPageLayout() {
   );
 }
 
-function PrayerPageCard({ prayer, session }: { prayer: any, session: any }) {
+function PrayerPageCard({
+  prayer,
+  session,
+  onHidden,
+}: {
+  prayer: any;
+  session: any;
+  onHidden?: (id: string) => void;
+}) {
   const [prayedCount, setPrayedCount] = useState(prayer.prayedCount || 0);
   const [hasPrayed, setHasPrayed] = useState(
     prayer.prayedBy && session && prayer.prayedBy.includes(session.memberId)
@@ -516,6 +541,12 @@ function PrayerPageCard({ prayer, session }: { prayer: any, session: any }) {
         <span className="text-[10px] font-bold text-[#8B2323] tracking-wider uppercase bg-[#FBE8E8] px-2 py-1 rounded-sm">
           {new Date(prayer.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
         </span>
+        <ContentModerationMenu
+          contentId={prayer.id}
+          authorId={prayer.isAnonymous ? undefined : (prayer.authorId ? String(prayer.authorId) : undefined)}
+          authorName={prayer.authorName}
+          onHidden={onHidden}
+        />
       </div>
       <p className="text-[#3A2D27] leading-relaxed mb-4 whitespace-pre-wrap">{prayer.content}</p>
       
