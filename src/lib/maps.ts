@@ -11,7 +11,8 @@ export function getMapsUrl(options: {
     typeof options.latitude === 'number' &&
     typeof options.longitude === 'number' &&
     Number.isFinite(options.latitude) &&
-    Number.isFinite(options.longitude)
+    Number.isFinite(options.longitude) &&
+    !(options.latitude === 0 && options.longitude === 0)
   ) {
     return `https://www.google.com/maps?q=${options.latitude},${options.longitude}`;
   }

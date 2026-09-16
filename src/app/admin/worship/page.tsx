@@ -65,6 +65,31 @@ export default function WorshipManagementPage() {
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
+  const handleUrlChange = async (url: string) => {
+    setForm((prev) => ({ ...prev, youtubeUrl: url }));
+    
+    const videoId = extractVideoId(url);
+    if (videoId) {
+      try {
+        const res = await fetch(`/api/youtube/stats?ids=${videoId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.stats && data.stats[videoId] && data.stats[videoId].title) {
+            setForm((prev) => {
+              // Only auto-fill if the title is currently empty
+              if (!prev.title) {
+                return { ...prev, title: data.stats[videoId].title };
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to auto-fetch video title:", err);
+      }
+    }
+  };
+
   const handleOpenCreate = () => {
     setForm(initialForm);
     setEditingId(null);
@@ -239,7 +264,7 @@ export default function WorshipManagementPage() {
                 id="youtubeUrl" 
                 placeholder="https://www.youtube.com/watch?v=..." 
                 value={form.youtubeUrl}
-                onChange={(e) => setForm({ ...form, youtubeUrl: e.target.value })}
+                onChange={(e) => handleUrlChange(e.target.value)}
                 required
               />
               <p className="text-[10px] text-muted-foreground">Supported: youtube.com, youtu.be, embed links</p>

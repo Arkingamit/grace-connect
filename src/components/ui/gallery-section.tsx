@@ -408,24 +408,6 @@ function GalleryPageLayout() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [selectedAlbum, setSelectedAlbum] = useState<any>(null);
   
-  const [isScrolledDown, setIsScrolledDown] = useState(false);
-  const [lastScrollY, setLastScrollY] = useState(0);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY && currentScrollY > 80) {
-        setIsScrolledDown(true);
-      } else {
-        setIsScrolledDown(false);
-      }
-      setLastScrollY(currentScrollY);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
-
   const fetchedAlbums = React.useRef<Set<string>>(new Set());
 
   // Fetch album covers
@@ -578,50 +560,19 @@ function GalleryPageLayout() {
 
   return (
     <main className="min-h-screen bg-transparent pb-16">
-      {/* Navigation Header */}
-      <div 
-        className={`sticky top-0 z-50 glass-header border-b border-primary/10 transition-all duration-300 ease-in-out ${
-          isScrolledDown ? '-translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100 pointer-events-auto'
-        }`}
-      >
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/#gallery">
-            <Button variant="ghost" size="sm" className="gap-2 group rounded-full">
-              <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              Back to Home
-            </Button>
-          </Link>
-          <div className="text-center flex-1 pr-20">
-            <h1 className="text-xl font-bold tracking-tight italic border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none md:border-l-0 md:pl-0">Grace Photo Gallery</h1>
-          </div>
-        </div>
-      </div>
-
-      <section className="py-12">
+      <section className="pt-2 pb-12">
         <div className="container mx-auto px-4">
-          <div className="max-w-6xl mx-auto space-y-12">
-            {/* Header */}
-            <div className="text-center space-y-4">
-              <h2 className="text-4xl sm:text-5xl font-bold text-heading">Full Album Collection</h2>
-              <p className="text-lg sm:text-xl text-subheading max-w-2xl mx-auto">
-                Explore our full library of memories captured across events and fellowship.
-              </p>
-            </div>
-
-            {/* Search and Filters Controls */}
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-card/30 backdrop-blur-md p-6 rounded-3xl border border-primary/5">
-
-              {/* Search Bar */}
-              <div className="relative w-full md:max-w-xs">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search albums..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 rounded-full border-border/50 bg-background/50 focus:bg-background transition-all"
-                />
-              </div>
+          <div className="max-w-6xl mx-auto space-y-5">
+            {/* Search Bar */}
+            <div className="relative w-full">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7A6150]" />
+              <Input
+                type="text"
+                placeholder="Search albums..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 h-11 rounded-2xl border-[#E5D5C5]/60 bg-white/85 text-[#1A202C] placeholder:text-[#7A6150]/60 focus-visible:ring-[#8B2323]/20 shadow-xs"
+              />
             </div>
 
             {/* Album Grid / Hover Layout */}

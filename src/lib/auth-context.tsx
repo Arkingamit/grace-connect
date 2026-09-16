@@ -6,12 +6,23 @@ import { ChurchMember, AuthSession, MemberStatus } from '@/lib/types';
 
 export type { ChurchMember, AuthSession, MemberStatus };
 
+export interface VerifyOrLoginResult {
+  status: 'existing' | 'new' | 'pending' | 'rejected' | 'error';
+  success?: boolean;
+  email?: string;
+  error?: string;
+  rejectionReason?: string;
+  rejectionNote?: string;
+}
+
 interface AuthContextType {
   session: AuthSession | null;
   members: ChurchMember[];
   isLoading: boolean;
   register: (data: Partial<ChurchMember> & { credential?: string; appleState?: string; provider?: 'google' | 'apple' }) => Promise<{ success: boolean; error?: string; userId?: string; qrCode?: string; email?: string }>;
   login: (credential: string, provider?: 'google' | 'apple', picture?: string) => Promise<{ success: boolean; error?: string }>;
+  /** Unified verify endpoint: checks if user exists, logs in if so, returns 'new' if not */
+  verifyOrLogin: (credential: string, provider?: 'google' | 'apple', picture?: string) => Promise<VerifyOrLoginResult>;
   /** App Store / Play reviewer bypass — requires DEMO_LOGIN_ENABLED + matching secret */
   demoLogin: (code: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -148,6 +159,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: true };
     } catch (error: any) {
       return { success: false, error: 'Network error during login' };
+    }
+  }, []);
+
+  const verifyOrLogin = useCallback(async (credential: string, provider: 'google' | 'apple' = 'google', picture?: string): Promise<VerifyOrLoginResult> => {
+    try {
+      const res = await fetch('/api/auth/verify-or-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential, provider, picture }),
+      });
+      const result = await res.json();
+
+      if (result.status === 'existing' && result.success) {
+        await fetchSession();
+      }
+
+      return {
+        status: result.status || 'error',
+        success: result.success,
+        email: result.email,
+        error: result.error,
+        rejectionReason: result.rejectionReason,
+        rejectionNote: result.rejectionNote,
+      };
+    } catch {
+      return { status: 'error', error: 'Network error during verification' };
     }
   }, []);
 
@@ -298,7 +335,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       session, members, isLoading,
-      register, login, demoLogin, logout,
+      register, login, verifyOrLogin, demoLogin, logout,
       getMember, getSessionMember,
       getPendingRequests, approveMember, rejectMember,
       getApprovedMembers, getEffectiveGroups,

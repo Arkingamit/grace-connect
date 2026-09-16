@@ -20,6 +20,7 @@ import { QRScanner } from '@/components/ui/qr-scanner';
 import { AvatarUploader } from '@/components/ui/avatar-uploader';
 import { fileToDataUrl, setStoredAvatar } from '@/lib/avatar-storage';
 import { getMaxBirthdayDate, isFutureBirthday } from '@/lib/date-utils';
+import { DateInput } from '@/components/ui/date-input';
 import { GoogleLogin } from '@react-oauth/google';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
@@ -44,9 +45,13 @@ import {
 interface RegistrationFormProps {
   /** When set, the campus is pre-selected and cannot be changed (QR flow) */
   lockedCampusId?: string;
+  /** Pre-verified OAuth credential (from the unified login flow) */
+  preVerifiedCredential?: string;
+  /** Provider used for pre-verification */
+  preVerifiedProvider?: 'google' | 'apple';
 }
 
-export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
+export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVerifiedProvider }: RegistrationFormProps) {
   const { register, getApprovedMembers } = useAuth();
   const { campuses } = useAdminData();
 
@@ -81,15 +86,18 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
   const [mounted, setMounted] = useState(false);
   const [appleWaiting, setAppleWaiting] = useState(false);
 
+  // Resolve pre-verified credentials: props take priority, then sessionStorage
+  const [resolvedCredential, setResolvedCredential] = useState(preVerifiedCredential || '');
+  const [resolvedProvider, setResolvedProvider] = useState<'google' | 'apple'>(preVerifiedProvider || 'google');
+  const hasPreVerified = Boolean(resolvedCredential);
+  const totalSteps = hasPreVerified ? 3 : 4;
+
   React.useEffect(() => {
     setMounted(true);
     const initNative = () => {
       const isCap = Capacitor.isNativePlatform();
-      const isWebView =
-        typeof navigator !== 'undefined' &&
-        /wv|Android.*AppleWebKit/i.test(navigator.userAgent);
-      if (isCap || isWebView) {
-        setIsNative(true);
+      setIsNative(isCap);
+      if (isCap) {
         setIsIOS(Capacitor.getPlatform() === 'ios');
         try {
           const iosClientId =
@@ -107,6 +115,22 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
       }
     };
     initNative();
+
+    // Resolve pre-verified credentials from sessionStorage if not passed as props
+    if (!preVerifiedCredential) {
+      try {
+        const raw = sessionStorage.getItem('grace-verified-credential');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.credential) {
+            setResolvedCredential(parsed.credential);
+            setResolvedProvider(parsed.provider || 'google');
+          }
+        }
+      } catch {
+        // private mode
+      }
+    }
 
     const params = new URLSearchParams(window.location.search);
     const appleError = params.get('appleError');
@@ -247,6 +271,37 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
   const canProceedStep2 = form.maritalStatus && form.campusId;
   const canProceedStep3 = form.phone && (form.whatsapp || whatsappSame);
 
+  /** Auto-submit using pre-verified credentials (skips step 4) */
+  const handlePreVerifiedSubmit = async () => {
+    if (!resolvedCredential) {
+      setError('No verified credential found. Please go back and sign in again.');
+      return;
+    }
+    setError('');
+    const result = await register({
+      credential: resolvedCredential,
+      provider: resolvedProvider,
+      firstName: form.firstName,
+      middleName: form.middleName,
+      lastName: form.lastName,
+      gender: form.gender as 'male' | 'female',
+      birthday: form.birthday,
+      maritalStatus: form.maritalStatus as 'single' | 'married',
+      marriageDate: form.marriageDate,
+      campusId: form.campusId,
+      phone: form.phone,
+      whatsapp: whatsappSame ? form.phone : form.whatsapp,
+      ...(selectedFamily ? { familyMemberId: selectedFamily.id } : {}),
+    });
+    // Clear stored credential after use
+    try {
+      sessionStorage.removeItem('grace-verified-credential');
+    } catch {
+      // private mode
+    }
+    finishRegistration(result);
+  };
+
   const handleGoogleRegister = async (credentialResponse: any) => {
     setError('');
     if (!credentialResponse.credential) {
@@ -295,7 +350,6 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
     }
     const btn = document.querySelector('#grace-google-register div[role="button"]') as HTMLElement | null;
     if (btn) btn.click();
-    else void handleNativeGoogleRegister();
   };
 
   const persistRegistrationDraft = () => {
@@ -458,7 +512,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                 Please scan the QR code at your local campus registration desk.
               </p>
               <div className="flex flex-col gap-3">
-                <Link href="/register">
+                <Link href="/login">
                   <Button className="w-full gap-2 h-12">
                     <QrIcon className="w-4 h-4" /> Go to QR Scanner
                   </Button>
@@ -565,7 +619,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
 
         {/* Step Indicator */}
         <div className="flex items-center justify-center gap-2 mb-6">
-          {[1, 2, 3, 4].map(s => (
+          {Array.from({ length: totalSteps }, (_, i) => i + 1).map(s => (
             <div key={s} className="flex items-center gap-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                 step > s
@@ -576,7 +630,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
               }`}>
                 {step > s ? <Check className="w-4 h-4" /> : s}
               </div>
-              {s < 4 && (
+              {s < totalSteps && (
                 <div className={`w-8 sm:w-12 h-0.5 ${step > s ? 'bg-primary' : 'bg-muted'} transition-all`} />
               )}
             </div>
@@ -585,8 +639,8 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
         <div className="text-center text-xs text-muted-foreground mb-6">
           {step === 1 && 'Personal Information'}
           {step === 2 && 'Church & Family'}
-          {step === 3 && 'Contact'}
-          {step === 4 && 'Confirm your profile'}
+          {step === 3 && (hasPreVerified ? 'Contact & Confirm' : 'Contact')}
+          {step === 4 && !hasPreVerified && 'Confirm your profile'}
         </div>
 
         <Card className="min-w-0 overflow-hidden border-[#E5D5C5]/60 shadow-none rounded-2xl bg-[#FAF7F2]/60">
@@ -662,11 +716,10 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                   </div>
                   <div className="space-y-2">
                     <Label>Birthday *</Label>
-                    <Input
-                      type="date"
+                    <DateInput
                       max={getMaxBirthdayDate()}
                       value={form.birthday}
-                      onChange={e => updateField('birthday', e.target.value)}
+                      onChange={val => updateField('birthday', val)}
                     />
                     {form.birthday && isFutureBirthday(form.birthday) && (
                       <p className="text-xs text-destructive">Birthday cannot be in the future.</p>
@@ -736,10 +789,9 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                 {form.maritalStatus === 'married' && (
                   <div className="space-y-2 animate-in slide-in-from-top-2">
                     <Label>Date of Marriage</Label>
-                    <Input
-                      type="date"
+                    <DateInput
                       value={form.marriageDate}
-                      onChange={e => updateField('marriageDate', e.target.value)}
+                      onChange={val => updateField('marriageDate', val)}
                     />
                   </div>
                 )}
@@ -902,22 +954,32 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                   <Button variant="outline" className="min-w-0 flex-1 gap-1.5 px-3" onClick={() => setStep(2)}>
                     <ArrowLeft className="w-4 h-4" /> Back
                   </Button>
-                  <Button
-                    className="min-w-0 flex-1 gap-1.5 px-3"
-                    disabled={!canProceedStep3}
-                    onClick={() => {
-                      setError('');
-                      setStep(4);
-                    }}
-                  >
-                    Continue <ArrowRight className="w-4 h-4" />
-                  </Button>
+                  {hasPreVerified ? (
+                    <Button
+                      className="min-w-0 flex-1 gap-1.5 px-3"
+                      disabled={!canProceedStep3}
+                      onClick={handlePreVerifiedSubmit}
+                    >
+                      Register <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  ) : (
+                    <Button
+                      className="min-w-0 flex-1 gap-1.5 px-3"
+                      disabled={!canProceedStep3}
+                      onClick={() => {
+                        setError('');
+                        setStep(4);
+                      }}
+                    >
+                      Continue <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
               </>
             )}
 
-            {/* Step 4: Profile card preview + final verify */}
-            {step === 4 && (
+            {/* Step 4: Profile card preview + final verify (only when not pre-verified) */}
+            {step === 4 && !hasPreVerified && (
               <>
                 <div className="flex flex-col items-center gap-4 py-2">
                   <p className="text-sm text-muted-foreground text-center">
@@ -993,7 +1055,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                         {!isNative && (
                           <div
                             id="grace-google-register"
-                            className="pointer-events-none absolute inset-0 opacity-0"
+                            className="absolute inset-0 z-10 opacity-[0.001] cursor-pointer overflow-hidden flex items-center justify-center [&_iframe]:!w-full [&_iframe]:!h-full [&_iframe]:!scale-150"
                             aria-hidden
                           >
                             <GoogleLogin
@@ -1004,7 +1066,7 @@ export function RegistrationForm({ lockedCampusId }: RegistrationFormProps) {
                               size="large"
                               shape="pill"
                               text="signup_with"
-                              width="400"
+                              width="250"
                             />
                           </div>
                         )}

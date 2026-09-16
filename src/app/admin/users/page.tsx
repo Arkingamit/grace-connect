@@ -62,6 +62,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getStoredAvatar } from '@/lib/avatar-storage';
 import { getMaxBirthdayDate, isFutureBirthday } from '@/lib/date-utils';
+import { DateInput } from '@/components/ui/date-input';
 
 const roleColors: Record<UserRole, string> = {
   member: 'bg-[#F3EAE1] text-[#7A6150]',
@@ -750,7 +751,15 @@ export default function UsersPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[#3A2D27] font-semibold">Birthday</Label>
-                      <Input className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60" type="date" max={getMaxBirthdayDate()} value={form.birthday} onChange={(e) => setForm({ ...form, birthday: e.target.value })} />
+                      <DateInput
+                        className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60"
+                        max={getMaxBirthdayDate()}
+                        value={form.birthday}
+                        onChange={(val) => setForm({ ...form, birthday: val })}
+                      />
+                      {form.birthday && isFutureBirthday(form.birthday) && (
+                        <p className="text-xs text-destructive">Birthday cannot be in the future.</p>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -767,7 +776,11 @@ export default function UsersPage() {
                     {form.maritalStatus === 'married' && (
                       <div className="space-y-2">
                         <Label className="text-[#3A2D27] font-semibold">Marriage Date</Label>
-                        <Input className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60" type="date" value={form.marriageDate} onChange={(e) => setForm({ ...form, marriageDate: e.target.value })} />
+                        <DateInput
+                          className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60"
+                          value={form.marriageDate}
+                          onChange={(val) => setForm({ ...form, marriageDate: val })}
+                        />
                       </div>
                     )}
                   </div>

@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { AvatarUploader } from '@/components/ui/avatar-uploader';
 import { fileToDataUrl, setStoredAvatar } from '@/lib/avatar-storage';
 import { getMaxBirthdayDate, isFutureBirthday } from '@/lib/date-utils';
+import { DateInput } from '@/components/ui/date-input';
 
 interface AddFamilyMemberDialogProps {
   open: boolean;
@@ -263,12 +264,11 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
                 </div>
                 <div className="space-y-2">
                   <Label>Birthday *</Label>
-                  <Input
-                    type="date"
+                  <DateInput
                     required
                     max={getMaxBirthdayDate()}
                     value={birthday}
-                    onChange={(e) => setBirthday(e.target.value)}
+                    onChange={setBirthday}
                     className="rounded-xl"
                   />
                   {birthday && isFutureBirthday(birthday) && (
@@ -380,10 +380,9 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
               {maritalStatus === 'married' && (
                 <div className="space-y-2 animate-in slide-in-from-top-2">
                   <Label>Date of Marriage</Label>
-                  <Input
-                    type="date"
+                  <DateInput
                     value={marriageDate}
-                    onChange={(e) => setMarriageDate(e.target.value)}
+                    onChange={setMarriageDate}
                     className="rounded-xl"
                   />
                 </div>

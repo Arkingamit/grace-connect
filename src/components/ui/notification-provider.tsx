@@ -70,6 +70,22 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const swRegistered = useRef(false);
 
+  // Helper: show a toast from a push payload (reused by foreground handler)
+  const showPushToast = useCallback((data: { title?: string; body?: string; message?: string; type?: string }) => {
+    const id = `push-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const toast: NotificationToast = {
+      id,
+      title: data.title || 'Grace Connect',
+      message: data.body || data.message || '',
+      type: data.type || 'system',
+      createdAt: new Date().toISOString(),
+    };
+    setToasts((prev) => [toast, ...prev].slice(0, 5));
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
   const registerPush = useCallback(async (userInitiated = false) => {
     if (swRegistered.current) return;
     if (typeof window === 'undefined') return;
@@ -80,7 +96,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         let permStatus = await PushNotifications.checkPermissions();
         
         if (permStatus.receive === 'prompt' && !userInitiated) {
-          setShowPermissionPrompt(true);
+          // Don't re-show if user previously dismissed
+          const dismissed = typeof localStorage !== 'undefined' && localStorage.getItem('push-prompt-dismissed');
+          if (!dismissed) {
+            setShowPermissionPrompt(true);
+          }
           return;
         }
 
@@ -119,6 +139,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           }
         });
 
+        // Foreground handler: show an in-app toast immediately when a push
+        // arrives while the app is open (instead of waiting for the 30s poll)
+        PushNotifications.addListener('pushNotificationReceived', (notification) => {
+          console.log('[Native Push] Foreground notification:', notification);
+          showPushToast({
+            title: notification.title || notification.data?.title,
+            body: notification.body || notification.data?.body || notification.data?.message,
+            type: notification.data?.type,
+          });
+        });
+
         swRegistered.current = true;
         return;
       }
@@ -144,7 +175,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       if (!subscription) {
         if (Notification.permission === 'default' && !userInitiated) {
-          setShowPermissionPrompt(true);
+          const dismissed = typeof localStorage !== 'undefined' && localStorage.getItem('push-prompt-dismissed');
+          if (!dismissed) {
+            setShowPermissionPrompt(true);
+          }
           return;
         }
 
@@ -264,7 +298,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             </div>
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <button
-                onClick={() => setShowPermissionPrompt(false)}
+                onClick={() => {
+                  setShowPermissionPrompt(false);
+                  try { localStorage.setItem('push-prompt-dismissed', 'true'); } catch {}
+                }}
                 className="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium text-[#7A6150] bg-[#FAF7F2] hover:bg-[#F2EAE0] transition-colors"
               >
                 Not Now

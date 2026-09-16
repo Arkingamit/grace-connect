@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner';
 import { setStoredAvatar, fileToDataUrl, resolveMemberAvatar } from '@/lib/avatar-storage';
 import { LogoutConfirmDialog } from '@/components/ui/logout-confirm-dialog';
+import { formatDDMMYYYY } from '@/lib/date-utils';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -281,7 +282,7 @@ export default function ProfilePage() {
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-medium text-muted-foreground">Birthday</span>
                 <span className="text-sm font-semibold text-[#1A202C] dark:text-foreground truncate">
-                  {new Date(member.birthday).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  {formatDDMMYYYY(member.birthday)}
                 </span>
               </div>
             </div>
@@ -304,7 +305,7 @@ export default function ProfilePage() {
             <div className="flex flex-col min-w-0">
               <span className="text-xs font-medium text-muted-foreground">Status</span>
               <span className="text-sm font-semibold text-[#1A202C] dark:text-foreground capitalize truncate">
-                {member.maritalStatus === 'married' ? `Married${member.marriageDate ? ` (${new Date(member.marriageDate).toLocaleDateString()})` : ''}` : 'Single'}
+                {member.maritalStatus === 'married' ? `Married${member.marriageDate ? ` (${formatDDMMYYYY(member.marriageDate)})` : ''}` : 'Single'}
               </span>
             </div>
           </div>

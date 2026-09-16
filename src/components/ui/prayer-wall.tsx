@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth-context';
 import { useAdminData } from "@/lib/admin-data-context";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatDDMMYYYY } from '@/lib/date-utils';
 
 interface PrayerRequest {
   id: string;
@@ -273,7 +274,7 @@ function PrayerWallWidgetLayout() {
                           <span>By {request.authorName || 'Anonymous'}</span>
                           <div className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            <span>{new Date(request.createdAt).toLocaleDateString()}</span>
+                            <span>{formatDDMMYYYY(request.createdAt)}</span>
                           </div>
                         </div>
                       </div>
@@ -514,7 +515,7 @@ function PrayerPageCard({ prayer, session }: { prayer: any, session: any }) {
     >
       <div className="flex justify-between items-start mb-2">
         <span className="text-[10px] font-bold text-[#8B2323] tracking-wider uppercase bg-[#FBE8E8] px-2 py-1 rounded-sm">
-          {new Date(prayer.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          {formatDDMMYYYY(prayer.createdAt || Date.now())}
         </span>
       </div>
       <p className="text-[#3A2D27] leading-relaxed mb-4 whitespace-pre-wrap">{prayer.content}</p>

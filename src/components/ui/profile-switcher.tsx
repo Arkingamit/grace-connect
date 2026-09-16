@@ -4,17 +4,10 @@ import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./dropdown-menu";
+import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "./avatar";
 import { AvatarGroup } from "./avatar-group";
-import { QrCode, UserPlus, LogOut, User } from "lucide-react";
+import { QrCode, UserPlus, LogOut, User, Shield } from "lucide-react";
 import { AddFamilyMemberDialog } from "./add-family-member-dialog";
 import { LogoutConfirmDialog } from "./logout-confirm-dialog";
 import { resolveMemberAvatar } from "@/lib/avatar-storage";
@@ -44,6 +37,7 @@ export function ProfileSwitcher({
   const router = useRouter();
   const { session, getSessionMember, linkedProfiles, logout } = useAuth();
   const activeMember = getSessionMember();
+  const [isOpen, setIsOpen] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -111,119 +105,153 @@ export function ProfileSwitcher({
     "campus_leader",
   ].includes(session.role?.toLowerCase() || "");
 
+  const closeMenu = () => setIsOpen(false);
+
+  const buttonClasses = cn(
+    "outline-none focus-visible:ring-2 focus-visible:ring-[#8B2323]/40 transition-colors",
+    variant === "pill"
+      ? "flex items-center gap-2 rounded-full border border-[#E5D5C5]/80 bg-[#FAF7F2] px-2 py-1.5 hover:bg-[#F3EAE1]"
+      : "rounded-full",
+    className,
+  );
+
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className={cn(
-              "outline-none focus-visible:ring-2 focus-visible:ring-[#8B2323]/40 transition-colors",
-              variant === "pill"
-                ? "flex items-center gap-2 rounded-full border border-[#E5D5C5]/80 bg-[#FAF7F2] px-2 py-1.5 hover:bg-[#F3EAE1]"
-                : "rounded-full",
-              className,
-            )}
-            aria-label="Open profile menu"
-          >
-            <Avatar
-              className={cn(
-                "border border-[#E5D5C5]/60 shadow-sm",
-                variant === "pill" ? "h-7 w-7" : "h-10 w-10",
-              )}
+      <div className="relative">
+        <div className={cn("invisible", buttonClasses)} aria-hidden="true">
+          <Avatar className={cn("border border-[#E5D5C5]/60 shadow-sm", variant === "pill" ? "h-7 w-7" : "h-10 w-10")}>
+            {activePhoto ? <AvatarImage src={activePhoto} alt={displayName} className="object-cover" /> : null}
+            <AvatarFallback className={cn("font-bold", variant === "pill" ? "bg-[#F3EAE1] text-[10px] text-[#1A202C]" : "bg-[#721515] text-xs text-white")}>
+              {getInitials(displayName) || "??"}
+            </AvatarFallback>
+          </Avatar>
+          {variant === "pill" && <span className="max-w-[88px] truncate pr-1 text-sm font-medium text-[#1A202C]">{firstName}</span>}
+        </div>
+
+        <AnimatePresence>
+          {!isOpen && (
+            <motion.button
+              key="button"
+              layoutId="profile-menu-container"
+              type="button"
+              onClick={() => setIsOpen(true)}
+              className={cn("absolute inset-0 m-0", buttonClasses)}
+              aria-label="Open profile menu"
             >
-              {activePhoto ? (
-                <AvatarImage src={activePhoto} alt={displayName} className="object-cover" />
-              ) : null}
-              <AvatarFallback
+              <motion.div layoutId="profile-avatar" className="shrink-0">
+                <Avatar className={cn("border border-[#E5D5C5]/60 shadow-sm", variant === "pill" ? "h-7 w-7" : "h-10 w-10")}>
+                  {activePhoto ? <AvatarImage src={activePhoto} alt={displayName} className="object-cover" /> : null}
+                  <AvatarFallback className={cn("font-bold", variant === "pill" ? "bg-[#F3EAE1] text-[10px] text-[#1A202C]" : "bg-[#721515] text-xs text-white")}>
+                    {getInitials(displayName) || "??"}
+                  </AvatarFallback>
+                </Avatar>
+              </motion.div>
+              {variant === "pill" && (
+                <motion.span layoutId="profile-name" className="max-w-[88px] truncate pr-1 text-sm font-medium text-[#1A202C]">
+                  {firstName}
+                </motion.span>
+              )}
+            </motion.button>
+          )}
+
+          {isOpen && (
+            <>
+              <motion.div
+                key="overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="fixed inset-0 z-40"
+                onClick={closeMenu}
+              />
+
+              <motion.div
+                key="menu"
+                layoutId="profile-menu-container"
                 className={cn(
-                  "font-bold",
-                  variant === "pill"
-                    ? "bg-[#F3EAE1] text-[10px] text-[#1A202C]"
-                    : "bg-[#721515] text-xs text-white",
+                  "absolute z-50 w-64 rounded-xl border border-[#E5D5C5] bg-white p-1.5 shadow-xl flex flex-col overflow-hidden",
+                  align === "end" ? "right-0" : align === "start" ? "left-0" : "left-1/2 -translate-x-1/2",
+                  "top-0"
                 )}
               >
-                {getInitials(displayName) || "??"}
-              </AvatarFallback>
-            </Avatar>
-            {variant === "pill" && (
-              <span className="max-w-[88px] truncate pr-1 text-sm font-medium text-[#1A202C]">
-                {firstName}
-              </span>
-            )}
-          </button>
-        </DropdownMenuTrigger>
+                <div className="flex items-center gap-3 px-2 py-2.5">
+                  <motion.div layoutId="profile-avatar" className="shrink-0">
+                    <Avatar className="h-10 w-10 border border-[#E5D5C5]/60 shadow-sm">
+                      {activePhoto ? <AvatarImage src={activePhoto} alt={displayName} className="object-cover" /> : null}
+                      <AvatarFallback className="font-bold bg-[#721515] text-xs text-white">
+                        {getInitials(displayName) || "??"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </motion.div>
+                  <div className="flex flex-col min-w-0">
+                    <motion.span layoutId="profile-name" className="truncate text-sm font-bold text-[#1A202C]">
+                      {displayName}
+                    </motion.span>
+                    <p className="truncate text-xs text-[#7A6150]">{session.email}</p>
+                  </div>
+                </div>
 
-        <DropdownMenuContent
-          align={align}
-          className="w-64 rounded-xl border-[#E5D5C5] bg-white p-1.5 shadow-xl"
-        >
-          <DropdownMenuLabel className="px-2.5 py-2 font-normal">
-            <p className="truncate text-xs text-[#7A6150]">{session.email}</p>
-          </DropdownMenuLabel>
+                <div className="h-px bg-[#E5D5C5]/60 my-1" />
 
-          <DropdownMenuSeparator className="bg-[#E5D5C5]/60" />
+                {hasActiveSession && (
+                  <Link href="/profile" onClick={closeMenu} className="flex w-full items-center gap-2 cursor-pointer rounded-lg px-2.5 py-2 text-sm font-semibold text-[#8B2323] hover:bg-black/5 outline-none">
+                    <QrCode className="h-4 w-4" /> My ePass
+                  </Link>
+                )}
 
-          {hasActiveSession && (
-            <DropdownMenuItem asChild className="cursor-pointer rounded-lg font-semibold text-[#8B2323]">
-              <Link href="/profile" className="flex w-full items-center gap-2">
-                <QrCode className="h-4 w-4" /> My ePass
-              </Link>
-            </DropdownMenuItem>
+                {isAdmin && (
+                  <Link href="/admin" onClick={closeMenu} className="flex w-full items-center gap-2 px-2.5 py-2 text-sm cursor-pointer rounded-lg text-[#1A202C] hover:bg-black/5 outline-none">
+                    <Shield className="h-4 w-4 text-[#7A6150]" /> Admin Panel
+                  </Link>
+                )}
+
+                <Link href="/profile" onClick={closeMenu} className="flex w-full items-center gap-2 px-2.5 py-2 text-sm cursor-pointer rounded-lg text-[#1A202C] hover:bg-black/5 outline-none">
+                  <User className="h-4 w-4 text-[#7A6150]" /> Profile
+                </Link>
+
+                <div className="h-px bg-[#E5D5C5]/60 my-1" />
+
+                <button
+                  onClick={() => { closeMenu(); router.push("/select-profile"); }}
+                  className="flex w-full items-center gap-3 px-2.5 py-2 text-sm cursor-pointer rounded-lg text-[#1A202C] hover:bg-black/5 outline-none"
+                >
+                  <AvatarGroup
+                    items={familyStackItems}
+                    max={4}
+                    size={28}
+                    showOverflowBadge
+                    className="pointer-events-none shrink-0"
+                  />
+                  <span className="font-medium">Switch Profile</span>
+                </button>
+
+                <button
+                  onClick={() => { closeMenu(); setIsAdding(true); }}
+                  className="flex w-full items-center gap-2 px-2.5 py-2 text-sm cursor-pointer rounded-lg text-[#1A202C] hover:bg-black/5 outline-none"
+                >
+                  <UserPlus className="h-4 w-4 text-[#7A6150]" />
+                  <span>Add Member</span>
+                </button>
+
+                <div className="h-px bg-[#E5D5C5]/60 my-1" />
+
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    closeMenu();
+                    setLogoutConfirmOpen(true);
+                  }}
+                  className="flex w-full items-center px-2.5 py-2 text-sm cursor-pointer rounded-lg font-medium text-[#8B2323] hover:bg-[#FBE8E8] focus-visible:bg-[#FBE8E8] outline-none"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </button>
+              </motion.div>
+            </>
           )}
-
-          {isAdmin && (
-            <DropdownMenuItem asChild className="cursor-pointer rounded-lg text-[#1A202C]">
-              <Link href="/admin" className="flex w-full items-center">
-                Admin Panel
-              </Link>
-            </DropdownMenuItem>
-          )}
-
-          <DropdownMenuItem asChild className="cursor-pointer rounded-lg text-[#1A202C]">
-            <Link href="/profile" className="flex w-full items-center gap-2">
-              <User className="h-4 w-4 text-[#7A6150]" /> Profile
-            </Link>
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator className="bg-[#E5D5C5]/60" />
-
-          <DropdownMenuItem
-            onClick={() => router.push("/select-profile")}
-            className="cursor-pointer gap-3 rounded-lg py-2.5 text-[#1A202C]"
-          >
-            <AvatarGroup
-              items={familyStackItems}
-              max={4}
-              size={28}
-              showOverflowBadge
-              className="pointer-events-none shrink-0"
-            />
-            <span className="text-sm font-medium">Switch Profile</span>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem
-            onClick={() => setIsAdding(true)}
-            className="cursor-pointer gap-2 rounded-lg text-[#1A202C]"
-          >
-            <UserPlus className="h-4 w-4 text-[#7A6150]" />
-            <span className="text-sm">Add Member</span>
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator className="bg-[#E5D5C5]/60" />
-
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              setLogoutConfirmOpen(true);
-            }}
-            className="cursor-pointer rounded-lg font-medium text-[#8B2323] focus:bg-[#FBE8E8] focus:text-[#8B2323]"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        </AnimatePresence>
+      </div>
 
       <AddFamilyMemberDialog open={isAdding} onOpenChange={setIsAdding} />
       <LogoutConfirmDialog

@@ -228,6 +228,10 @@ export default function EventsPage() {
       }
     }
     return matchesSearch;
+  }).sort((a, b) => {
+    const timeA = new Date(a.date + (a.time ? `T${a.time}` : 'T00:00:00')).getTime();
+    const timeB = new Date(b.date + (b.time ? `T${b.time}` : 'T00:00:00')).getTime();
+    return timeB - timeA;
   });
 
   const openCreate = () => {

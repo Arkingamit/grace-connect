@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAdminData } from '@/lib/admin-data-context';
@@ -13,6 +13,25 @@ export default function CampusRegisterPage() {
   const params = useParams();
   const campusId = params.campusId as string;
   const { campuses } = useAdminData();
+
+  // Read pre-verified credentials from sessionStorage (set by /login after OAuth)
+  const [preCredential, setPreCredential] = useState('');
+  const [preProvider, setPreProvider] = useState<'google' | 'apple'>('google');
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('grace-verified-credential');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.credential) {
+          setPreCredential(parsed.credential);
+          setPreProvider(parsed.provider || 'google');
+        }
+      }
+    } catch {
+      // private mode
+    }
+  }, []);
 
   const campus = campuses.find(c => c.id === campusId);
 
@@ -43,9 +62,9 @@ export default function CampusRegisterPage() {
                 Please try again or register manually.
               </p>
               <div className="flex flex-col gap-2">
-                <Link href="/register">
+                <Link href="/login">
                   <Button className="w-full gap-2">
-                    Register Manually <ArrowRight className="w-4 h-4" />
+                    Try Again <ArrowRight className="w-4 h-4" />
                   </Button>
                 </Link>
                 <Link href="/">
@@ -59,5 +78,11 @@ export default function CampusRegisterPage() {
     );
   }
 
-  return <RegistrationForm lockedCampusId={campusId} />;
+  return (
+    <RegistrationForm
+      lockedCampusId={campusId}
+      preVerifiedCredential={preCredential || undefined}
+      preVerifiedProvider={preCredential ? preProvider : undefined}
+    />
+  );
 }

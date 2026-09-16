@@ -106,7 +106,7 @@ export const Navigation = () => {
   );
 
   const signupButtonElement = (
-    <Link href="/register" className="w-full sm:w-auto">
+    <Link href="/login" className="w-full sm:w-auto">
       <Button variant="default" size="sm" className="w-full shadow-sm font-semibold">
         Signup
       </Button>
