@@ -7,6 +7,7 @@ import { registerSchema } from '@/lib/validations';
 import { getOAuthPicture } from '@/lib/oauth-picture';
 import { verifyAppleIdToken } from '@/lib/apple-auth';
 import { verifyGoogleIdToken } from '@/lib/google-auth';
+import { createSession } from '@/lib/auth-utils';
 
 export async function POST(req: Request) {
   try {
@@ -84,6 +85,15 @@ export async function POST(req: Request) {
       groups: [],
       qrCode: randomUUID(),
     });
+
+    await createSession(
+      String(newUser._id),
+      email,
+      `${firstName} ${lastName}`,
+      'member',
+      [],
+      'pending',
+    );
 
     return NextResponse.json({
       success: true,

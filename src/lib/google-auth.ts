@@ -25,10 +25,37 @@ export const GOOGLE_CLIENT_IDS = (
 // Module-level singleton — reuses cached Google public keys across requests
 const googleClient = new OAuth2Client(GOOGLE_WEB_CLIENT_ID);
 
-export async function verifyGoogleIdToken(idToken: string): Promise<TokenPayload | undefined> {
-  const ticket = await googleClient.verifyIdToken({
-    idToken,
-    audience: GOOGLE_CLIENT_IDS,
-  });
-  return ticket.getPayload() ?? undefined;
+function audienceAllowed(value: unknown): boolean {
+  const values = (Array.isArray(value) ? value : [value])
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+  return values.some((item) => GOOGLE_CLIENT_IDS.includes(item));
+}
+
+/**
+ * Accepts Google ID tokens (native / GIS button) and access tokens from the
+ * web OAuth popup used by the custom Continue with Google button.
+ */
+export async function verifyGoogleIdToken(credential: string): Promise<TokenPayload | undefined> {
+  if (credential.split('.').length === 3) {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: GOOGLE_CLIENT_IDS,
+    });
+    return ticket.getPayload() ?? undefined;
+  }
+
+  const info = await googleClient.getTokenInfo(credential);
+  if (!info.email || (!audienceAllowed(info.aud) && !audienceAllowed(info.azp))) {
+    return undefined;
+  }
+
+  return {
+    iss: info.iss || 'https://accounts.google.com',
+    aud: info.aud || info.azp || GOOGLE_WEB_CLIENT_ID,
+    sub: info.sub || '',
+    email: info.email,
+    email_verified: Boolean(info.email_verified),
+    exp: info.expiry_date ? Math.floor(info.expiry_date / 1000) : undefined,
+  } as TokenPayload;
 }

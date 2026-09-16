@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { ProfileSwitcher } from './profile-switcher';
-import { ViewRegistrationPassButton } from './registration-pass-dialog';
 
 const AnimatedNavLink = ({ href, children }: { href: string; children: React.ReactNode }) => {
   const defaultTextColor = 'text-muted-foreground';
@@ -143,7 +142,6 @@ export const Navigation = () => {
             <ProfileSwitcher variant="pill" />
           ) : (
             <>
-              <ViewRegistrationPassButton />
               {loginButtonElement}
               {signupButtonElement}
             </>
@@ -207,7 +205,6 @@ export const Navigation = () => {
             </div>
           ) : (
             <div className="flex flex-col gap-3 w-full">
-              <ViewRegistrationPassButton className="w-full" />
               {loginButtonElement}
               {signupButtonElement}
             </div>

@@ -28,8 +28,7 @@ import { SignInWithApple } from '@capacitor-community/apple-sign-in';
 import { signInWithGoogleNative, googleNativeSignInError } from '@/lib/grace-google-auth';
 import { startAppleBrowserFlow, waitForAppleFlow } from '@/lib/apple-browser-flow';
 import { appleWebStartHref } from '@/lib/apple-web-config';
-import { AnimatedTicket } from '@/components/ui/ticket-confirmation-card';
-import { RegistrationPassDialog } from '@/components/ui/registration-pass-dialog';
+import { PendingApprovalCard } from '@/components/ui/registration-pass-dialog';
 import { CelebrationRibbon } from '@/components/ui/celebration-ribbon';
 import {
   AuthCard,
@@ -77,8 +76,6 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
   const [error, setError] = useState('');
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
-  const [registrationPass, setRegistrationPass] = useState<RegistrationPass | null>(null);
-  const [passOpen, setPassOpen] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [isNative, setIsNative] = useState(false);
@@ -253,10 +250,8 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
         submittedAt: new Date().toISOString(),
       };
       saveRegistrationPass(pass);
-      setRegistrationPass(pass);
       setSubmitted(true);
       setShowCelebration(true);
-      setPassOpen(true);
     } else {
       setError(result.error || 'Registration failed');
     }
@@ -563,56 +558,12 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
         {/* Success Screen */}
         {submitted ? (
           <div className="space-y-4">
-            {registrationPass ? (
-              <div className="flex justify-center">
-                <AnimatedTicket
-                  ticketId={`GR-${registrationPass.userId.slice(-8).toUpperCase()}`}
-                  date={new Date(registrationPass.submittedAt)}
-                  cardHolder={`${registrationPass.firstName} ${registrationPass.middleName ? `${registrationPass.middleName} ` : ''}${registrationPass.lastName}`.replace(/\s+/g, ' ').trim()}
-                  barcodeValue={registrationPass.qrCode}
-                  campusName={registrationPass.campusName}
-                  phone={registrationPass.phone}
-                  whatsapp={registrationPass.whatsapp}
-                  gender={registrationPass.gender}
-                  birthday={registrationPass.birthday}
-                  maritalStatus={registrationPass.maritalStatus}
-                  email={registrationPass.email}
-                  celebrate={false}
-                />
-              </div>
-            ) : (
-              <Card className="border-border/50 shadow-elevated">
-                <CardContent className="p-8 text-center space-y-4">
-                  <h2 className="text-xl font-bold">Registration Submitted!</h2>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    Your registration is pending approval from your campus pastor.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+            <PendingApprovalCard />
             <div className="flex flex-col gap-2">
-              {registrationPass ? (
-                <Button
-                  type="button"
-                  className="w-full gap-2 bg-[#8B2323] hover:bg-[#721515] text-white"
-                  onClick={() => setPassOpen(true)}
-                >
-                  <QrIcon className="w-4 h-4" />
-                  View confirmation card
-                </Button>
-              ) : null}
               <Link href="/" className="w-full">
                 <Button variant="outline" className="w-full">Back to Home</Button>
               </Link>
             </div>
-            {registrationPass ? (
-              <RegistrationPassDialog
-                pass={registrationPass}
-                open={passOpen}
-                onOpenChange={setPassOpen}
-                celebrate={false}
-              />
-            ) : null}
           </div>
         ) : (
           <>

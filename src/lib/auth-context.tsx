@@ -171,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const result = await res.json();
 
-      if (result.status === 'existing' && result.success) {
+      if ((result.status === 'existing' || result.status === 'pending') && result.success) {
         await fetchSession();
       }
 

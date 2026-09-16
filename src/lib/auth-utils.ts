@@ -53,9 +53,10 @@ export async function buildSessionCookie(
   name: string,
   role: string = 'member',
   permissions: string[] = [],
+  status: string = 'approved',
 ): Promise<SessionCookie> {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-  const session = await encrypt({ userId, email, name, role, permissions, expiresAt });
+  const session = await encrypt({ userId, email, name, role, permissions, status, expiresAt });
 
   return {
     name: 'session',
@@ -71,8 +72,15 @@ export async function buildSessionCookie(
 }
 
 /** Create a session cookie embedding userId, email, name, role AND permissions (avoids DB lookup on every request) */
-export async function createSession(userId: string, email: string, name: string, role: string = 'member', permissions: string[] = []) {
-  const cookie = await buildSessionCookie(userId, email, name, role, permissions);
+export async function createSession(
+  userId: string,
+  email: string,
+  name: string,
+  role: string = 'member',
+  permissions: string[] = [],
+  status: string = 'approved',
+) {
+  const cookie = await buildSessionCookie(userId, email, name, role, permissions, status);
   (await cookies()).set(cookie.name, cookie.value, cookie.options);
 }
 
@@ -86,7 +94,13 @@ export async function verifySession() {
   const session = await decrypt(cookie);
 
   if (!session?.userId) {
-    return { isAuth: false, userId: null, role: 'guest' as string, permissions: [] as string[] };
+    return {
+      isAuth: false,
+      userId: null,
+      role: 'guest' as string,
+      permissions: [] as string[],
+      status: null as string | null,
+    };
   }
 
   return {
@@ -94,5 +108,6 @@ export async function verifySession() {
     userId: session.userId as string,
     role: (session.role as string) || 'member',
     permissions: (session.permissions as string[]) || [],
+    status: (session.status as string) || 'approved',
   };
 }

@@ -76,11 +76,19 @@ export async function POST(req: Request) {
 
     // User exists — handle status
     if ((user as any).status === 'pending') {
+      const result = await signInVerifiedEmail(
+        email,
+        provider === 'apple' ? 'Apple' : 'Google',
+        { picture },
+      );
+      if (!result.ok) {
+        return NextResponse.json(
+          { status: 'error', error: result.error },
+          { status: result.status || 400 },
+        );
+      }
       return NextResponse.json(
-        {
-          status: 'pending',
-          error: 'Your registration is pending approval from your campus pastor.',
-        },
+        { status: 'pending', success: true },
         { status: 200 },
       );
     }

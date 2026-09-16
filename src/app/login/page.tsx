@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, type VerifyOrLoginResult } from "@/lib/auth-context";
 import { Capacitor } from "@capacitor/core";
-import { GoogleLogin } from "@react-oauth/google";
+import { useGoogleLogin } from "@react-oauth/google";
 import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import { signInWithGoogleNative, googleNativeSignInError } from "@/lib/grace-google-auth";
@@ -124,7 +124,7 @@ export default function LoginPage() {
           break;
 
         case "pending":
-          setError(result.error || "Your registration is pending approval from your campus pastor.");
+          router.push("/");
           break;
 
         case "rejected":
@@ -139,19 +139,49 @@ export default function LoginPage() {
     [router]
   );
 
-  /** Google web widget success */
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    setError("");
-    if (!credentialResponse.credential) {
-      setError("Google authentication failed. No credential received.");
-      return;
-    }
+  /** Google web popup success — access token is verified server-side */
+  const handleGoogleAccessToken = useCallback(
+    async (accessToken: string) => {
+      setError("");
+      if (!accessToken) {
+        setError("Google authentication failed. No credential received.");
+        return;
+      }
 
-    setVerifying(true);
-    setNotice("Verifying your account…");
-    const result = await verifyOrLogin(credentialResponse.credential, "google");
-    handleVerifyResult(result, credentialResponse.credential, "google");
+      setVerifying(true);
+      setNotice("Verifying your account…");
+
+      let picture: string | undefined;
+      try {
+        const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          if (typeof profile?.picture === "string") picture = profile.picture;
+        }
+      } catch {
+        // Avatar is optional
+      }
+
+      const result = await verifyOrLogin(accessToken, "google", picture);
+      handleVerifyResult(result, accessToken, "google", picture);
+    },
+    [handleVerifyResult, verifyOrLogin]
+  );
+
+  const handleGoogleError = () => {
+    setError("Google authentication failed. Please try again.");
   };
+
+  const startWebGoogleLogin = useGoogleLogin({
+    onSuccess: (tokenResponse) => {
+      void handleGoogleAccessToken(tokenResponse.access_token);
+    },
+    onError: handleGoogleError,
+    scope: "openid email profile",
+    prompt: "select_account",
+  });
 
   /** Native Google login (Android Credential Manager / iOS GoogleAuth) */
   const handleNativeGoogleLogin = async () => {
@@ -260,17 +290,12 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleError = () => {
-    setError("Google authentication failed. Please try again.");
-  };
-
   const handleContinue = () => {
     if (isNative) {
       void handleNativeGoogleLogin();
       return;
     }
-    const btn = document.querySelector("#grace-google-login div[role='button']") as HTMLElement | null;
-    if (btn) btn.click();
+    startWebGoogleLogin();
   };
 
   // ── Social login buttons ──
@@ -361,35 +386,15 @@ export default function LoginPage() {
               </>
             ) : (
               <>
-                {/* Google — custom button matches Apple; official GIS widget is an invisible overlay on web */}
-                <div className="relative w-full">
-                  {!isNative && (
-                    <div
-                      id="grace-google-login"
-                      className={`absolute inset-0 z-10 overflow-hidden opacity-[0.001] ${verifying ? "pointer-events-none" : ""} [&_iframe]:!h-full [&_iframe]:!w-full [&_iframe]:origin-center [&_iframe]:!scale-150`}
-                      aria-hidden
-                    >
-                      <GoogleLogin
-                        onSuccess={handleGoogleSuccess}
-                        onError={handleGoogleError}
-                        theme="outline"
-                        size="large"
-                        shape="pill"
-                        text="continue_with"
-                        width="400"
-                      />
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleContinue}
-                    disabled={verifying}
-                    className={`${authSocialBtnClass} disabled:opacity-60`}
-                  >
-                    {GoogleIcon}
-                    Continue with Google
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleContinue}
+                  disabled={verifying}
+                  className={`${authSocialBtnClass} disabled:opacity-60`}
+                >
+                  {GoogleIcon}
+                  Continue with Google
+                </button>
 
                 {/* Apple */}
                 {isNative ? (

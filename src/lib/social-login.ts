@@ -57,14 +57,6 @@ export async function signInVerifiedEmail(
     };
   }
 
-  if (user.status === 'pending') {
-    return {
-      ok: false,
-      status: 403,
-      error: 'Your registration is pending approval from your campus pastor',
-    };
-  }
-
   if (user.status === 'rejected') {
     return {
       ok: false,
@@ -84,10 +76,11 @@ export async function signInVerifiedEmail(
   const userId = (user as any)._id.toString();
 
   let sessionCookie: SessionCookie | undefined;
+  const memberStatus = (user as any).status || 'approved';
   if (returnCookie) {
-    sessionCookie = await buildSessionCookie(userId, user.email, displayName, user.role, permissions);
+    sessionCookie = await buildSessionCookie(userId, user.email, displayName, user.role, permissions, memberStatus);
   } else {
-    await createSession(userId, user.email, displayName, user.role, permissions);
+    await createSession(userId, user.email, displayName, user.role, permissions, memberStatus);
   }
 
   if (picture) {

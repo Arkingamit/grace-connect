@@ -13,6 +13,10 @@ export async function requireAuth() {
     return null;
   }
 
+  if (session.status === 'pending' || session.status === 'rejected') {
+    return null;
+  }
+
   return session;
 }
 
