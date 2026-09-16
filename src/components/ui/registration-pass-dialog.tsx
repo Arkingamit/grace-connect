@@ -71,8 +71,15 @@ export function RegistrationPassDialog({
         <DialogHeader className="sr-only">
           <DialogTitle>Registration confirmation</DialogTitle>
         </DialogHeader>
-        <div className="flex justify-center px-2 py-4">
+        <div className="flex flex-col items-center gap-3 px-2 py-4">
           <AnimatedTicket {...ticketFromPass(pass)} celebrate={celebrate} />
+          <Button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="w-full max-w-sm bg-[#8B2323] hover:bg-[#721515] text-white"
+          >
+            Close
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

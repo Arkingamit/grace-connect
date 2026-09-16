@@ -13,6 +13,7 @@ import { VersionGate } from "@/components/ui/version-gate";
 import { NotificationProvider } from "@/components/ui/notification-provider";
 import { NativeBackNavigation } from "@/components/ui/native-back-navigation";
 import { NavigationHistoryProvider } from "@/components/ui/navigation-history-provider";
+import { KeyboardInsets } from "@/components/ui/keyboard-insets";
 
 // QueryClient created OUTSIDE the component to prevent recreation on re-render
 const queryClient = new QueryClient({
@@ -49,6 +50,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
                 <Toaster />
                 <Sonner />
                 <NotificationProvider>
+                  <KeyboardInsets />
                   <Suspense fallback={null}>
                     <NavigationHistoryProvider>
                       <NativeBackNavigation />

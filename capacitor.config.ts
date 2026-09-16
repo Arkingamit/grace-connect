@@ -23,11 +23,10 @@ const config: CapacitorConfig = {
     backgroundColor: '#FAF7F2',
   },
   plugins: {
-    // iOS: leave WebView size alone (panels use visualViewport / keyboard inset).
-    // Android: resizeOnFullScreen shrinks the WebView with the IME. Combined with
-    // MainActivity adjustResize + decorFitsSystemWindows, this avoids overlay gaps.
+    // iOS ignores this (uses visualViewport). Android native resize shrinks the
+    // WebView with the IME so fixed dialogs stay above the keyboard.
     Keyboard: {
-      resize: 'none',
+      resize: 'native',
       resizeOnFullScreen: true,
     },
     GoogleAuth: {

@@ -155,7 +155,7 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
         if (!isOpen) resetForm();
       }}
     >
-      <DialogContent className="max-w-md rounded-[24px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md rounded-[24px]">
         <DialogHeader>
           <DialogTitle>Add Family Member</DialogTitle>
         </DialogHeader>
