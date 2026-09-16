@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from '@capacitor/cli';
+import { KeyboardResize } from '@capacitor/keyboard';
 
 const config: CapacitorConfig = {
   appId: 'com.graceconnect.app',
@@ -26,7 +27,7 @@ const config: CapacitorConfig = {
     // iOS ignores this (uses visualViewport). Android native resize shrinks the
     // WebView with the IME so fixed dialogs stay above the keyboard.
     Keyboard: {
-      resize: 'native',
+      resize: KeyboardResize.Native,
       resizeOnFullScreen: true,
     },
     GoogleAuth: {
