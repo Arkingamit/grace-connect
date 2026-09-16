@@ -51,7 +51,7 @@ export async function verifyGoogleIdToken(credential: string): Promise<TokenPayl
   }
 
   return {
-    iss: info.iss || 'https://accounts.google.com',
+    iss: 'https://accounts.google.com',
     aud: info.aud || info.azp || GOOGLE_WEB_CLIENT_ID,
     sub: info.sub || '',
     email: info.email,
