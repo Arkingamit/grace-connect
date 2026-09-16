@@ -84,8 +84,12 @@ function RevealSection({
 }
 
 export default function HomePage() {
-  const { session } = useAuth();
+  const { session, getSessionMember } = useAuth();
   const { isLoading } = useAdminData();
+  const sessionMember = getSessionMember();
+  const isApprovedMember = Boolean(
+    session && sessionMember?.status !== 'pending' && sessionMember?.status !== 'rejected'
+  );
   const [isNative, setIsNative] = useState(false);
 
   useEffect(() => {
@@ -111,7 +115,7 @@ export default function HomePage() {
       {/* Desktop Original View (Hidden on Mobile and in the native app) */}
       {!isNative && (
       <div className="hidden desktop:flex flex-col">
-        {session ? (
+        {isApprovedMember ? (
           <>
 
         {/* 1. Highlights (Hero) */}
@@ -214,7 +218,8 @@ export default function HomePage() {
           </RevealSection>
         </ParallaxSection>
 
-        {/* Restricted Community Features */}
+        {/* Restricted Community Features — guests only; pending members wait for approval */}
+        {!session && (
         <AuthGate 
           title="Community Features" 
           description="These features are exclusive to Grace Community members. Please sign in or register to access this content."
@@ -252,6 +257,7 @@ export default function HomePage() {
             </section>
           </div>
         </AuthGate>
+        )}
 
           </>
         )}

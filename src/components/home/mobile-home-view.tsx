@@ -431,6 +431,10 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
   const { session, getSessionMember, getEffectiveGroups, logout } = useAuth();
 
   const sessionMember = getSessionMember();
+  const isApprovedMember = Boolean(
+    session && sessionMember?.status !== 'pending' && sessionMember?.status !== 'rejected'
+  );
+  const isPendingMember = sessionMember?.status === 'pending' || sessionMember?.status === 'rejected';
   const effectiveGroups = sessionMember ? getEffectiveGroups(sessionMember) : [];
   const userGroups = effectiveGroups.length > 0 ? Array.from(new Set([...effectiveGroups])) : ['all'];
   const galleryAlbums = getVisibleGalleryAlbums('all', userGroups as string[]);
@@ -786,7 +790,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
           </div>
 
           {/* 3. Quick Actions */}
-          <div className="grid grid-cols-4 gap-2 px-1">
+          <div className={`grid gap-2 px-1 ${isPendingMember ? "grid-cols-2" : "grid-cols-4"}`}>
             <button onClick={async () => {
               if (Capacitor.isNativePlatform()) {
                 try {
@@ -829,12 +833,14 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
               </div>
               <span className="text-[10px] font-bold text-[#7A6150]">Check-In</span>
             </button>
+            {!isPendingMember && (
             <Link href="/prayer-wall" className="flex flex-col items-center gap-2">
               <div className="w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
                 <Heart className="w-6 h-6" />
               </div>
               <span className="text-[10px] font-bold text-[#7A6150]">Prayer</span>
             </Link>
+            )}
             <Link href="/music" className="flex flex-col items-center gap-2">
               <div className="w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
                 <Music className="w-6 h-6" />
@@ -842,12 +848,14 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
               <span className="text-[10px] font-bold text-[#7A6150]">Worship</span>
             </Link>
 
+            {!isPendingMember && (
             <Link href="/announcements" className="flex flex-col items-center gap-2">
               <div className="w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
                 <Megaphone className="w-6 h-6" />
               </div>
               <span className="text-[10px] font-bold text-[#7A6150] whitespace-nowrap">Announcements</span>
             </Link>
+            )}
           </div>
 
           {/* 4. Highlight Morphing Card Stack */}
@@ -859,7 +867,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
 
             // Guests: only Daily Verse + Welcome to Grace
             // Logged-in: Daily Verse + all admin-uploaded highlight cards
-            if (session && flipCardConfig.isActive) {
+            if (isApprovedMember && flipCardConfig.isActive) {
               flipItems.forEach((item, idx) => {
                 const tagMap: Record<string, string> = {
                   event: 'Event', announcement: 'News', sermon: 'Sermon',
@@ -907,7 +915,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
             );
           })()}
 
-          {session ? (
+          {isApprovedMember ? (
             <>
 
               {/* Note Share */}
@@ -1298,7 +1306,8 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
 
 
 
-              {/* Restricted Community Features */}
+              {/* Restricted Community Features — guests only; pending members wait for approval */}
+              {!session && (
               <div className="mt-8">
                 <AuthGate
                   title="Community Features"
@@ -1550,6 +1559,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                   </div>
                 </AuthGate>
               </div>
+              )}
 
 
             </>
