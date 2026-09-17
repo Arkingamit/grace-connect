@@ -17,6 +17,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { saveJsPdf } from '@/lib/save-image';
 import * as XLSX from 'xlsx';
+import { formatDDMMYYYY } from '@/lib/date-utils';
 
 const emptyForm = {
   title: '',
@@ -311,7 +312,7 @@ export default function AdminBroadcastsPage() {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-lg text-[#1A202C] truncate">{b.title}</h3>
                     <p className="text-xs text-[#7A6150] mt-0.5">
-                      By {b.createdByName || 'Unknown'} • {new Date(b.createdAt).toLocaleDateString()}
+                      By {b.createdByName || 'Unknown'} • {formatDDMMYYYY(b.createdAt)}
                     </p>
                   </div>
                   <div className="flex gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">

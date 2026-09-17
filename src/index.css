@@ -59,6 +59,9 @@
 
     --radius: 0.5rem; /* 8px base radius */
 
+    /* Keyboard inset — Android Capacitor keeps this at 0 (no double-subtract). */
+    --keyboard-height: 0px;
+
     /* Premium Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-glow)) 100%);
     --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%);
@@ -165,6 +168,7 @@
     background-image: var(--bg-pattern);
     background-repeat: repeat;
     background-size: 240px 240px;
+    background-attachment: fixed;
     
     /* Hide scrollbar for IE, Edge and Firefox */
     -ms-overflow-style: none;

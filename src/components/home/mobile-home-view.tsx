@@ -18,6 +18,10 @@ import { useAuth } from '@/lib/auth-context';
 import { GUEST_HIGHLIGHT_CARD } from '@/lib/hooks/use-system';
 import { contentToHighlightItems, mergeHighlightItems, isManualHighlightVisible } from '@/lib/highlight-utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { Component, ExpandableCard, ExpandableCardContent, ExpandableCardFooter, ExpandableCardHeader, ExpandableContent, ExpandableTrigger } from "@/components/ui/expandable";
 import { LiveStreamSection } from '@/components/ui/live-stream';
 import { CampusDetails } from '@/components/ui/campus-details';
 import { AnnouncementsSection } from '@/components/ui/announcements-section';
@@ -26,9 +30,10 @@ import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { AuthGate } from '@/components/ui/auth-gate';
 import { ProfileSwitcher } from '@/components/ui/profile-switcher';
-import { ViewRegistrationPassButton } from '@/components/ui/registration-pass-dialog';
+import { ViewRegistrationPassButton, PendingMemberEpass } from '@/components/ui/registration-pass-dialog';
 import { getMapsUrl } from '@/lib/maps';
 import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
+import { formatDDMMYYYY } from '@/lib/date-utils';
 
 const christianIcons = [
   // Cross
@@ -426,6 +431,9 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
   const { session, getSessionMember, getEffectiveGroups, logout } = useAuth();
 
   const sessionMember = getSessionMember();
+  const isApprovedMember = Boolean(
+    session && sessionMember?.status !== 'pending' && sessionMember?.status !== 'rejected'
+  );
   const effectiveGroups = sessionMember ? getEffectiveGroups(sessionMember) : [];
   const userGroups = effectiveGroups.length > 0 ? Array.from(new Set([...effectiveGroups])) : ['all'];
   const galleryAlbums = getVisibleGalleryAlbums('all', userGroups as string[]);
@@ -456,6 +464,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
       .catch(console.error);
   }, []);
 
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const [showSplash, setShowSplash] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -851,9 +860,9 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
               { type: 'verse', id: 'verse-card', data: verse, tag: 'Daily Verse' }
             ];
 
-            // Guests: only Daily Verse + Welcome to Grace
-            // Logged-in: Daily Verse + all admin-uploaded highlight cards
-            if (session && flipCardConfig.isActive) {
+            // Approved: Daily Verse + all admin-uploaded highlight cards
+            // Guests and pending members: Daily Verse + Welcome to Grace
+            if (isApprovedMember && flipCardConfig.isActive) {
               flipItems.forEach((item, idx) => {
                 const tagMap: Record<string, string> = {
                   event: 'Event', announcement: 'News', sermon: 'Sermon',
@@ -866,7 +875,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                   tag: tagMap[item.type] || 'Highlight'
                 });
               });
-            } else if (!session) {
+            } else if (!isApprovedMember) {
               allCards.push({
                 type: 'admin',
                 id: GUEST_HIGHLIGHT_CARD.id,
@@ -901,7 +910,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
             );
           })()}
 
-          {session ? (
+          {isApprovedMember ? (
             <>
 
               {/* Note Share */}
@@ -990,82 +999,106 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                   {upcomingEvents.map(event => {
                     const eventDate = new Date(event.date);
                     return (
-                      <Link href={`/events`} key={event.id} className="min-w-[260px] max-w-[280px] bg-white rounded-3xl p-4 flex gap-4 shadow-sm snap-start border border-border/50">
-                        <div className="flex flex-col items-center gap-2 shrink-0">
-                          <div className="w-16 h-16 rounded-2xl bg-[#FFF5F5] flex flex-col items-center justify-center border border-red-50">
-                            <span className="text-xl font-bold text-[#8B2323] leading-none">{eventDate.getDate()}</span>
-                            <span className="text-xs font-bold text-[#8B2323] mt-1">{eventDate.toLocaleDateString('en-US', { month: 'short' })}</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col justify-center">
-                          <h4 className="font-bold text-[#1A202C] leading-tight mb-2 line-clamp-1">{event.title}</h4>
-                          <div className="space-y-1">
-                            <div className="flex items-center text-xs text-[#7A6150] font-medium">
-                              <Clock className="w-3 h-3 mr-1.5" />
-                              {event.time}
-                            </div>
-                            <div className="flex items-center text-xs text-[#7A6150] font-medium min-w-0">
-                              <MapPin className="w-3 h-3 mr-1.5 shrink-0" />
-                              {(() => {
-                                const mapsHref = getMapsUrl({
-                                  mapUrl: event.mapUrl,
-                                  location: event.location || 'Grace Community',
-                                  latitude: event.attendanceConfig?.latitude,
-                                  longitude: event.attendanceConfig?.longitude,
-                                });
-                                const label = event.location || 'Grace Community';
-                                return mapsHref ? (
-                                  <div
-                                    className="inline-flex min-w-0 flex-1 -space-x-px rounded-lg shadow-sm shadow-black/5"
-                                    onClick={(e) => e.preventDefault()}
-                                  >
-                                    <Button
-                                      asChild
-                                      variant="outline"
-                                      className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 px-2 text-[11px] font-medium text-[#1A202C] border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1]"
-                                    >
-                                      <a
-                                        href={mapsHref}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          window.open(mapsHref, '_blank');
-                                        }}
-                                      >
-                                        <span className="truncate">{label}</span>
-                                      </a>
-                                    </Button>
-                                    <Button
-                                      asChild
-                                      variant="outline"
-                                      size="icon"
-                                      className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 w-7 shrink-0 border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1] p-0 [&_img]:!size-4"
-                                      aria-label="Open directions in Maps"
-                                    >
-                                      <a
-                                        href={mapsHref}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          window.open(mapsHref, '_blank');
-                                        }}
-                                      >
-                                        <MapsPinIcon className="w-[16px] h-[16px]" />
-                                      </a>
-                                    </Button>
+                      <Component
+                        key={event.id}
+                        expanded={expandedEventId === event.id}
+                        onToggle={() => setExpandedEventId(prev => prev === event.id ? null : event.id)}
+                        expandDirection="both"
+                        expandBehavior="replace"
+                        initialDelay={0}
+                        className="min-w-[280px] w-[280px] snap-start"
+                      >
+                        {({ isExpanded }) => (
+                          <ExpandableTrigger>
+                            <ExpandableCard
+                              className="w-full relative rounded-3xl shadow-sm border transition-colors bg-[#FAF7F2] border-[#E5D5C5]/40"
+                              collapsedSize={{ width: 280, height: 96 }}
+                              expandedSize={{ width: 280, height: 200 }}
+                              hoverToExpand={false}
+                            >
+                              <ExpandableCardHeader className={cn("p-4", isExpanded ? "pb-2" : "pb-4")}>
+                                <motion.div layout className={cn("flex", isExpanded ? "flex-col" : "gap-4")}>
+                                  {!isExpanded && (
+                                    <motion.div layoutId={`date-wrapper-${event.id}`} className="flex flex-col items-center gap-2 shrink-0">
+                                      <div className="w-16 h-16 rounded-2xl bg-[#FFF5F5] flex flex-col items-center justify-center border border-red-50">
+                                        <motion.span layoutId={`date-num-${event.id}`} className="text-xl font-bold text-[#8B2323] leading-none">{eventDate.getDate()}</motion.span>
+                                        <motion.span layoutId={`date-month-${event.id}`} className="text-xs font-bold text-[#8B2323] mt-1">{eventDate.toLocaleDateString('en-US', { month: 'short' })}</motion.span>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                  {isExpanded && (
+                                    <motion.div layoutId={`date-wrapper-${event.id}`} className="mb-2">
+                                      <p className="flex items-baseline gap-1 text-[#8B2323]">
+                                        <motion.span layoutId={`date-num-${event.id}`} className="text-xl font-bold leading-none">{eventDate.getDate()}</motion.span>
+                                        <motion.span layoutId={`date-month-${event.id}`} className="text-xs font-bold">{eventDate.toLocaleDateString('en-US', { month: 'short' })}</motion.span>
+                                      </p>
+                                    </motion.div>
+                                  )}
+                                  <motion.div layoutId={`title-container-${event.id}`} className={cn("flex flex-col justify-center", isExpanded ? "w-full" : "flex-1")}>
+                                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                                      <motion.h4 layoutId={`title-${event.id}`} className={cn("font-bold text-[#1A202C] leading-snug", isExpanded ? "text-sm" : "line-clamp-1 mb-2")}>{event.title}</motion.h4>
+                                    </div>
+
+                                    <motion.div layout className="space-y-1.5 text-xs text-[#7A6150]">
+                                      <motion.div layoutId={`time-${event.id}`} className={cn("flex items-center", isExpanded ? "gap-1.5 font-medium" : "text-xs text-[#7A6150] font-medium")}>
+                                        <Clock className={cn(isExpanded ? "w-3.5 h-3.5 shrink-0 text-[#8B2323]/70" : "w-3 h-3 mr-1.5")} />
+                                        <span>
+                                          {event.time}
+                                          {event.endTime ? ` – ${event.endTime}` : ''}
+                                        </span>
+                                      </motion.div>
+                                    </motion.div>
+                                  </motion.div>
+                                </motion.div>
+                              </ExpandableCardHeader>
+                              <ExpandableContent preset="fade">
+                                <ExpandableCardContent className="p-4 pt-0">
+                                  <div className="mt-2">
+                                    {(() => {
+                                      const label = event.location || 'Grace Community';
+                                      const mapsHref = getMapsUrl({
+                                        mapUrl: event.mapUrl,
+                                        latitude: event.attendanceConfig?.latitude,
+                                        longitude: event.attendanceConfig?.longitude,
+                                      });
+                                      if (!mapsHref) {
+                                        return (
+                                          <div className="flex items-center gap-1.5 text-[#7A6150]">
+                                            <MapPin className="w-3.5 h-3.5 shrink-0" />
+                                            <span className="line-clamp-1 text-xs font-medium">{label}</span>
+                                          </div>
+                                        );
+                                      }
+                                      return (
+                                        <div className="inline-flex min-w-0 max-w-full -space-x-px rounded-lg shadow-sm shadow-black/5" onClick={(e) => e.stopPropagation()}>
+                                          <Button asChild variant="outline" className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 px-2 text-[11px] font-medium text-[#1A202C] border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1]">
+                                            <a href={mapsHref} target="_blank" rel="noopener noreferrer">
+                                              <span className="truncate">{label}</span>
+                                            </a>
+                                          </Button>
+                                          <Button asChild variant="outline" size="icon" className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 w-7 shrink-0 border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1] p-0 [&_img]:!size-4">
+                                            <a href={mapsHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center">
+                                              <MapsPinIcon className="w-4 h-4" />
+                                            </a>
+                                          </Button>
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
-                                ) : (
-                                  <span className="line-clamp-1">{label}</span>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        </div>
-                      </Link>
+                                </ExpandableCardContent>
+                                <ExpandableCardFooter className="p-4 pt-2.5 border-t border-[#E5D5C5]/40 justify-between items-center mt-2">
+                                  <span className="text-[10px] uppercase tracking-wider font-bold text-[#8B2323]/90">
+                                    Open Registration
+                                  </span>
+                                  <Link href={`/events/${event.id}`} className="h-7 flex items-center justify-center text-[11px] rounded-xl px-2.5 bg-[#8B2323] hover:bg-[#721515] text-white font-medium" onClick={(e) => e.stopPropagation()}>
+                                    RSVP <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                                  </Link>
+                                </ExpandableCardFooter>
+                              </ExpandableContent>
+                            </ExpandableCard>
+                          </ExpandableTrigger>
+                        )}
+                      </Component>
                     );
                   })}
                 </div>
@@ -1264,11 +1297,13 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                 </div>
               </div>
 
+              {sessionMember?.status === 'pending' && (
+                <div className="mt-8 pb-4">
+                  <PendingMemberEpass />
+                </div>
+              )}
 
-
-
-
-              {/* Restricted Community Features */}
+              {/* Restricted Community Features — same lock for guests and pending members */}
               <div className="mt-8">
                 <AuthGate
                   title="Community Features"
@@ -1302,82 +1337,109 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                         {upcomingEvents.map(event => {
                           const eventDate = new Date(event.date);
                           return (
-                            <Link href={`/events`} key={event.id} className="min-w-[260px] max-w-[280px] bg-white rounded-3xl p-4 flex gap-4 shadow-sm snap-start border border-border/50">
-                              <div className="flex flex-col items-center gap-2 shrink-0">
-                                <div className="w-16 h-16 rounded-2xl bg-[#FFF5F5] flex flex-col items-center justify-center border border-red-50">
-                                  <span className="text-xl font-bold text-[#8B2323] leading-none">{eventDate.getDate()}</span>
-                                  <span className="text-xs font-bold text-[#8B2323] mt-1">{eventDate.toLocaleDateString('en-US', { month: 'short' })}</span>
-                                </div>
-                              </div>
-                              <div className="flex flex-col justify-center">
-                                <h4 className="font-bold text-[#1A202C] leading-tight mb-2 line-clamp-1">{event.title}</h4>
-                                <div className="space-y-1">
-                                  <div className="flex items-center text-xs text-[#7A6150] font-medium">
-                                    <Clock className="w-3 h-3 mr-1.5" />
-                                    {event.time}
-                                  </div>
-                                  <div className="flex items-center text-xs text-[#7A6150] font-medium min-w-0">
-                                    <MapPin className="w-3 h-3 mr-1.5 shrink-0" />
-                                    {(() => {
-                                      const mapsHref = getMapsUrl({
-                                        mapUrl: event.mapUrl,
-                                        location: event.location || 'Grace Community',
-                                        latitude: event.attendanceConfig?.latitude,
-                                        longitude: event.attendanceConfig?.longitude,
-                                      });
-                                      const label = event.location || 'Grace Community';
-                                      return mapsHref ? (
-                                        <div
-                                          className="inline-flex min-w-0 flex-1 -space-x-px rounded-lg shadow-sm shadow-black/5"
-                                          onClick={(e) => e.preventDefault()}
-                                        >
-                                          <Button
-                                            asChild
-                                            variant="outline"
-                                            className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 px-2 text-[11px] font-medium text-[#1A202C] border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1]"
-                                          >
-                                            <a
-                                              href={mapsHref}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                window.open(mapsHref, '_blank');
-                                              }}
-                                            >
-                                              <span className="truncate">{label}</span>
-                                            </a>
-                                          </Button>
-                                          <Button
-                                            asChild
-                                            variant="outline"
-                                            size="icon"
-                                            className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 w-7 shrink-0 border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1] p-0 [&_img]:!size-4"
-                                            aria-label="Open directions in Maps"
-                                          >
-                                            <a
-                                              href={mapsHref}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                window.open(mapsHref, '_blank');
-                                              }}
-                                            >
-                                              <MapsPinIcon className="w-[16px] h-[16px]" />
-                                            </a>
-                                          </Button>
+                            <Component
+                              key={event.id}
+                              expandDirection="both"
+                              expandBehavior="replace"
+                              initialDelay={0}
+                              className="min-w-[280px] w-[280px] snap-start"
+                            >
+                              {({ isExpanded }) => (
+                                <ExpandableTrigger>
+                                  <ExpandableCard
+                                    className="w-full relative rounded-3xl shadow-sm border transition-colors bg-[#FAF7F2] border-[#E5D5C5]/40"
+                                    collapsedSize={{ width: 280, height: 96 }}
+                                    expandedSize={{ width: 280, height: 235 }}
+                                    hoverToExpand={false}
+                                  >
+                                    <ExpandableCardHeader className={cn("p-4", isExpanded ? "pb-2" : "pb-4")}>
+                                      <div className={cn("flex", isExpanded ? "flex-col" : "gap-4")}>
+                                        {!isExpanded && (
+                                          <motion.div layoutId={`date-block-${event.id}`} className="flex flex-col items-center gap-2 shrink-0">
+                                            <div className="w-16 h-16 rounded-2xl bg-[#FFF5F5] flex flex-col items-center justify-center border border-red-50">
+                                              <span className="text-xl font-bold text-[#8B2323] leading-none">{eventDate.getDate()}</span>
+                                              <span className="text-xs font-bold text-[#8B2323] mt-1">{eventDate.toLocaleDateString('en-US', { month: 'short' })}</span>
+                                            </div>
+                                          </motion.div>
+                                        )}
+                                        {isExpanded && (
+                                          <motion.div layoutId={`date-text-${event.id}`} className="mb-1">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#8B2323]/80">
+                                              {eventDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                            </p>
+                                          </motion.div>
+                                        )}
+                                        <motion.div layoutId={`title-container-${event.id}`} className={cn("flex flex-col justify-center", isExpanded ? "w-full" : "flex-1")}>
+                                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                                            <h4 className={cn("font-bold text-[#1A202C] leading-snug", isExpanded ? "text-sm" : "line-clamp-1 mb-2")}>{event.title}</h4>
+                                            {isExpanded && (
+                                              <Badge variant="outline" className="shrink-0 text-[9px] px-2 py-0 font-semibold border border-[#E5D5C5]/60 bg-[#FFF5F5] text-[#8B2323]">
+                                                Upcoming
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          {isExpanded && event.category && (
+                                            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                                              <Badge variant="outline" className="bg-[#FFF5F5] text-[#8B2323] border-[#8B2323]/30 text-[9px] px-1.5 py-0">
+                                                {event.category}
+                                              </Badge>
+                                            </div>
+                                          )}
+                                          <div className="space-y-1.5 text-xs text-[#7A6150]">
+                                            <div className={cn("flex items-center", isExpanded ? "gap-1.5 font-medium" : "text-xs text-[#7A6150] font-medium")}>
+                                              <Clock className={cn(isExpanded ? "w-3.5 h-3.5 shrink-0 text-[#8B2323]/70" : "w-3 h-3 mr-1.5")} />
+                                              <span>
+                                                {event.time}
+                                                {isExpanded && event.endTime ? ` – ${event.endTime}` : ''}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </motion.div>
+                                      </div>
+                                    </ExpandableCardHeader>
+                                    <ExpandableContent preset="fade">
+                                      <ExpandableCardContent className="p-4 pt-0">
+                                        <div className="mt-2">
+                                          {(() => {
+                                            const label = event.location || 'Grace Community';
+                                            const mapsHref = getMapsUrl({
+                                              mapUrl: event.mapUrl,
+                                              latitude: event.attendanceConfig?.latitude,
+                                              longitude: event.attendanceConfig?.longitude,
+                                            });
+                                            if (!mapsHref) {
+                                              return <span className="line-clamp-1 text-xs font-medium text-[#7A6150]">{label}</span>;
+                                            }
+                                            return (
+                                              <div className="inline-flex min-w-0 max-w-full -space-x-px rounded-lg shadow-sm shadow-black/5" onClick={(e) => e.stopPropagation()}>
+                                                <Button asChild variant="outline" className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 px-2 text-[11px] font-medium text-[#1A202C] border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1]">
+                                                  <a href={mapsHref} target="_blank" rel="noopener noreferrer">
+                                                    <span className="truncate">{label}</span>
+                                                  </a>
+                                                </Button>
+                                                <Button asChild variant="outline" size="icon" className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 w-7 shrink-0 border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1] p-0 [&_img]:!size-4">
+                                                  <a href={mapsHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center">
+                                                    <MapsPinIcon className="w-4 h-4" />
+                                                  </a>
+                                                </Button>
+                                              </div>
+                                            );
+                                          })()}
                                         </div>
-                                      ) : (
-                                        <span className="line-clamp-1">{label}</span>
-                                      );
-                                    })()}
-                                  </div>
-                                </div>
-                              </div>
-                            </Link>
+                                      </ExpandableCardContent>
+                                      <ExpandableCardFooter className="p-4 pt-2.5 border-t border-[#E5D5C5]/40 justify-between items-center mt-2">
+                                        <span className="text-[10px] font-medium text-[#16a34a]">
+                                          Open Registration
+                                        </span>
+                                        <Link href={`/events/${event.id}`} className="h-8 flex items-center justify-center text-xs rounded-xl px-4 bg-[#8B2323] hover:bg-[#721515] text-white font-medium" onClick={(e) => e.stopPropagation()}>
+                                          RSVP <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                                        </Link>
+                                      </ExpandableCardFooter>
+                                    </ExpandableContent>
+                                  </ExpandableCard>
+                                </ExpandableTrigger>
+                              )}
+                            </Component>
                           );
                         })}
                       </div>
@@ -1541,7 +1603,7 @@ function PrayerCard({ prayer, session }: { prayer: any, session: any }) {
       <div className="flex justify-between items-start mb-2">
         <h4 className="font-bold text-[#1A202C] leading-tight">{prayer.title}</h4>
         <span className="text-[10px] text-[#7A6150] font-medium bg-[#F1E8DC] px-2 py-1 rounded-full whitespace-nowrap ml-2">
-          {new Date(prayer.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          {formatDDMMYYYY(prayer.createdAt || Date.now())}
         </span>
       </div>
       <p className="text-[#7A6150] text-sm line-clamp-2 mb-3">{prayer.content}</p>

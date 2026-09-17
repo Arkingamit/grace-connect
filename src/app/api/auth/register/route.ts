@@ -27,6 +27,7 @@ export async function POST(req: Request) {
         await connectToDatabase();
         const appleSession = await AppleAuthSession.findOneAndDelete({
           state: appleState,
+          intent: 'register',
           status: 'verified',
         });
         if (!appleSession?.identityToken || appleSession.expiresAt.getTime() < Date.now()) {
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
       whatsapp,
       familyMemberId,
       avatar: picture || '',
-      status: 'approved',
+      status: 'pending',
       role: 'member',
       groups: [],
       qrCode: randomUUID(),
@@ -88,9 +89,10 @@ export async function POST(req: Request) {
     await createSession(
       String(newUser._id),
       email,
-      newUser.name,
-      newUser.role,
-      Array.from(newUser.permissions || []).map(String),
+      `${firstName} ${lastName}`,
+      'member',
+      [],
+      'pending',
     );
 
     return NextResponse.json({
@@ -98,7 +100,7 @@ export async function POST(req: Request) {
       userId: String(newUser._id),
       qrCode: newUser.qrCode,
       email,
-      message: 'Registration complete.',
+      message: 'Registration submitted for approval.',
     }, { status: 201 });
   } catch (error: any) {
     console.error('Registration Error:', error);

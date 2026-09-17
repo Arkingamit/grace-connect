@@ -40,6 +40,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   viewportFit: "cover",
   themeColor: "#FAF7F2",
+  interactiveWidget: "resizes-content",
 };
 
 import { PublicLayoutWrapper } from "@/components/ui/public-layout-wrapper";

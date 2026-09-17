@@ -4,6 +4,7 @@ import Announcement from '@/models/Announcement';
 import EventModel from '@/models/Event';
 import Notification from '@/models/Notification';
 import { calculateNextOccurrence, isTodayMatchingSchedule } from '@/lib/recurrence';
+import { sendPushToTargeted } from '@/lib/push-utils';
 
 /**
  * POST /api/cron/recurring-announcements
@@ -268,6 +269,24 @@ export async function POST(req: Request) {
         ? EventModel.bulkWrite(eventBulkOps, { ordered: false })
         : Promise.resolve(),
     ]);
+
+    // ── Send push notifications for each created notification ─────────────
+    // Fire-and-forget: don't let a push failure block the cron response
+    if (notificationsToCreate.length > 0) {
+      const pushPromises = notificationsToCreate.map((n) =>
+        sendPushToTargeted(
+          {
+            title: n.title,
+            body: n.message,
+            type: n.type,
+            url: n.type === 'event_reminder' ? '/events' : '/notifications',
+          },
+          n.targetCampuses?.length ? n.targetCampuses : ['all'],
+          n.targetGroups?.length ? n.targetGroups : []
+        ).catch((err) => console.error('[cron-push] push failed:', err))
+      );
+      await Promise.allSettled(pushPromises);
+    }
 
     return NextResponse.json({
       success: true,

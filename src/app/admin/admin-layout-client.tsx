@@ -97,10 +97,17 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
     if (hasShownRoleToast.current || !currentUser.id || !canAccessAdmin(currentUser)) return;
     hasShownRoleToast.current = true;
     
-    toast({
+    const { dismiss } = toast({
       title: 'Welcome to Admin Panel',
       description: `You are logged in as: ${roleBadgeLabel}`,
+      duration: 2000,
     });
+
+    const timer = setTimeout(() => {
+      dismiss();
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, [currentUser.id, roleBadgeLabel, toast]);
 
   const isCampusLeader = currentUser.role === 'campus_leader';

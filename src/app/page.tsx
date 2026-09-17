@@ -17,6 +17,7 @@ import { AuthGate } from "@/components/ui/auth-gate";
 import { useAuth } from "@/lib/auth-context";
 import { useAdminData } from "@/lib/admin-data-context";
 import { NoteShareSection } from "@/components/ui/note-share-section";
+import { PendingMemberEpass } from "@/components/ui/registration-pass-dialog";
 import { MobileHomeSkeleton, DesktopHomeSkeleton } from "@/components/home/home-skeleton";
 
 // Wrapper for parallax background sections
@@ -84,8 +85,12 @@ function RevealSection({
 }
 
 export default function HomePage() {
-  const { session } = useAuth();
+  const { session, getSessionMember } = useAuth();
   const { isLoading } = useAdminData();
+  const sessionMember = getSessionMember();
+  const isApprovedMember = Boolean(
+    session && sessionMember?.status !== 'pending' && sessionMember?.status !== 'rejected'
+  );
   const [isNative, setIsNative] = useState(false);
 
   useEffect(() => {
@@ -111,7 +116,7 @@ export default function HomePage() {
       {/* Desktop Original View (Hidden on Mobile and in the native app) */}
       {!isNative && (
       <div className="hidden desktop:flex flex-col">
-        {session ? (
+        {isApprovedMember ? (
           <>
 
         {/* 1. Highlights (Hero) */}
@@ -214,7 +219,15 @@ export default function HomePage() {
           </RevealSection>
         </ParallaxSection>
 
-        {/* Restricted Community Features */}
+        {sessionMember?.status === "pending" && (
+          <section className="bg-transparent relative z-10 py-12 sm:py-16">
+            <div className="container mx-auto px-6">
+              <PendingMemberEpass />
+            </div>
+          </section>
+        )}
+
+        {/* Restricted Community Features — same lock for guests and pending members */}
         <AuthGate 
           title="Community Features" 
           description="These features are exclusive to Grace Community members. Please sign in or register to access this content."

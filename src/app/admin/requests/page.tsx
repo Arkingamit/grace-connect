@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { RejectMemberDialog } from '@/components/ui/reject-member-dialog';
 import { toast } from 'sonner';
+import { formatDDMMYYYY } from '@/lib/date-utils';
 
 function isLinkedPlaceholderEmail(email?: string) {
   return !!email && (email.startsWith('linked_') || email.endsWith('@family.internal'));
@@ -86,11 +87,7 @@ export default function RequestsPage() {
 
   const formatDate = (d?: string) => {
     if (!d) return '—';
-    const date = new Date(d);
-    if (Number.isNaN(date.getTime())) return '—';
-    return date.toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric',
-    });
+    return formatDDMMYYYY(d) || '—';
   };
 
   const getLinkedParent = (member: ChurchMember) => {

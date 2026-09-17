@@ -27,6 +27,7 @@ import {
   saveEventRegistrationPass,
   type EventRegistrationPass,
 } from '@/lib/event-registration-pass';
+import { formatDDMMYYYY } from '@/lib/date-utils';
 
 function EventLocationLink({
   location,
@@ -389,7 +390,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
           <DialogTitle>RSVP: {event.title}</DialogTitle>
         </DialogHeader>
         <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4 bg-muted/30 p-3 rounded-lg">
-          <div className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {new Date(event.date).toLocaleDateString()}</div>
+          <div className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {formatDDMMYYYY(event.date)}</div>
           <div className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {event.time}</div>
           <div className="flex items-center gap-1 min-w-0 flex-1">
             <EventLocationLink
@@ -973,11 +974,6 @@ function EventsPageLayout() {
         <div className="container mx-auto px-4 md:px-0">
           <div className="max-w-6xl mx-auto space-y-4">
             <div>
-              <Link href="/#events">
-                <Button variant="ghost" size="sm" className="mb-2 -ml-3 gap-2 text-muted-foreground hover:text-foreground">
-                  <ChevronLeft className="w-4 h-4" /> Back to Home
-                </Button>
-              </Link>
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2 border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none md:border-l-0 md:pl-0">
                 Grace Calendar
               </h1>

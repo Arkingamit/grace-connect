@@ -10,7 +10,7 @@ import {
   type Variants,
   type MotionValue,
 } from "framer-motion";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Heart, Anchor, Sun } from "lucide-react";
 
 /* ---------- Types ---------- */
 
@@ -45,6 +45,25 @@ function colorForId(id: string) {
     hash = (hash + id.charCodeAt(i) * 17) % AVATAR_COLORS.length;
   }
   return AVATAR_COLORS[hash];
+}
+
+const CHRISTIAN_ICONS = [
+  <svg key="cross" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-16 w-16 text-white/30"><path d="M12 3v18M8 8h8" /></svg>,
+  <svg key="dove" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-16 w-16 text-white/30"><path d="M15 4c-3 0-6 4-6 4S7 7 4 8c0 0 4 2 4 5 0 3-4 6-4 6s6-3 8-3c2 0 6 3 6 3 0-3-2-6-2-6s2-3 2-5c0-2-3-4-3-4z" /></svg>,
+  <svg key="crown" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-16 w-16 text-white/30"><path d="M2 20h20M4 20l2-10 4 5 2-8 2 8 4-5 2 10" /></svg>,
+  <svg key="bible" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-16 w-16 text-white/30"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>,
+  <svg key="fire" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-16 w-16 text-white/30"><path d="M12 22c5 0 9-4 9-9 0-4-3-6-5-9-1-1-2-2-4-2s-3 1-4 2c-2 3-5 5-5 9 0 5 4 9 9 9z M12 22v-6" /></svg>,
+  <Heart key="heart" className="h-16 w-16 text-white/30" strokeWidth={1.5} />,
+  <Anchor key="anchor" className="h-16 w-16 text-white/30" strokeWidth={1.5} />,
+  <Sun key="sun" className="h-16 w-16 text-white/30" strokeWidth={1.5} />,
+];
+
+function iconForId(id: string) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash + id.charCodeAt(i) * 31) % CHRISTIAN_ICONS.length;
+  }
+  return CHRISTIAN_ICONS[hash];
 }
 
 const DEFAULT_PROFILES: Profile[] = [
@@ -133,7 +152,7 @@ export default function ProfileSelect({
         </motion.h1>
 
         <motion.div
-          className="flex flex-wrap items-center justify-center gap-6 perspective-[1000px] sm:gap-8"
+          className="flex flex-wrap items-center justify-center gap-x-6 gap-y-14 perspective-[1000px] sm:gap-x-8 sm:gap-y-16"
           variants={{
             hidden: {},
             visible: {
@@ -277,12 +296,13 @@ function TiltCard({
           />
         ) : (
           <div
-            className={`absolute inset-0 bg-gradient-to-br ${colorForId(profile.id)} transition-transform duration-500 group-hover:scale-105 ${
+            className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${colorForId(profile.id)} transition-transform duration-500 group-hover:scale-105 ${
               isManaging ? "opacity-80" : ""
             }`}
-          />
+          >
+            {iconForId(profile.id)}
+          </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
         {isManaging && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/25">
             <span className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/90 bg-[#8B2323] text-white shadow-lg sm:h-14 sm:w-14">
@@ -314,12 +334,10 @@ function TiltCard({
       )}
 
       <div
-        style={{ transform: "translateZ(80px)" }}
-        className={`absolute inset-x-0 p-3 text-center ${
-          profile.image ? "bottom-0 pb-4" : "inset-0 flex items-center justify-center"
-        } ${!isManaging && profile.image ? "pr-12" : ""}`}
+        style={{ transform: "translateZ(30px)" }}
+        className="absolute top-full left-0 right-0 mt-3.5 px-2 text-center"
       >
-        <span className="text-base font-semibold leading-snug text-white drop-shadow-md sm:text-lg">
+        <span className="block truncate text-base font-semibold leading-snug text-[#1A202C] sm:text-lg">
           {profile.name}
         </span>
       </div>

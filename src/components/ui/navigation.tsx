@@ -98,8 +98,16 @@ export const Navigation = () => {
 
   const loginButtonElement = (
     <Link href="/login" className="w-full sm:w-auto">
-      <Button variant="default" size="sm" className="w-full shadow-sm font-semibold">
+      <Button variant="outline" size="sm" className="w-full font-medium">
         Sign In
+      </Button>
+    </Link>
+  );
+
+  const signupButtonElement = (
+    <Link href="/login" className="w-full sm:w-auto">
+      <Button variant="default" size="sm" className="w-full shadow-sm font-semibold">
+        Signup
       </Button>
     </Link>
   );
@@ -135,6 +143,7 @@ export const Navigation = () => {
           ) : (
             <>
               {loginButtonElement}
+              {signupButtonElement}
             </>
           )}
         </div>
@@ -197,6 +206,7 @@ export const Navigation = () => {
           ) : (
             <div className="flex flex-col gap-3 w-full">
               {loginButtonElement}
+              {signupButtonElement}
             </div>
           )}
         </div>

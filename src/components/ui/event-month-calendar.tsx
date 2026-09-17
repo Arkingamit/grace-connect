@@ -33,6 +33,89 @@ const categoryColors: Record<string, string> = {
   Fellowship: 'bg-muted text-muted-foreground',
 };
 
+export const EVENT_CATEGORY_COLORS: Record<string, { label: string; dotClass: string; hex: string }> = {
+  Worship: {
+    label: 'Worship',
+    dotClass: 'bg-amber-400',
+    hex: '#FBBF24',
+  },
+  Prayer: {
+    label: 'Prayer',
+    dotClass: 'bg-sky-400',
+    hex: '#38BDF8',
+  },
+  Youth: {
+    label: 'Youth',
+    dotClass: 'bg-emerald-400',
+    hex: '#34D399',
+  },
+  Study: {
+    label: 'Study',
+    dotClass: 'bg-purple-400',
+    hex: '#C084FC',
+  },
+  Outreach: {
+    label: 'Outreach',
+    dotClass: 'bg-rose-400',
+    hex: '#FB7185',
+  },
+  Fellowship: {
+    label: 'Fellowship',
+    dotClass: 'bg-teal-400',
+    hex: '#2DD4BF',
+  },
+};
+
+const FALLBACK_PALETTE: { dotClass: string; hex: string }[] = [
+  { dotClass: 'bg-amber-400', hex: '#FBBF24' },
+  { dotClass: 'bg-sky-400', hex: '#38BDF8' },
+  { dotClass: 'bg-emerald-400', hex: '#34D399' },
+  { dotClass: 'bg-purple-400', hex: '#C084FC' },
+  { dotClass: 'bg-rose-400', hex: '#FB7185' },
+  { dotClass: 'bg-teal-400', hex: '#2DD4BF' },
+  { dotClass: 'bg-orange-400', hex: '#FB923C' },
+  { dotClass: 'bg-pink-400', hex: '#F472B6' },
+  { dotClass: 'bg-indigo-400', hex: '#818CF8' },
+  { dotClass: 'bg-cyan-400', hex: '#22D3EE' },
+];
+
+export function getEventColor(event: Event): { label: string; dotClass: string; hex: string } {
+  const cat = (event.category || '').trim();
+  const match = Object.keys(EVENT_CATEGORY_COLORS).find(
+    (k) => k.toLowerCase() === cat.toLowerCase()
+  );
+  if (match) {
+    return { ...EVENT_CATEGORY_COLORS[match], label: cat || match };
+  }
+  const seed = cat || event.title || event.id || 'Event';
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const idx = Math.abs(hash) % FALLBACK_PALETTE.length;
+  return { ...FALLBACK_PALETTE[idx], label: cat || event.title || 'Event' };
+}
+
+export function getDayEventColors(dayEvents: Event[]): { label: string; dotClass: string; hex: string }[] {
+  const seenHex = new Set<string>();
+  const dots: { label: string; dotClass: string; hex: string }[] = [];
+
+  for (const event of dayEvents) {
+    const color = getEventColor(event);
+    if (!seenHex.has(color.hex)) {
+      seenHex.add(color.hex);
+      dots.push(color);
+      if (dots.length >= 3) break;
+    }
+  }
+
+  if (dots.length === 1 && dayEvents.length > 1) {
+    dots.push(dots[0]);
+  }
+
+  return dots;
+}
+
 function formatTime(time: string) {
   if (!time) return '';
   const [h, m] = time.split(':');
@@ -242,7 +325,7 @@ export function EventMonthCalendar({
 
       {/* Month + agenda card stack */}
       <div className="relative">
-        <div className="rounded-[2rem] bg-gradient-to-b from-[#8B2323] to-[#5C1111] text-white shadow-lg overflow-hidden pt-5 pb-16 px-3 sm:px-4">
+        <div className="rounded-[2rem] bg-gradient-to-b from-[#8B2323] to-[#5C1111] text-white shadow-lg overflow-hidden pt-5 pb-18 px-3 sm:px-4">
           <Calendar
             mode="single"
             month={month}
@@ -296,32 +379,49 @@ export function EventMonthCalendar({
             components={{
               DayContent: ({ date }) => {
                 const key = toLocalDateKey(date);
-                const has = eventsByDay.has(key);
-                let status: EventLifecycleStatus | null = null;
-                if (has) {
-                  const now = new Date();
-                  const statuses = (eventsByDay.get(key) || []).map((e) => getEventStatus(e, now));
-                  if (statuses.includes('ongoing')) status = 'ongoing';
-                  else if (statuses.includes('upcoming')) status = 'upcoming';
-                  else status = 'past';
-                }
+                const dayEventsList = eventsByDay.get(key) || [];
+                const has = dayEventsList.length > 0;
                 const selected = isSameLocalDay(date, selectedDay);
+                const dots = getDayEventColors(dayEventsList);
+
                 return (
                   <span className="relative inline-flex flex-col items-center justify-center w-full h-full">
-                    <span>{date.getDate()}</span>
-                    {has && status && (
-                      <span
-                        className={cn(
-                          'absolute bottom-1 h-1 w-1 rounded-full',
-                          selected ? 'bg-[#8B2323]' : EVENT_STATUS_DOT[status]
-                        )}
-                      />
+                    <span className={cn(has && !selected && 'font-semibold text-white')}>
+                      {date.getDate()}
+                    </span>
+                    {has && dots.length > 0 && (
+                      <span className="absolute bottom-1 flex items-center justify-center gap-1">
+                        {dots.map((dot, idx) => (
+                          <span
+                            key={idx}
+                            className={cn(
+                              'h-1.5 w-1.5 rounded-full shadow-sm ring-1 transition-transform',
+                              selected ? 'ring-black/20' : 'ring-black/10',
+                              dot.dotClass
+                            )}
+                            style={{ backgroundColor: dot.hex }}
+                            title={dot.label}
+                          />
+                        ))}
+                      </span>
                     )}
                   </span>
                 );
               },
             }}
           />
+          {/* Category Color Legend */}
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-3 pt-2.5 pb-2 border-t border-white/15 text-[10px] text-white/90">
+            {Object.entries(EVENT_CATEGORY_COLORS).map(([cat, col]) => (
+              <span key={cat} className="inline-flex items-center gap-1.5 font-medium">
+                <span
+                  className="h-2 w-2 rounded-full shadow-sm ring-1 ring-black/10"
+                  style={{ backgroundColor: col.hex }}
+                />
+                <span>{col.label}</span>
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* Agenda sheet */}
@@ -331,7 +431,7 @@ export function EventMonthCalendar({
               <h3 className="text-lg font-serif font-bold text-[#1A202C]">{agendaTitle}</h3>
               {dayEvents.length > 0 && (
                 <p className="text-[11px] text-[#7A6150] mt-0.5">
-                  {dayEvents.length} on {isDateToday(selectedDay) ? 'today' : format(selectedDay, 'MMM d')}
+                  {dayEvents.length} on {isDateToday(selectedDay) ? 'today' : format(selectedDay, 'dd/MM/yyyy')}
                 </p>
               )}
             </div>
@@ -397,7 +497,7 @@ export function EventMonthCalendar({
                       >
                         {showDate && (
                           <p className="text-[10px] font-semibold uppercase tracking-wide text-[#8B2323]/80 mb-1">
-                            {format(parseLocalDate(event.date), 'EEE, MMM d')}
+                            {format(parseLocalDate(event.date), 'EEE, dd/MM/yyyy')}
                           </p>
                         )}
                         <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -412,16 +512,13 @@ export function EventMonthCalendar({
                           </Badge>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                          <Badge variant="outline" className={`${categoryColors[event.category] || ''} border-current text-[9px] px-1.5 py-0`}>
-                            {event.category}
-                          </Badge>
-                          {isRegistered && (
+                        {isRegistered && (
+                          <div className="flex flex-wrap items-center gap-1.5 mb-2">
                             <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-emerald-200 text-emerald-700 bg-emerald-50">
                               Registered
                             </Badge>
-                          )}
-                        </div>
+                          </div>
+                        )}
 
                         <div className="space-y-1.5 text-xs text-[#7A6150]">
                           <div className="flex items-center gap-1.5">

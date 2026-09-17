@@ -19,3 +19,28 @@ export function isFutureBirthday(dateStr: string): boolean {
   birth.setHours(0, 0, 0, 0);
   return birth.getTime() > today.getTime();
 }
+
+/**
+ * Format any valid date representation (ISO string, Date object, timestamp, or YYYY-MM-DD)
+ * into standard DD/MM/YYYY format.
+ */
+export function formatDDMMYYYY(dateInput?: string | number | Date | null): string {
+  if (!dateInput) return '';
+  try {
+    if (typeof dateInput === 'string') {
+      const match = dateInput.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        const [, y, m, d] = match;
+        return `${d}/${m}/${y}`;
+      }
+    }
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return String(dateInput);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return String(dateInput || '');
+  }
+}
