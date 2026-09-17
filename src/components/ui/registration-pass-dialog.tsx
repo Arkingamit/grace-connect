@@ -16,6 +16,7 @@ import {
   type RegistrationPass,
 } from "@/lib/registration-pass";
 import { useAuth } from "@/lib/auth-context";
+import { useAdminData } from "@/lib/admin-data-context";
 import { cn } from "@/lib/utils";
 
 function ticketFromPass(pass: RegistrationPass) {
@@ -54,6 +55,64 @@ export function PendingApprovalCard({ className }: { className?: string }) {
   );
 }
 
+export function PendingMemberEpass({ className }: { className?: string }) {
+  const { session, getSessionMember, isLoading } = useAuth();
+  const { campuses } = useAdminData();
+  const member = getSessionMember();
+  const [pass, setPass] = React.useState<RegistrationPass | null>(null);
+
+  React.useEffect(() => {
+    if (!session || !member || member.status !== "pending") {
+      setPass(null);
+      return;
+    }
+
+    const stored = loadRegistrationPass();
+    if (stored && stored.userId === session.memberId) {
+      setPass(stored);
+      return;
+    }
+
+    const campusName =
+      campuses.find((campus) => campus.id === member.campusId)?.name ||
+      member.campusId ||
+      "Grace Community";
+
+    setPass({
+      userId: session.memberId,
+      qrCode: member.qrCode || session.memberId,
+      firstName: member.firstName,
+      middleName: member.middleName,
+      lastName: member.lastName,
+      campusId: member.campusId,
+      campusName,
+      phone: member.phone || "",
+      whatsapp: member.whatsapp,
+      gender: member.gender,
+      birthday: member.birthday,
+      maritalStatus: member.maritalStatus,
+      email: member.email,
+      submittedAt: member.createdAt || new Date().toISOString(),
+    });
+  }, [
+    session,
+    member?.status,
+    member?.qrCode,
+    member?.firstName,
+    member?.lastName,
+    member?.campusId,
+    member?.email,
+    campuses,
+  ]);
+
+  if (isLoading || !pass) return null;
+
+  return (
+    <div className={cn("flex justify-center", className)}>
+      <AnimatedTicket {...ticketFromPass(pass)} celebrate={false} showQr={false} />
+    </div>
+  );
+}
 export function RegistrationPassDialog({
   pass,
   open,

@@ -14,6 +14,8 @@ import { AvatarUploader } from '@/components/ui/avatar-uploader';
 import { fileToDataUrl, setStoredAvatar } from '@/lib/avatar-storage';
 import { getMaxBirthdayDate, isFutureBirthday } from '@/lib/date-utils';
 import { DateInput } from '@/components/ui/date-input';
+import { useKeyboardAwareDialogPosition } from '@/hooks/useKeyboardInset';
+import { cn } from '@/lib/utils';
 
 interface AddFamilyMemberDialogProps {
   open: boolean;
@@ -23,6 +25,7 @@ interface AddFamilyMemberDialogProps {
 export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDialogProps) {
   const { addLinkedProfile } = useAuth();
   const { campuses } = useAdminData();
+  const dialogPosition = useKeyboardAwareDialogPosition(open);
 
   const [step, setStep] = useState(1);
   const [firstName, setFirstName] = useState('');
@@ -155,7 +158,16 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
         if (!isOpen) resetForm();
       }}
     >
-      <DialogContent className="max-w-md rounded-[24px]">
+      <DialogContent
+        data-keep-keyboard
+        style={dialogPosition.style}
+        className={cn(
+          "max-w-md rounded-[24px] max-sm:left-1/2 max-sm:w-[calc(100%-2rem)] max-sm:max-w-[380px] max-sm:translate-x-[-50%]",
+          dialogPosition.lifted
+            ? "max-sm:top-auto max-sm:translate-y-0 max-sm:overflow-y-auto"
+            : undefined
+        )}
+      >
         <DialogHeader>
           <DialogTitle>Add Family Member</DialogTitle>
         </DialogHeader>

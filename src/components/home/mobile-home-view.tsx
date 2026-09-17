@@ -30,7 +30,7 @@ import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { AuthGate } from '@/components/ui/auth-gate';
 import { ProfileSwitcher } from '@/components/ui/profile-switcher';
-import { ViewRegistrationPassButton } from '@/components/ui/registration-pass-dialog';
+import { ViewRegistrationPassButton, PendingMemberEpass } from '@/components/ui/registration-pass-dialog';
 import { getMapsUrl } from '@/lib/maps';
 import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
 import { formatDDMMYYYY } from '@/lib/date-utils';
@@ -1302,9 +1302,11 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                 </div>
               </div>
 
-
-
-
+              {sessionMember?.status === 'pending' && (
+                <div className="mt-8 pb-4">
+                  <PendingMemberEpass />
+                </div>
+              )}
 
               {/* Restricted Community Features — guests only; pending members wait for approval */}
               {!session && (

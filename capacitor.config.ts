@@ -23,11 +23,16 @@ const config: CapacitorConfig = {
     scrollEnabled: true,
     backgroundColor: '#FAF7F2',
   },
+  android: {
+    backgroundColor: '#FAF7F2',
+  },
   plugins: {
-    // iOS ignores this (uses visualViewport). Android native resize shrinks the
-    // WebView with the IME so fixed dialogs stay above the keyboard.
+    // iOS: leave WebView size alone (panels use visualViewport / keyboard inset).
+    // Android: resizeOnFullScreen shrinks the WebView with the IME. Combined with
+    // MainActivity adjustResize + decorFitsSystemWindows, this avoids overlay gaps.
+    // JS keyboard inset stays 0 on Android so we never double-subtract.
     Keyboard: {
-      resize: KeyboardResize.Native,
+      resize: KeyboardResize.None,
       resizeOnFullScreen: true,
     },
     GoogleAuth: {

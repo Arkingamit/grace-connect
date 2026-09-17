@@ -91,6 +91,7 @@ export interface TicketProps extends React.HTMLAttributes<HTMLDivElement> {
   celebrate?: boolean;
   eventTitle?: string;
   extraFields?: { label: string; value: string }[];
+  showQr?: boolean;
 }
 
 const AnimatedTicket = React.forwardRef<HTMLDivElement, TicketProps>(
@@ -114,6 +115,7 @@ const AnimatedTicket = React.forwardRef<HTMLDivElement, TicketProps>(
       celebrate = true,
       eventTitle,
       extraFields,
+      showQr = true,
       ...props
     },
     ref
@@ -254,13 +256,16 @@ const AnimatedTicket = React.forwardRef<HTMLDivElement, TicketProps>(
               </div>
             )}
 
-            <DashedLine />
-
-            <div className="flex items-center justify-center gap-2 text-primary">
-              <QrCode className="h-4 w-4" />
-              <span className="text-xs font-bold uppercase tracking-widest">ePass QR</span>
-            </div>
-            <QrPass value={barcodeValue} />
+            {showQr && (
+              <>
+                <DashedLine />
+                <div className="flex items-center justify-center gap-2 text-primary">
+                  <QrCode className="h-4 w-4" />
+                  <span className="text-xs font-bold uppercase tracking-widest">ePass QR</span>
+                </div>
+                <QrPass value={barcodeValue} />
+              </>
+            )}
           </div>
         </div>
       </>

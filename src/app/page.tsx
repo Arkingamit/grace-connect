@@ -17,6 +17,7 @@ import { AuthGate } from "@/components/ui/auth-gate";
 import { useAuth } from "@/lib/auth-context";
 import { useAdminData } from "@/lib/admin-data-context";
 import { NoteShareSection } from "@/components/ui/note-share-section";
+import { PendingMemberEpass } from "@/components/ui/registration-pass-dialog";
 import { MobileHomeSkeleton, DesktopHomeSkeleton } from "@/components/home/home-skeleton";
 
 // Wrapper for parallax background sections
@@ -217,6 +218,14 @@ export default function HomePage() {
             <LiveStreamSection />
           </RevealSection>
         </ParallaxSection>
+
+        {sessionMember?.status === "pending" && (
+          <section className="bg-transparent relative z-10 py-12 sm:py-16">
+            <div className="container mx-auto px-6">
+              <PendingMemberEpass />
+            </div>
+          </section>
+        )}
 
         {/* Restricted Community Features — guests only; pending members wait for approval */}
         {!session && (
