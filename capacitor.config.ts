@@ -35,6 +35,12 @@ const config: CapacitorConfig = {
       resize: KeyboardResize.None,
       resizeOnFullScreen: true,
     },
+    // Capacitor >= 8.4 pads the WebView by the IME height on Android 15+.
+    // MainActivity already resizes via decorFitsSystemWindows + adjustResize,
+    // so both together shrink the WebView twice (black gap above keyboard).
+    SystemBars: {
+      insetsHandling: 'disable',
+    },
     GoogleAuth: {
       scopes: ['profile', 'email'],
       // Web client ID — used by Android requestIdToken / strings.xml server_client_id
