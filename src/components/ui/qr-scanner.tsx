@@ -121,9 +121,9 @@ export function QRScanner({ onClose }: QRScannerProps) {
                 // Stop scanning and navigate
                 html5QrCode.stop().then(() => {
                   scannerRef.current = null;
-                  router.push(`/register/${campus.id}`);
+                  router.push(`/login`);
                 }).catch(() => {
-                  router.push(`/register/${campus.id}`);
+                  router.push(`/login`);
                 });
               } else {
                 html5QrCode.stop().then(() => {

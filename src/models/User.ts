@@ -6,11 +6,11 @@ export interface IUser extends Document {
   middleName?: string;
   lastName: string;
   name: string; // Virtual or stored for easy access (firstName + lastName)
-  gender: 'male' | 'female';
+  gender?: 'male' | 'female';
   birthday?: string;
   maritalStatus?: 'single' | 'married';
   marriageDate?: string;
-  campusId: string;
+  campusId?: string;
   email: string;
   phone?: string;
   whatsapp?: string;
@@ -39,11 +39,11 @@ const UserSchema = new Schema<IUser>(
     middleName: { type: String, default: '' },
     lastName: { type: String, required: true },
     name: { type: String, required: true },
-    gender: { type: String, enum: ['male', 'female'], required: true },
+    gender: { type: String, enum: ['male', 'female'] },
     birthday: { type: String },
     maritalStatus: { type: String, enum: ['single', 'married'] },
     marriageDate: { type: String },
-    campusId: { type: String, required: true },
+    campusId: { type: String, default: '' },
     email: { type: String, required: true, unique: true, lowercase: true },
     phone: { type: String },
     whatsapp: { type: String },
@@ -56,7 +56,7 @@ const UserSchema = new Schema<IUser>(
     status: {
       type: String,
       enum: ['pending', 'approved', 'rejected'],
-      default: 'pending'
+      default: 'approved'
     },
     groups: [{ type: String }],
     qrCode: { type: String },

@@ -93,7 +93,7 @@ export default function DirectoryPage() {
         members={listMembers}
         title="Active Members"
         directoryTitle="All Members"
-        onAdd={() => router.push("/register")}
+        onAdd={() => router.push("/login")}
         framed
       />
     </div>

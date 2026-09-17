@@ -1,14 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight } from "lucide-react";
-import { ViewRegistrationPassButton } from "@/components/ui/registration-pass-dialog";
+import { ArrowLeft } from "lucide-react";
 import {
   AuthCard,
-  AuthModeToggle,
   AuthPageShell,
-  authPrimaryBtnClass,
   authSocialBtnClass,
 } from "@/components/ui/auth-layout";
 import graceLogo from "../../../assets/logo.png";
@@ -21,12 +18,8 @@ export interface ModernLoginSignupProps {
   onGoogleClick?: () => void;
   onAppleClick?: () => void;
   useNativeButtons?: boolean;
-  registerHref?: string;
   privacyHref?: string;
   termsHref?: string;
-  initialMode?: "login" | "signup";
-  onScanCampus?: () => void;
-  loginHref?: string;
 }
 
 export default function ModernLoginSignup({
@@ -37,15 +30,9 @@ export default function ModernLoginSignup({
   onGoogleClick,
   onAppleClick,
   useNativeButtons = false,
-  registerHref = "/register",
   privacyHref = "/privacy-policy",
   termsHref = "/privacy-policy",
-  initialMode = "signup",
-  onScanCampus,
-  loginHref,
 }: ModernLoginSignupProps) {
-  const [isLogin, setIsLogin] = useState(initialMode === "login");
-
   const GoogleIcon = (
     <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0">
       <path
@@ -78,31 +65,6 @@ export default function ModernLoginSignup({
   const socialSlotWrapClass =
     "flex h-12 w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-[#E5D5C5]/60 bg-[#FAF7F2]";
 
-  const SocialRow = (
-    <div className="flex w-full flex-col items-stretch gap-3">
-      {useNativeButtons ? (
-        <button type="button" onClick={onGoogleClick} className={authSocialBtnClass}>
-          {GoogleIcon}
-          Google
-        </button>
-      ) : (
-        <div className={`${socialSlotWrapClass} [&>div]:!h-full [&>div]:!w-full [&>div>div]:!h-full [&>div>div]:!w-full [&_iframe]:!h-full [&_iframe]:!w-full`}>
-          {googleSlot}
-        </div>
-      )}
-      {useNativeButtons ? (
-        <button type="button" onClick={onAppleClick} className={authSocialBtnClass}>
-          {AppleIcon}
-          Apple
-        </button>
-      ) : (
-        <div className={`${socialSlotWrapClass} [&_button]:!h-full [&_button]:!w-full [&_button]:!rounded-2xl [&_button]:!border-0 [&_button]:!bg-transparent`}>
-          {appleSlot}
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <AuthPageShell>
       <AuthCard>
@@ -115,46 +77,11 @@ export default function ModernLoginSignup({
           />
         </Link>
 
-        <AuthModeToggle
-          mode={isLogin ? "login" : "signup"}
-          onLogin={() => setIsLogin(true)}
-          onSignup={() => setIsLogin(false)}
-          loginHref={loginHref}
-        />
-
         <div className="mb-6 text-center">
-          {isLogin ? (
-            <>
-              <h1 className="text-3xl font-bold tracking-tight text-[#1A202C]">Welcome Back</h1>
-              <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
-                Sign in to your account to access Grace Community.
-              </p>
-            </>
-          ) : (
-            <>
-              <h1 className="text-3xl font-bold tracking-tight text-[#1A202C]">
-                Sign in to view Community Features
-              </h1>
-              <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
-                These features are exclusive to Grace Community members. Please sign in or register to access this content.
-              </p>
-              <ul className="mt-4 space-y-2 text-left text-sm text-[#7A6150]">
-                {[
-                  "Announcements",
-                  "Events",
-                  "Prayer Wall",
-                  "Photo Gallery",
-                  "Notes",
-                  "Exclusive Sermons",
-                ].map((feature) => (
-                  <li key={feature} className="flex items-start gap-2.5">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B2323]" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+          <h1 className="text-3xl font-bold tracking-tight text-[#1A202C]">Welcome Back</h1>
+          <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
+            Sign in to your account to access Grace Community.
+          </p>
         </div>
 
         {error && (
@@ -169,23 +96,30 @@ export default function ModernLoginSignup({
           </div>
         )}
 
-        {isLogin ? (
-          <>{hasSocial && SocialRow}</>
-        ) : onScanCampus ? (
-          <button type="button" onClick={onScanCampus} className={authPrimaryBtnClass}>
-            Scan campus QR
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        ) : (
-          <Link href={registerHref} className={authPrimaryBtnClass}>
-            Scan campus QR
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+        {hasSocial && (
+          <div className="flex w-full flex-col items-stretch gap-3">
+            {useNativeButtons ? (
+              <button type="button" onClick={onGoogleClick} className={authSocialBtnClass}>
+                {GoogleIcon}
+                Google
+              </button>
+            ) : (
+              <div className={`${socialSlotWrapClass} [&>div]:!h-full [&>div]:!w-full [&>div>div]:!h-full [&>div>div]:!w-full [&_iframe]:!h-full [&_iframe]:!w-full`}>
+                {googleSlot}
+              </div>
+            )}
+            {useNativeButtons ? (
+              <button type="button" onClick={onAppleClick} className={authSocialBtnClass}>
+                {AppleIcon}
+                Apple
+              </button>
+            ) : (
+              <div className={`${socialSlotWrapClass} [&_button]:!h-full [&_button]:!w-full [&_button]:!rounded-2xl [&_button]:!border-0 [&_button]:!bg-transparent`}>
+                {appleSlot}
+              </div>
+            )}
+          </div>
         )}
-
-        <div className="mt-4">
-          <ViewRegistrationPassButton className="w-full border-[#E5D5C5]/60 text-[#8B2323]" />
-        </div>
 
         <p className="mt-6 text-center text-xs leading-relaxed text-[#C4B0A0]">
           By continuing you agree to Grace Community&apos;s{" "}

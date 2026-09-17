@@ -29,21 +29,20 @@ export default function QRCodesPage() {
     ? campuses.filter(c => c.id === currentUser.campusId)
     : campuses;
 
-  const getRegistrationUrl = (campusId: string) => {
+  const getRegistrationUrl = () => {
     if (typeof window !== 'undefined') {
-      return `${window.location.origin}/register/${campusId}`;
+      return `${window.location.origin}/login`;
     }
-    // Fallback for SSR, though we won't render the QR code until mounted
-    return `http://localhost:3000/register/${campusId}`;
+    return 'https://graceconnect.graceahmedabad.org/login';
   };
 
-  const getQRImageUrl = (campusId: string, size: number = 200) => {
-    const registrationUrl = getRegistrationUrl(campusId);
+  const getQRImageUrl = (size: number = 200) => {
+    const registrationUrl = getRegistrationUrl();
     return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(registrationUrl)}&format=png&margin=10`;
   };
 
   const copyLink = useCallback((campusId: string) => {
-    const url = getRegistrationUrl(campusId);
+    const url = getRegistrationUrl();
     navigator.clipboard.writeText(url);
     setCopiedId(campusId);
     setTimeout(() => setCopiedId(null), 2000);
@@ -87,7 +86,7 @@ export default function QRCodesPage() {
           Campus QR Codes
         </h1>
         <p className="text-muted-foreground mt-1">
-          Share these QR codes so new members can register directly to a specific campus.
+          Share these QR codes so new members can open Sign Up and join with Google or Apple.
           {isCampusLeader && (
             <span className="text-amber-500"> · Showing your campus only</span>
           )}
@@ -100,9 +99,8 @@ export default function QRCodesPage() {
         <div className="text-sm">
           <p className="font-medium text-foreground">How it works</p>
           <p className="text-muted-foreground mt-0.5">
-            When someone scans a campus QR code, they&apos;re taken directly to the registration page
-            with the campus already selected. After they submit, you&apos;ll receive the request in the
-            <strong> Requests</strong> tab for approval.
+            When someone scans a campus QR code, they&apos;re taken to Sign Up. They can join immediately
+            with Google or Apple — no pastor approval step.
           </p>
         </div>
       </div>
@@ -121,8 +119,8 @@ export default function QRCodesPage() {
       {/* QR Code Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {mounted && visibleCampuses.map(campus => {
-          const url = getRegistrationUrl(campus.id);
-          const qrImageUrl = getQRImageUrl(campus.id);
+          const url = getRegistrationUrl();
+          const qrImageUrl = getQRImageUrl();
           const isCopied = copiedId === campus.id;
 
           return (

@@ -15,6 +15,8 @@ export interface IAppleAuthSession extends Document {
   /** Path within the site to return the member to once signed in */
   redirectTo?: string;
   email?: string;
+  firstName?: string;
+  lastName?: string;
   /** Verified Apple identity token, kept briefly for the register callback */
   identityToken?: string;
   errorMessage?: string;
@@ -31,6 +33,8 @@ const AppleAuthSessionSchema = new Schema<IAppleAuthSession>(
     intent: { type: String, enum: ['login', 'register'], default: 'login' },
     redirectTo: { type: String, default: '/' },
     email: { type: String },
+    firstName: { type: String },
+    lastName: { type: String },
     identityToken: { type: String },
     errorMessage: { type: String },
     expiresAt: { type: Date, required: true, expires: 0 },

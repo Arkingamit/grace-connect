@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 /**
  * Progress of a browser-based Apple sign-in, polled by the native shell while
  * Apple runs in the system browser. Only the status is exposed — the identity
- * token is redeemed by /api/auth/register or /api/auth/apple/complete.
+ * token is redeemed by /api/auth/apple/complete.
  */
 export async function GET(req: Request) {
   const state = new URL(req.url).searchParams.get('state') || '';

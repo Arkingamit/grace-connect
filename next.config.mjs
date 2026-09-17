@@ -16,7 +16,9 @@ const nextConfig = {
     ];
   },
   output: 'standalone',
-  serverExternalPackages: ['mongoose'], // optimization for mongoose with app router
+  experimental: {
+    serverComponentsExternalPackages: ['mongoose'],
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 2592000,

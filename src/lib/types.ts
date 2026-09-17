@@ -314,11 +314,11 @@ export interface ChurchMember {
   firstName: string;
   middleName?: string;
   lastName: string;
-  gender: 'male' | 'female';
+  gender?: 'male' | 'female';
   birthday?: string;
   maritalStatus?: 'single' | 'married';
   marriageDate?: string;
-  campusId: string;
+  campusId?: string;
   email: string;
   phone?: string;
   whatsapp?: string;

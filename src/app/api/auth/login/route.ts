@@ -14,10 +14,12 @@ export async function POST(req: Request) {
     if (!parseResult.success) {
       return NextResponse.json({ error: parseResult.error.errors[0].message }, { status: 400 });
     }
-    const { credential, provider, picture: clientPicture } = parseResult.data;
+    const { credential, provider, picture: clientPicture, givenName, familyName } = parseResult.data;
 
     let email = '';
     let picture: string | undefined;
+    let firstName = givenName;
+    let lastName = familyName;
 
     if (provider === 'apple') {
       // The Apple JWT includes the email in the payload if requested
@@ -36,6 +38,8 @@ export async function POST(req: Request) {
       }
       email = payload.email.toLowerCase();
       picture = getOAuthPicture(payload);
+      firstName = firstName || payload.given_name;
+      lastName = lastName || payload.family_name;
     }
 
     if (!picture && clientPicture?.startsWith('https://')) {
@@ -45,8 +49,18 @@ export async function POST(req: Request) {
     const result = await signInVerifiedEmail(
       email,
       provider === 'apple' ? 'Apple' : 'Google',
-      { picture },
+      { picture, firstName, lastName },
     );
+
+    if (result.needsRegistration) {
+      return NextResponse.json({
+        needsRegistration: true,
+        firstName: firstName || '',
+        lastName: lastName || '',
+        email,
+        picture: picture || '',
+      });
+    }
 
     if (!result.ok) {
       return NextResponse.json(
