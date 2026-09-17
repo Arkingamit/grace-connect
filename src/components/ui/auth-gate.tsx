@@ -8,7 +8,6 @@ import {
   AuthCard,
   authPrimaryBtnClass,
 } from "@/components/ui/auth-layout";
-import { PendingApprovalCard } from "@/components/ui/registration-pass-dialog";
 import { useNavigationHistory } from "@/components/ui/navigation-history-provider";
 import graceLogo from "../../../assets/logo.png";
 
@@ -33,11 +32,15 @@ export function AuthGate({
 
   if (isLoading) return null;
 
-  if (session && member?.status !== "pending" && member?.status !== "rejected") {
+  const isApprovedMember = Boolean(
+    session && member?.status !== "pending" && member?.status !== "rejected"
+  );
+
+  if (isApprovedMember) {
     return <>{children}</>;
   }
 
-  const pendingOrRejected = session && (member?.status === "pending" || member?.status === "rejected");
+  const isRejected = member?.status === "rejected";
 
   return (
     <div className={`relative w-full flex items-center justify-center px-4 py-10 ${className}`}>
@@ -72,26 +75,15 @@ export function AuthGate({
           </Link>
 
           <div className="mb-6 text-center">
-            {pendingOrRejected ? (
-              member?.status === "rejected" ? (
-                <>
-                  <h3 className="text-3xl font-bold tracking-tight text-[#1A202C]">
-                    Registration not approved
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
-                    Your campus leader did not approve this registration. Please contact your campus for help.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-3xl font-bold tracking-tight text-[#1A202C]">
-                    Waiting for campus leader approval
-                  </h3>
-                  <div className="mt-4">
-                    <PendingApprovalCard />
-                  </div>
-                </>
-              )
+            {isRejected ? (
+              <>
+                <h3 className="text-3xl font-bold tracking-tight text-[#1A202C]">
+                  Registration not approved
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
+                  Your campus leader did not approve this registration. Please contact your campus for help.
+                </p>
+              </>
             ) : (
               <>
                 <h3 className="text-3xl font-bold tracking-tight text-[#1A202C]">
@@ -120,7 +112,7 @@ export function AuthGate({
             )}
           </div>
 
-          {pendingOrRejected ? (
+          {isRejected ? (
             <Link href="/" className={authPrimaryBtnClass}>
               Back to Home
               <ArrowRight className="h-4 w-4" />
@@ -152,4 +144,3 @@ export function AuthGate({
     </div>
   );
 }
-

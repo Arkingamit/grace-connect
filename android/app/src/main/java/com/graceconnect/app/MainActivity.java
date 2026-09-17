@@ -36,6 +36,11 @@ public class MainActivity extends BridgeActivity {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 
+        // Replace nginx 502 / "page not available" with the bundled maintenance page.
+        if (getBridge() != null) {
+            getBridge().setWebViewClient(new MaintenanceWebViewClient(getBridge()));
+        }
+
         requestAppPermissions();
         registerNativeBackInterceptor();
     }

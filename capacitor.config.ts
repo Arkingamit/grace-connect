@@ -4,7 +4,8 @@ import { KeyboardResize } from '@capacitor/keyboard';
 const config: CapacitorConfig = {
   appId: 'com.graceconnect.app',
   appName: 'Grace Connect',
-  webDir: 'public',
+  // Fallback assets only (maintenance page) — the live site loads via server.url.
+  webDir: 'www',
   server: {
     url: 'https://graceconnect.graceahmedabad.org',
     cleartext: true,
@@ -16,7 +17,9 @@ const config: CapacitorConfig = {
       'appleid.apple.com',
       'idmsa.apple.com',
       '*.apple.com',
-    ]
+    ],
+    // Bundled page shown when the live site is unreachable (iOS + Android).
+    errorPath: 'maintenance.html',
   },
   ios: {
     contentInset: 'never',

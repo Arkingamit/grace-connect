@@ -434,7 +434,6 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
   const isApprovedMember = Boolean(
     session && sessionMember?.status !== 'pending' && sessionMember?.status !== 'rejected'
   );
-  const isPendingMember = sessionMember?.status === 'pending' || sessionMember?.status === 'rejected';
   const effectiveGroups = sessionMember ? getEffectiveGroups(sessionMember) : [];
   const userGroups = effectiveGroups.length > 0 ? Array.from(new Set([...effectiveGroups])) : ['all'];
   const galleryAlbums = getVisibleGalleryAlbums('all', userGroups as string[]);
@@ -790,7 +789,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
           </div>
 
           {/* 3. Quick Actions */}
-          <div className={`grid gap-2 px-1 ${isPendingMember ? "grid-cols-2" : "grid-cols-4"}`}>
+          <div className="grid grid-cols-4 gap-2 px-1">
             <button onClick={async () => {
               if (Capacitor.isNativePlatform()) {
                 try {
@@ -833,14 +832,12 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
               </div>
               <span className="text-[10px] font-bold text-[#7A6150]">Check-In</span>
             </button>
-            {!isPendingMember && (
             <Link href="/prayer-wall" className="flex flex-col items-center gap-2">
               <div className="w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
                 <Heart className="w-6 h-6" />
               </div>
               <span className="text-[10px] font-bold text-[#7A6150]">Prayer</span>
             </Link>
-            )}
             <Link href="/music" className="flex flex-col items-center gap-2">
               <div className="w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
                 <Music className="w-6 h-6" />
@@ -848,14 +845,12 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
               <span className="text-[10px] font-bold text-[#7A6150]">Worship</span>
             </Link>
 
-            {!isPendingMember && (
             <Link href="/announcements" className="flex flex-col items-center gap-2">
               <div className="w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
                 <Megaphone className="w-6 h-6" />
               </div>
               <span className="text-[10px] font-bold text-[#7A6150] whitespace-nowrap">Announcements</span>
             </Link>
-            )}
           </div>
 
           {/* 4. Highlight Morphing Card Stack */}
@@ -865,8 +860,8 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
               { type: 'verse', id: 'verse-card', data: verse, tag: 'Daily Verse' }
             ];
 
-            // Guests: only Daily Verse + Welcome to Grace
-            // Logged-in: Daily Verse + all admin-uploaded highlight cards
+            // Approved: Daily Verse + all admin-uploaded highlight cards
+            // Guests and pending members: Daily Verse + Welcome to Grace
             if (isApprovedMember && flipCardConfig.isActive) {
               flipItems.forEach((item, idx) => {
                 const tagMap: Record<string, string> = {
@@ -880,7 +875,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                   tag: tagMap[item.type] || 'Highlight'
                 });
               });
-            } else if (!session) {
+            } else if (!isApprovedMember) {
               allCards.push({
                 type: 'admin',
                 id: GUEST_HIGHLIGHT_CARD.id,
@@ -1308,8 +1303,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                 </div>
               )}
 
-              {/* Restricted Community Features — guests only; pending members wait for approval */}
-              {!session && (
+              {/* Restricted Community Features — same lock for guests and pending members */}
               <div className="mt-8">
                 <AuthGate
                   title="Community Features"
@@ -1561,7 +1555,6 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                   </div>
                 </AuthGate>
               </div>
-              )}
 
 
             </>

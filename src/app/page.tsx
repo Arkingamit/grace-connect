@@ -227,8 +227,7 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* Restricted Community Features — guests only; pending members wait for approval */}
-        {!session && (
+        {/* Restricted Community Features — same lock for guests and pending members */}
         <AuthGate 
           title="Community Features" 
           description="These features are exclusive to Grace Community members. Please sign in or register to access this content."
@@ -266,7 +265,6 @@ export default function HomePage() {
             </section>
           </div>
         </AuthGate>
-        )}
 
           </>
         )}
