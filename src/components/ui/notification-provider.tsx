@@ -95,16 +95,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       if (Capacitor.isNativePlatform()) {
         let permStatus = await PushNotifications.checkPermissions();
         
-        if (permStatus.receive === 'prompt' && !userInitiated) {
-          // Don't re-show if user previously dismissed
-          const dismissed = typeof localStorage !== 'undefined' && localStorage.getItem('push-prompt-dismissed');
-          if (!dismissed) {
-            setShowPermissionPrompt(true);
-          }
-          return;
-        }
-
-        if (permStatus.receive === 'prompt') {
+        if (permStatus.receive === 'prompt' || permStatus.receive === 'prompt-with-rationale') {
           permStatus = await PushNotifications.requestPermissions();
         }
 
