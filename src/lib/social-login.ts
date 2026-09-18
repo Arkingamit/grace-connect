@@ -9,12 +9,16 @@ export interface SocialLoginResult {
   error?: string;
   rejectionReason?: string;
   rejectionNote?: string;
+  /** No member exists yet — caller should start registration. */
+  needsRegistration?: boolean;
   /** Only set when the caller asked to attach the cookie itself */
   sessionCookie?: SessionCookie;
 }
 
 export interface SocialLoginOptions {
   picture?: string;
+  firstName?: string;
+  lastName?: string;
   /**
    * Return the session cookie instead of setting it, for callers building their
    * own response (an OAuth callback redirect, for example).
@@ -32,7 +36,7 @@ export async function signInVerifiedEmail(
   providerLabel: 'Google' | 'Apple',
   options: SocialLoginOptions = {},
 ): Promise<SocialLoginResult> {
-  const { picture, returnCookie } = options;
+  const { picture, firstName, lastName, returnCookie } = options;
   const user = await User.findOne(
     { email },
     {
@@ -52,8 +56,7 @@ export async function signInVerifiedEmail(
   if (!user) {
     return {
       ok: false,
-      status: 404,
-      error: `No account found with this ${providerLabel} account. Please register first.`,
+      needsRegistration: true,
     };
   }
 
@@ -83,8 +86,12 @@ export async function signInVerifiedEmail(
     await createSession(userId, user.email, displayName, user.role, permissions, memberStatus);
   }
 
-  if (picture) {
-    await User.updateOne({ _id: (user as any)._id }, { $set: { avatar: picture } });
+  const profileUpdates: Record<string, string> = {};
+  if (picture) profileUpdates.avatar = picture;
+  if (firstName && !(user as any).firstName) profileUpdates.firstName = firstName;
+  if (lastName && !(user as any).lastName) profileUpdates.lastName = lastName;
+  if (Object.keys(profileUpdates).length > 0) {
+    await User.updateOne({ _id: (user as any)._id }, { $set: profileUpdates });
   }
 
   return { ok: true, sessionCookie };
