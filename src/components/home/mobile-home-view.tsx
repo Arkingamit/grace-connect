@@ -964,7 +964,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                             <ExpandableCard
                               className="w-full relative rounded-3xl shadow-sm border transition-colors bg-[#FAF7F2] border-[#E5D5C5]/40"
                               collapsedSize={{ width: 280, height: 96 }}
-                              expandedSize={{ width: 280, height: 200 }}
+                              expandedSize={{ width: 280, height: 232 }}
                               hoverToExpand={false}
                             >
                               <ExpandableCardHeader className={cn("p-4", isExpanded ? "pb-2" : "pb-4")}>
@@ -1037,7 +1037,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                     })()}
                                   </div>
                                 </ExpandableCardContent>
-                                <ExpandableCardFooter className="p-4 pt-2.5 border-t border-[#E5D5C5]/40 justify-between items-center mt-2">
+                                <ExpandableCardFooter className="px-4 pt-3 pb-5 border-t border-[#E5D5C5]/40 justify-between items-center mt-2">
                                   <span className="text-[10px] uppercase tracking-wider font-bold text-[#8B2323]/90">
                                     Open Registration
                                   </span>
@@ -1300,7 +1300,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                   <ExpandableCard
                                     className="w-full relative rounded-3xl shadow-sm border transition-colors bg-[#FAF7F2] border-[#E5D5C5]/40"
                                     collapsedSize={{ width: 280, height: 96 }}
-                                    expandedSize={{ width: 280, height: 235 }}
+                                    expandedSize={{ width: 280, height: 248 }}
                                     hoverToExpand={false}
                                   >
                                     <ExpandableCardHeader className={cn("p-4", isExpanded ? "pb-2" : "pb-4")}>
@@ -1378,7 +1378,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                           })()}
                                         </div>
                                       </ExpandableCardContent>
-                                      <ExpandableCardFooter className="p-4 pt-2.5 border-t border-[#E5D5C5]/40 justify-between items-center mt-2">
+                                      <ExpandableCardFooter className="px-4 pt-3 pb-5 border-t border-[#E5D5C5]/40 justify-between items-center mt-2">
                                         <span className="text-[10px] font-medium text-[#16a34a]">
                                           Open Registration
                                         </span>

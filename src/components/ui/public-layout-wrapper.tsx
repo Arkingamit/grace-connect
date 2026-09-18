@@ -31,7 +31,7 @@ export function PublicLayoutWrapper({ children }: { children: React.ReactNode })
           <Navigation />
         </div>
       )}
-      <main key={pathname} className={`flex-1 animate-page-enter ${isNative ? 'pb-20' : 'pb-20 desktop:pb-0'}`}>{children}</main>
+      <main key={pathname} className={`flex-1 animate-page-enter ${isNative ? 'pb-24' : 'pb-24 desktop:pb-0'}`}>{children}</main>
       <GlobalAttendancePrompt />
       <MobileBottomNav />
     </div>
