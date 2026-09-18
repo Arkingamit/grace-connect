@@ -19,7 +19,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useAdminData } from "@/lib/admin-data-context";
 import { cn } from "@/lib/utils";
 
-function ticketFromPass(pass: RegistrationPass) {
+function ticketFromPass(pass: RegistrationPass, statusLabel = "Registered") {
   return {
     ticketId: `GR-${pass.userId.slice(-8).toUpperCase()}`,
     date: new Date(pass.submittedAt),
@@ -32,7 +32,7 @@ function ticketFromPass(pass: RegistrationPass) {
     birthday: pass.birthday,
     maritalStatus: pass.maritalStatus,
     email: pass.email,
-    statusLabel: "Registered",
+    statusLabel,
   };
 }
 
@@ -110,7 +110,11 @@ export function PendingMemberEpass({ className }: { className?: string }) {
 
   return (
     <div className={cn("flex justify-center", className)}>
-      <AnimatedTicket {...ticketFromPass(pass)} celebrate={false} showQr={false} />
+      <AnimatedTicket
+        {...ticketFromPass(pass, "Pending approval from campus pastor")}
+        celebrate={false}
+        showQr={false}
+      />
     </div>
   );
 }

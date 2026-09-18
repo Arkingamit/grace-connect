@@ -8,6 +8,7 @@ import {
   AuthCard,
   authPrimaryBtnClass,
 } from "@/components/ui/auth-layout";
+import { PendingApprovalCard } from "@/components/ui/registration-pass-dialog";
 import { useNavigationHistory } from "@/components/ui/navigation-history-provider";
 import graceLogo from "../../../assets/logo.png";
 
@@ -40,7 +41,28 @@ export function AuthGate({
     return <>{children}</>;
   }
 
+  const isPending = member?.status === "pending";
   const isRejected = member?.status === "rejected";
+
+  if (isPending) {
+    return (
+      <div className={`relative w-full flex items-center justify-center px-4 py-10 ${className}`}>
+        <div className="relative z-10 w-full max-w-[400px]">
+          {showBack && (
+            <button
+              type="button"
+              onClick={() => goBack("/")}
+              className="mb-4 inline-flex items-center gap-2 pl-1 text-[#7A6150] transition-colors hover:text-[#8B2323]"
+            >
+              <ArrowLeft className="h-5 w-5" />
+              <span className="text-lg font-medium">Back</span>
+            </button>
+          )}
+          <PendingApprovalCard />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`relative w-full flex items-center justify-center px-4 py-10 ${className}`}>

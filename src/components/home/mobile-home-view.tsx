@@ -1309,7 +1309,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                 </div>
               )}
 
-              {/* Restricted Community Features — same lock for guests and pending members */}
+              {sessionMember?.status !== 'pending' && (
               <div className="mt-8">
                 <AuthGate
                   title="Community Features"
@@ -1561,6 +1561,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                   </div>
                 </AuthGate>
               </div>
+              )}
 
 
             </>

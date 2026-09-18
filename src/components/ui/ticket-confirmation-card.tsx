@@ -193,7 +193,7 @@ const AnimatedTicket = React.forwardRef<HTMLDivElement, TicketProps>(
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 {formattedAmount ? "Amount" : "Status"}
               </p>
-              <p className="text-lg font-semibold">
+              <p className="text-lg font-semibold leading-snug">
                 {formattedAmount || statusLabel}
               </p>
             </div>
