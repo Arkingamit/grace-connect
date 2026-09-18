@@ -466,7 +466,45 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
 
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const lastScrollY = useRef(0);
 
+  useEffect(() => {
+    const readY = (target: EventTarget | null) => {
+      if (
+        target instanceof HTMLElement &&
+        target !== document.documentElement &&
+        target !== document.body
+      ) {
+        return target.scrollTop;
+      }
+      return window.scrollY || document.documentElement.scrollTop || 0;
+    };
+
+    lastScrollY.current = readY(document);
+    let ticking = false;
+
+    const onScroll = (event: Event) => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = readY(event.target);
+        const delta = y - lastScrollY.current;
+        if (y < 16) {
+          setHeaderVisible(true);
+        } else if (delta > 8) {
+          setHeaderVisible(false);
+        } else if (delta < -6) {
+          setHeaderVisible(true);
+        }
+        lastScrollY.current = y;
+        ticking = false;
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    return () => window.removeEventListener('scroll', onScroll, { capture: true });
+  }, []);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -640,9 +678,26 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
         className={`${forceVisible ? 'flex' : 'desktop:hidden flex'} flex-col min-h-screen text-[#3A2D27] pb-20 font-sans relative w-full overflow-x-hidden bg-transparent`}
       >
 
-        {/* 1. Header */}
+        {/* 1. Header — slides away on scroll down; frost blur covers the status bar when it's gone */}
+        <div
+          className="h-[calc(4rem+env(safe-area-inset-top))] shrink-0"
+          aria-hidden
+        />
+        <div
+          aria-hidden
+          className={cn(
+            "fixed inset-x-0 top-0 z-[45] pointer-events-none transition-opacity duration-300",
+            headerVisible ? "opacity-0" : "opacity-100",
+          )}
+          style={{ height: "calc(env(safe-area-inset-top, 0px) + 28px)" }}
+        >
+          <div className="h-full bg-gradient-to-b from-[#FAF7F2]/80 via-[#FAF7F2]/45 to-transparent backdrop-blur-md" />
+        </div>
         <header
-          className="sticky top-0 z-50 border-b border-[#a59d94]/60 bg-[#FAF7F2]/80 px-4 shadow-[0_4px_16px_-2px_rgba(58,45,39,0.12),0_1px_0px_rgba(255,255,255,0.6)_inset] backdrop-blur-md pt-[env(safe-area-inset-top)]"
+          className={cn(
+            "fixed inset-x-0 top-0 z-50 border-b border-[#a59d94]/60 bg-[#FAF7F2]/80 px-4 shadow-[0_4px_16px_-2px_rgba(58,45,39,0.12),0_1px_0px_rgba(255,255,255,0.6)_inset] backdrop-blur-md pt-[env(safe-area-inset-top)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            headerVisible ? "translate-y-0" : "-translate-y-full",
+          )}
         >
           <div className="flex h-16 items-center justify-between">
           <div className="flex min-w-0 items-center">

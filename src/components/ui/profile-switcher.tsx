@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "./avatar";
 import { AvatarGroup } from "./avatar-group";
 import { QrCode, UserPlus, LogOut, User, Shield } from "lucide-react";
@@ -43,6 +43,7 @@ export function ProfileSwitcher({
   const [loggingOut, setLoggingOut] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (session) {
@@ -107,6 +108,34 @@ export function ProfileSwitcher({
 
   const closeMenu = () => setIsOpen(false);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const isInside = (target: EventTarget | null) => {
+      const node = target instanceof Node ? target : null;
+      return Boolean(node && rootRef.current?.contains(node));
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (isInside(event.target)) return;
+      closeMenu();
+    };
+
+    const onScrollOrSwipe = (event: Event) => {
+      if (isInside(event.target)) return;
+      closeMenu();
+    };
+
+    document.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("scroll", onScrollOrSwipe, { capture: true, passive: true });
+    window.addEventListener("touchmove", onScrollOrSwipe, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("scroll", onScrollOrSwipe, true);
+      window.removeEventListener("touchmove", onScrollOrSwipe, true);
+    };
+  }, [isOpen]);
+
   const buttonClasses = cn(
     "outline-none focus-visible:ring-2 focus-visible:ring-[#8B2323]/40 transition-colors",
     variant === "pill"
@@ -117,7 +146,7 @@ export function ProfileSwitcher({
 
   return (
     <>
-      <div className="relative">
+      <div className="relative" ref={rootRef}>
         <div className={cn("invisible", buttonClasses)} aria-hidden="true">
           <Avatar className={cn("border border-[#E5D5C5]/60 shadow-sm", variant === "pill" ? "h-7 w-7" : "h-10 w-10")}>
             {activePhoto ? <AvatarImage src={activePhoto} alt={displayName} className="object-cover" /> : null}
@@ -128,7 +157,8 @@ export function ProfileSwitcher({
           {variant === "pill" && <span className="max-w-[88px] truncate pr-1 text-sm font-medium text-[#1A202C]">{firstName}</span>}
         </div>
 
-        <AnimatePresence>
+        <LayoutGroup id="profile-switcher">
+        <AnimatePresence initial={false}>
           {!isOpen && (
             <motion.button
               key="button"
@@ -137,6 +167,7 @@ export function ProfileSwitcher({
               onClick={() => setIsOpen(true)}
               className={cn("absolute inset-0 m-0", buttonClasses)}
               aria-label="Open profile menu"
+              transition={{ type: "spring", stiffness: 460, damping: 36, mass: 0.7 }}
             >
               <motion.div layoutId="profile-avatar" className="shrink-0">
                 <Avatar className={cn("border border-[#E5D5C5]/60 shadow-sm", variant === "pill" ? "h-7 w-7" : "h-10 w-10")}>
@@ -155,20 +186,11 @@ export function ProfileSwitcher({
           )}
 
           {isOpen && (
-            <>
-              <motion.div
-                key="overlay"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="fixed inset-0 z-40"
-                onClick={closeMenu}
-              />
-
               <motion.div
                 key="menu"
                 layoutId="profile-menu-container"
+                style={{ originX: align === "start" ? 0 : 1, originY: 0 }}
+                transition={{ type: "spring", stiffness: 460, damping: 36, mass: 0.7 }}
                 className={cn(
                   "absolute z-50 w-64 rounded-xl border border-[#E5D5C5] bg-white p-1.5 shadow-xl flex flex-col overflow-hidden",
                   align === "end" ? "right-0" : align === "start" ? "left-0" : "left-1/2 -translate-x-1/2",
@@ -248,9 +270,9 @@ export function ProfileSwitcher({
                   Sign Out
                 </button>
               </motion.div>
-            </>
           )}
         </AnimatePresence>
+        </LayoutGroup>
       </div>
 
       <AddFamilyMemberDialog open={isAdding} onOpenChange={setIsAdding} />
