@@ -121,13 +121,14 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
     };
 
     return (
-      <div className="space-y-1">
-        <div className="relative flex items-center">
+      <div className="w-full min-w-0 space-y-1">
+        <div className="relative flex min-w-0 items-center overflow-hidden">
           <Input
             ref={ref}
             id={id}
             type="text"
             inputMode="numeric"
+            size={10}
             placeholder={placeholder}
             value={displayValue}
             onChange={handleTextChange}
@@ -137,21 +138,21 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
             disabled={disabled}
             required={required}
             className={cn(
-              "pr-10 tracking-wider placeholder:tracking-normal",
+              "min-w-0 pr-10 text-sm tracking-wide placeholder:tracking-normal",
               localError && "border-destructive focus-visible:ring-destructive",
               className
             )}
           />
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center">
+          <div className="absolute right-2 top-1/2 z-10 flex h-7 w-7 shrink-0 -translate-y-1/2 items-center overflow-hidden">
             <button
               type="button"
               onClick={handleCalendarClick}
               disabled={disabled}
-              className="relative flex items-center justify-center w-7 h-7 text-muted-foreground hover:text-foreground cursor-pointer rounded-md hover:bg-muted/50 transition-colors focus:outline-none"
+              className="relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-md text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus:outline-none disabled:cursor-not-allowed"
               title="Choose date from calendar"
               tabIndex={-1}
             >
-              <Calendar className="w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Calendar className="pointer-events-none h-4 w-4 text-muted-foreground" />
               <input
                 ref={pickerRef}
                 type="date"
@@ -160,7 +161,7 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
                 value={value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''}
                 onChange={handlePickerChange}
                 disabled={disabled}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                className="absolute inset-0 h-7 w-7 max-w-7 min-w-0 cursor-pointer p-0 opacity-0 [appearance:none] [color-scheme:light] [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:m-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-date-and-time-value]:hidden [&::-webkit-datetime-edit]:hidden"
                 title="Choose date from calendar"
                 tabIndex={-1}
                 aria-hidden="true"

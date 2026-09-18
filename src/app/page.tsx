@@ -19,6 +19,7 @@ import { useAdminData } from "@/lib/admin-data-context";
 import { NoteShareSection } from "@/components/ui/note-share-section";
 import { PendingMemberEpass } from "@/components/ui/registration-pass-dialog";
 import { MobileHomeSkeleton, DesktopHomeSkeleton } from "@/components/home/home-skeleton";
+import { HomeSplash } from "@/components/home/home-splash";
 
 // Wrapper for parallax background sections
 function ParallaxSection({
@@ -100,16 +101,21 @@ export default function HomePage() {
   // Show skeleton loaders while data is being fetched
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-transparent selection:bg-primary/10 flex flex-col">
-        <MobileHomeSkeleton forceVisible={isNative} />
-        {!isNative && <DesktopHomeSkeleton />}
-      </div>
+      <>
+        <HomeSplash ready={false} />
+        <div className="min-h-screen bg-transparent selection:bg-primary/10 flex flex-col">
+          <MobileHomeSkeleton forceVisible={isNative} />
+          {!isNative && <DesktopHomeSkeleton />}
+        </div>
+      </>
     );
   }
 
   return (
+    <>
+    <HomeSplash ready />
     <div className="min-h-screen bg-transparent selection:bg-primary/10 flex flex-col">
-      
+
       {/* Phone layout, plus the native iOS/Android shell (including iPad). */}
       <MobileHomeView forceVisible={isNative} />
 
@@ -272,5 +278,6 @@ export default function HomePage() {
       )}
 
     </div>
+    </>
   );
 }

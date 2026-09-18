@@ -327,6 +327,9 @@ interface AdminDataContextType {
   getVisibleSermons: (campusId: string, groups: string[], role?: string) => Sermon[];
   getVisibleBroadcasts: (campusId: string, groups: string[], role?: string) => any[];
 
+  /** Re-fetch member-facing lists (events, announcements, gallery, …). */
+  refreshPublicData: () => Promise<void>;
+
   // System Settings
   updateSystemSettings: (settings: Partial<SystemSettings>) => Promise<void>;
 }
@@ -352,62 +355,74 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith('/admin');
 
+  const refreshPublicData = useCallback(async () => {
+    try {
+      const [
+        eventsRes,
+        announcementsRes,
+        campusesRes,
+        galleryRes,
+        sermonsRes,
+        sermonSeriesRes,
+        worshipVideosRes,
+        liveStreamsRes,
+        settingsRes,
+        broadcastsRes,
+      ] = await Promise.all([
+        fetch('/api/admin/events').catch(() => null),
+        fetch('/api/admin/announcements').catch(() => null),
+        fetch('/api/campuses').catch(() => null),
+        fetch('/api/admin/media/gallery').catch(() => null),
+        fetch('/api/admin/media/sermons').catch(() => null),
+        fetch('/api/admin/media/sermon-series').catch(() => null),
+        fetch('/api/admin/media/worship-videos').catch(() => null),
+        fetch('/api/admin/media/livestreams').catch(() => null),
+        fetch('/api/system/settings').catch(() => null),
+        fetch('/api/broadcasts').catch(() => null),
+      ]);
+
+      if (eventsRes?.ok) {
+        const rawEvents = await eventsRes.json();
+        setEvents(rawEvents.map((e: any) => ({
+          ...mapId(e),
+          date: e.date || e.startTime?.split('T')[0] || '',
+          time: e.time || e.startTime?.split('T')[1]?.substring(0, 5) || '',
+          endTime: e.endTime || e.endTime?.split('T')[1]?.substring(0, 5) || '',
+        })));
+      }
+      if (announcementsRes?.ok) setAnnouncements((await announcementsRes.json()).map(mapId));
+      if (campusesRes?.ok) setCampuses((await campusesRes.json()).map(mapId));
+      if (galleryRes?.ok) setGalleryAlbums((await galleryRes.json()).map(mapId));
+      if (sermonsRes?.ok) setSermons((await sermonsRes.json()).map(mapId));
+      if (sermonSeriesRes?.ok) setSermonSeries((await sermonSeriesRes.json()).map(mapId));
+      if (worshipVideosRes?.ok) setWorshipVideos((await worshipVideosRes.json()).map(mapId));
+      if (liveStreamsRes?.ok) setLiveStreams((await liveStreamsRes.json()).map(mapId));
+      if (settingsRes?.ok) setSystemSettings(await settingsRes.json());
+      if (broadcastsRes?.ok) setBroadcasts((await broadcastsRes.json()).map(mapId));
+    } catch (err) {
+      console.error('Failed to fetch public data:', err);
+    }
+  }, [
+    setEvents, setAnnouncements, setCampuses, setGalleryAlbums, setSermons,
+    setSermonSeries, setWorshipVideos, setLiveStreams, setSystemSettings, setBroadcasts,
+  ]);
+
   // ── Fetch Initial Data ────────────────────────────────────────────────
   useEffect(() => {
-    const fetchPublicData = async () => {
-      const timeout = window.setTimeout(() => setIsLoading(false), 5000);
-      try {
-        const [
-          eventsRes,
-          announcementsRes,
-          campusesRes,
-          galleryRes,
-          sermonsRes,
-          sermonSeriesRes,
-          worshipVideosRes,
-          liveStreamsRes,
-          settingsRes,
-          broadcastsRes,
-        ] = await Promise.all([
-          fetch('/api/admin/events').catch(() => null),
-          fetch('/api/admin/announcements').catch(() => null),
-          fetch('/api/campuses').catch(() => null),
-          fetch('/api/admin/media/gallery').catch(() => null),
-          fetch('/api/admin/media/sermons').catch(() => null),
-          fetch('/api/admin/media/sermon-series').catch(() => null),
-          fetch('/api/admin/media/worship-videos').catch(() => null),
-          fetch('/api/admin/media/livestreams').catch(() => null),
-          fetch('/api/system/settings').catch(() => null),
-          fetch('/api/broadcasts').catch(() => null),
-        ]);
+    const timeout = window.setTimeout(() => setIsLoading(false), 5000);
+    refreshPublicData().finally(() => {
+      window.clearTimeout(timeout);
+      setIsLoading(false);
+    });
+  }, [refreshPublicData]);
 
-        if (eventsRes?.ok) {
-          const rawEvents = await eventsRes.json();
-          setEvents(rawEvents.map((e: any) => ({
-            ...mapId(e),
-            date: e.date || e.startTime?.split('T')[0] || '',
-            time: e.time || e.startTime?.split('T')[1]?.substring(0, 5) || '',
-            endTime: e.endTime || e.endTime?.split('T')[1]?.substring(0, 5) || '',
-          })));
-        }
-        if (announcementsRes?.ok) setAnnouncements(rawToMapped(await announcementsRes.json()));
-        if (campusesRes?.ok) setCampuses(rawToMapped(await campusesRes.json()));
-        if (galleryRes?.ok) setGalleryAlbums(rawToMapped(await galleryRes.json()));
-        if (sermonsRes?.ok) setSermons(rawToMapped(await sermonsRes.json()));
-        if (sermonSeriesRes?.ok) setSermonSeries(rawToMapped(await sermonSeriesRes.json()));
-        if (worshipVideosRes?.ok) setWorshipVideos(rawToMapped(await worshipVideosRes.json()));
-        if (liveStreamsRes?.ok) setLiveStreams(rawToMapped(await liveStreamsRes.json()));
-        if (settingsRes?.ok) setSystemSettings(await settingsRes.json());
-        if (broadcastsRes?.ok) setBroadcasts(rawToMapped(await broadcastsRes.json()));
-      } catch (err) {
-        console.error('Failed to fetch public data:', err);
-      } finally {
-        window.clearTimeout(timeout);
-        setIsLoading(false);
-      }
+  useEffect(() => {
+    const onMembershipUpdated = () => {
+      void refreshPublicData();
     };
-    fetchPublicData();
-  }, []);
+    window.addEventListener('grace-membership-updated', onMembershipUpdated);
+    return () => window.removeEventListener('grace-membership-updated', onMembershipUpdated);
+  }, [refreshPublicData]);
 
   useEffect(() => {
     if (!isAdminRoute) return;
@@ -580,6 +595,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
         approvePrayerRequest, deletePrayerRequest, getPendingPrayerRequests,
         getVisibleAnnouncements, getVisibleEvents, getVisibleGalleryAlbums, getVisibleSermons, getVisibleBroadcasts,
         updateSystemSettings,
+        refreshPublicData,
       }}
     >
       {children}

@@ -99,7 +99,7 @@ export function NativePermissionGate() {
         : "Enable location in Settings so you can check in at church events.";
 
   return (
-    <div className="fixed inset-0 z-[10001] flex items-end justify-center bg-black/50 p-4 sm:items-center">
+    <div className="fixed inset-0 z-[10001] flex items-end justify-center bg-black/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-[max(1rem,env(safe-area-inset-top,0px))] sm:items-center">
       <div className="w-full max-w-sm rounded-2xl border border-[#E5D5C5] bg-white p-5 shadow-xl">
         <div className="mb-3 flex gap-2">
           {missing.notifications && (

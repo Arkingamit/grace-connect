@@ -204,7 +204,12 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
           {step === 1 && (
             <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
               <div className="flex flex-col items-center gap-2">
-                <AvatarUploader onUpload={handlePhotoUpload}>
+                <AvatarUploader
+                  onUpload={handlePhotoUpload}
+                  displayName={displayName}
+                  initials={initials}
+                  previewHint="How your photo will look"
+                >
                   <button
                     type="button"
                     className="group relative outline-none focus-visible:ring-2 focus-visible:ring-[#8B2323]/40 rounded-full"
@@ -261,11 +266,11 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
                   className="rounded-xl"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid min-w-0 grid-cols-2 gap-3">
+                <div className="min-w-0 space-y-2">
                   <Label>Gender *</Label>
                   <Select value={gender} onValueChange={(v: 'male' | 'female') => setGender(v)}>
-                    <SelectTrigger className="rounded-xl">
+                    <SelectTrigger className="min-w-0 rounded-xl">
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -274,7 +279,7 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
+                <div className="min-w-0 space-y-2">
                   <Label>Birthday *</Label>
                   <DateInput
                     required
@@ -513,7 +518,12 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
                   </div>
                 </div>
 
-                <AvatarUploader onUpload={handlePhotoUpload}>
+                <AvatarUploader
+                  onUpload={handlePhotoUpload}
+                  displayName={displayName}
+                  initials={initials}
+                  previewHint="How your photo will look"
+                >
                   <button type="button" className="text-xs font-semibold text-[#8B2323] hover:underline">
                     {profilePhoto ? 'Change photo' : 'Add a photo'}
                   </button>

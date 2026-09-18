@@ -14,10 +14,16 @@ import { AvatarUploader } from '@/components/ui/avatar-uploader';
 import { AvatarGroup } from '@/components/ui/avatar-group';
 import {
   Church, User, Mail, Phone, Calendar, Building2, Heart, Users,
-  ArrowLeft, QrCode, Shield, LogOut, Cake, MessageSquare, Pencil, ChevronRight, Camera
+  ArrowLeft, QrCode, Shield, LogOut, Cake, MessageSquare, Pencil, ChevronRight, Camera, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { setStoredAvatar, fileToDataUrl, resolveMemberAvatar } from '@/lib/avatar-storage';
+import {
+  setStoredAvatar,
+  fileToDataUrl,
+  resolveMemberAvatar,
+  clearStoredAvatar,
+  getStoredAvatar,
+} from '@/lib/avatar-storage';
 import { LogoutConfirmDialog } from '@/components/ui/logout-confirm-dialog';
 import { formatDDMMYYYY } from '@/lib/date-utils';
 
@@ -29,6 +35,7 @@ export default function ProfilePage() {
   const [photo, setPhoto] = useState<string>("");
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const member = getSessionMember();
 
@@ -72,10 +79,22 @@ export default function ProfilePage() {
 
   const handleAvatarUpload = async (file: File) => {
     if (!member?.id) return { success: false };
-    const dataUrl = await fileToDataUrl(file);
-    setStoredAvatar(member.id, dataUrl);
-    setPhoto(dataUrl);
-    return { success: true };
+    setIsUploadingPhoto(true);
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setStoredAvatar(member.id, dataUrl);
+      setPhoto(dataUrl);
+      return { success: true };
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    if (!member?.id) return;
+    clearStoredAvatar(member.id);
+    setPhoto(member.avatar || "");
+    toast.success("Profile photo removed");
   };
 
   if (!session || !member) {
@@ -101,6 +120,8 @@ export default function ProfilePage() {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(member.qrCode)}&bgcolor=ffffff&color=000000`;
 
   const initials = `${member.firstName?.[0] || ''}${member.lastName?.[0] || ''}`.toUpperCase() || 'SG';
+  const displayName = `${member.firstName} ${member.lastName}`.trim() || session.name || 'Profile';
+  const hasCustomPhoto = Boolean(member.id && getStoredAvatar(member.id));
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] dark:bg-background text-foreground antialiased pb-4">
@@ -130,11 +151,17 @@ export default function ProfilePage() {
         <section className="bg-white dark:bg-card border border-border/50 shadow-[0px_4px_20px_rgba(0,0,0,0.04)] rounded-3xl p-8 flex flex-col items-center">
           {/* Avatar — tap to upload / crop */}
           <div className="relative mb-4">
-            <AvatarUploader onUpload={handleAvatarUpload}>
+            <AvatarUploader
+              onUpload={handleAvatarUpload}
+              displayName={displayName}
+              initials={initials}
+            >
               <button
                 type="button"
-                className="group relative rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#8B2323]/40"
-                aria-label="Update profile photo"
+                disabled={isUploadingPhoto}
+                className="group relative rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#8B2323]/40 disabled:opacity-60"
+                aria-label="Change profile photo"
+                title="Change profile photo"
               >
                 <Avatar className="h-24 w-24 ring-4 ring-[#8B2323]/15">
                   {photo ? <AvatarImage src={photo} alt="Profile photo" className="object-cover" /> : null}
@@ -146,7 +173,11 @@ export default function ProfilePage() {
                   <Pencil className="h-5 w-5 text-white opacity-0 transition-opacity group-hover:opacity-100" strokeWidth={2.25} />
                 </span>
                 <span className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#8B2323] text-white shadow-md dark:border-card">
-                  <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  {isUploadingPhoto ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  )}
                 </span>
               </button>
             </AvatarUploader>
@@ -164,6 +195,16 @@ export default function ProfilePage() {
               <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-semibold rounded-full border border-emerald-500/20">
                 Active Member
               </span>
+              {hasCustomPhoto ? (
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  disabled={isUploadingPhoto}
+                  className="text-xs text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
+                >
+                  Remove photo
+                </button>
+              ) : null}
             </div>
           </div>
 

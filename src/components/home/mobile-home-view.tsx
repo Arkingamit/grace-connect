@@ -462,26 +462,10 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
         if (Array.isArray(data)) setPublicPrayers(data);
       })
       .catch(console.error);
-  }, []);
+  }, [isApprovedMember]);
 
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
-  const [showSplash, setShowSplash] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return !sessionStorage.getItem('splashShown');
-    }
-    return true;
-  });
-
-  useEffect(() => {
-    if (showSplash) {
-      sessionStorage.setItem('splashShown', 'true');
-      const timer = setTimeout(() => {
-        setShowSplash(false);
-      }, 2500);
-      return () => clearTimeout(timer);
-    }
-  }, [showSplash]);
 
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
@@ -652,41 +636,8 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
 
   return (
     <React.Fragment>
-      {/* Splash Screen Overlay */}
-      <AnimatePresence>
-        {showSplash && (
-          <motion.div
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 1.2, filter: "blur(10px)" }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="fixed inset-0 z-[9999] bg-[#FAF7F2] flex flex-col items-center justify-center w-full h-[100dvh]"
-            style={{
-              backgroundImage: 'var(--bg-pattern)',
-              backgroundRepeat: 'repeat',
-              backgroundSize: '240px 240px'
-            }}
-          >
-            <motion.div
-              animate={{
-                opacity: [1, 0.85, 1],
-                scale: [1, 1.06, 1],
-                filter: ["brightness(1)", "brightness(1.2)", "brightness(1)"]
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              className="flex flex-col items-center gap-6"
-            >
-              <img src="/logo.png" alt="Grace Community Fire" className="w-40 h-40 object-contain drop-shadow-[0_0_25px_rgba(139,35,35,0.6)]" />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div
-        className={`${forceVisible ? 'flex' : 'desktop:hidden flex'} flex-col min-h-screen text-[#3A2D27] pb-20 font-sans relative w-full ${showSplash ? 'h-[100dvh] overflow-hidden' : 'overflow-x-hidden'} bg-transparent`}
+        className={`${forceVisible ? 'flex' : 'desktop:hidden flex'} flex-col min-h-screen text-[#3A2D27] pb-20 font-sans relative w-full overflow-x-hidden bg-transparent`}
       >
 
         {/* 1. Header */}

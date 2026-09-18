@@ -276,7 +276,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-0 left-0 right-0 z-[10000] p-4 bg-white shadow-md border-b border-[#E5D5C5] flex flex-col sm:flex-row items-center justify-between gap-4"
+            className="fixed inset-x-0 z-[10000] mx-3 flex flex-col items-center justify-between gap-4 rounded-2xl border border-[#E5D5C5] bg-white p-4 shadow-md sm:flex-row"
+            style={{ top: "max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem))" }}
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
@@ -313,8 +314,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       {/* ── Floating Toast Stack ── */}
       <div
-        className="fixed top-4 right-4 z-[9999] flex flex-col gap-3 pointer-events-none"
-        style={{ maxWidth: 'min(400px, calc(100vw - 2rem))' }}
+        className="fixed right-4 z-[9999] flex flex-col gap-3 pointer-events-none"
+        style={{
+          top: "max(1rem, calc(env(safe-area-inset-top, 0px) + 0.75rem))",
+          maxWidth: "min(400px, calc(100vw - 2rem))",
+        }}
       >
         <AnimatePresence mode="popLayout">
           {toasts.map((toast) => {

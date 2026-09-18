@@ -1,6 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
+import { toast } from 'sonner';
 
 import { ChurchMember, AuthSession, MemberStatus } from '@/lib/types';
 
@@ -34,6 +37,7 @@ interface AuthContextType {
   getApprovedMembers: () => ChurchMember[];
   getEffectiveGroups: (member: ChurchMember) => string[];
   refreshMembers: () => Promise<void>;
+  refreshSession: () => Promise<void>;
   linkedProfiles: ChurchMember[];
   activeProfileId: string | null;
   switchProfile: (profileId: string | null) => void;
@@ -50,60 +54,89 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [linkedProfiles, setLinkedProfiles] = useState<ChurchMember[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const prevMemberStatusRef = useRef<string | null>(null);
+  const prevLinkedStatusRef = useRef<Record<string, string>>({});
 
-  const fetchSession = useCallback(async () => {
+  const applySessionFromApi = useCallback((data: any) => {
+    if (!data?.user) {
+      prevMemberStatusRef.current = null;
+      prevLinkedStatusRef.current = {};
+      setSession(null);
+      setSessionMember(null);
+      setLinkedProfiles([]);
+      setActiveProfileId(null);
+      return;
+    }
+
+    const formattedMember = {
+      ...data.user,
+      id: data.user._id || data.user.id,
+    };
+    const nextStatus = formattedMember.status || 'approved';
+    const wasPending = prevMemberStatusRef.current === 'pending';
+    prevMemberStatusRef.current = nextStatus;
+
+    const nextLinked: ChurchMember[] = (data.linkedProfiles || []).map((p: any) => ({
+      ...p,
+      id: p.id || p._id,
+    }));
+    const prevLinked = prevLinkedStatusRef.current;
+    const linkedBecameApproved = nextLinked.some(
+      (p) => prevLinked[p.id] === 'pending' && p.status === 'approved',
+    );
+    prevLinkedStatusRef.current = Object.fromEntries(
+      nextLinked.map((p) => [p.id, p.status || 'approved']),
+    );
+
+    setSessionMember(formattedMember);
+    setSession({
+      memberId: formattedMember.id,
+      email: formattedMember.email,
+      name: formattedMember.name || `${formattedMember.firstName} ${formattedMember.lastName}`,
+      role: formattedMember.role || 'member',
+      avatar: formattedMember.avatar || undefined,
+    });
+    setLinkedProfiles(nextLinked);
+
+    if (typeof window !== 'undefined') {
+      const savedProfileId = localStorage.getItem('activeProfileId');
+      if (savedProfileId && (savedProfileId === formattedMember.id || nextLinked.some((p) => p.id === savedProfileId))) {
+        setActiveProfileId(savedProfileId);
+      } else {
+        setActiveProfileId(null);
+      }
+    }
+
+    if ((wasPending && nextStatus === 'approved') || linkedBecameApproved) {
+      toast.success('Your registration was approved', {
+        description: 'Welcome to Grace Community — member sections are now unlocked.',
+      });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('grace-membership-updated', {
+          detail: { status: 'approved' },
+        }));
+      }
+    }
+  }, []);
+
+  const fetchSession = useCallback(async (silent = false) => {
     try {
-      // Only fetch session — no longer fetching /api/admin/users here.
-      // Users list is managed by AdminDataContext (scoped to /admin routes).
-      const sessionRes = await fetch('/api/auth/me').catch(() => null);
+      const sessionRes = await fetch('/api/auth/me', { cache: 'no-store' }).catch(() => null);
 
       if (sessionRes?.ok) {
         const data = await sessionRes.json();
-        if (data.user) {
-          const formattedMember = {
-            ...data.user,
-            id: data.user._id
-          };
-          setSessionMember(formattedMember);
-          setSession({
-            memberId: data.user._id,
-            email: data.user.email,
-            name: data.user.name || `${data.user.firstName} ${data.user.lastName}`,
-            role: data.user.role || 'member',
-            avatar: data.user.avatar || undefined,
-          });
-          
-          if (data.linkedProfiles) {
-            setLinkedProfiles(data.linkedProfiles);
-          }
-
-          // Restore active profile from localStorage if valid
-          if (typeof window !== 'undefined') {
-            const savedProfileId = localStorage.getItem('activeProfileId');
-            if (savedProfileId && (savedProfileId === data.user._id || data.linkedProfiles?.some((p: any) => p.id === savedProfileId))) {
-              setActiveProfileId(savedProfileId);
-            } else {
-              setActiveProfileId(null);
-            }
-          }
-        } else {
-          setSession(null);
-          setSessionMember(null);
-          setLinkedProfiles([]);
-          setActiveProfileId(null);
-        }
-      } else {
-        setSession(null);
-        setSessionMember(null);
-        setLinkedProfiles([]);
-        setActiveProfileId(null);
+        applySessionFromApi(data);
+      } else if (sessionRes && (sessionRes.status === 401 || sessionRes.status === 404)) {
+        applySessionFromApi(null);
+      } else if (!silent) {
+        applySessionFromApi(null);
       }
     } catch (error) {
       console.error('Failed to fetch auth state', error);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
-  }, []);
+  }, [applySessionFromApi]);
 
   // Separate members fetch — only called when explicitly needed (e.g., admin approval flow)
   const refreshMembers = useCallback(async () => {
@@ -120,8 +153,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     fetchSession();
-    // Members are only loaded lazily when needed (admin routes)
   }, [fetchSession]);
+
+  const awaitingApproval =
+    !!session &&
+    (sessionMember?.status === 'pending' ||
+      linkedProfiles.some((p) => p.status === 'pending'));
+
+  useEffect(() => {
+    if (!awaitingApproval) return;
+
+    const poll = () => {
+      void fetchSession(true);
+    };
+
+    const interval = window.setInterval(poll, 8000);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') poll();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    let cancelled = false;
+    const removals: Array<() => void> = [];
+    if (Capacitor.isNativePlatform()) {
+      App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) poll();
+      }).then((handle) => {
+        if (cancelled) handle.remove();
+        else removals.push(() => handle.remove());
+      });
+    }
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
+      removals.forEach((remove) => remove());
+    };
+  }, [awaitingApproval, fetchSession]);
 
   const register = useCallback(async (data: Partial<ChurchMember> & { credential?: string; appleState?: string; provider?: 'google' | 'apple' }) => {
     try {
@@ -340,6 +409,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       getPendingRequests, approveMember, rejectMember,
       getApprovedMembers, getEffectiveGroups,
       refreshMembers,
+      refreshSession: () => fetchSession(true),
       linkedProfiles, activeProfileId, switchProfile, addLinkedProfile, removeLinkedProfile,
     }}>
       {children}

@@ -1,4 +1,4 @@
-import { requireAdminWithScope, enforceCampusScope, enforceGroupScope } from '@/lib/api-auth';
+import { requireAuth, requireAdminWithScope, enforceCampusScope, enforceGroupScope } from '@/lib/api-auth';
 import connectToDatabase from '@/lib/db';
 import Announcement from '@/models/Announcement';
 import { calculateNextOccurrence } from '@/lib/recurrence';
@@ -9,42 +9,18 @@ import { serverCache, CACHE_TTL } from '@/lib/cache';
 
 export async function GET() {
   return withErrorHandler(async () => {
-    const admin = await requireAdminWithScope();
-    if (!admin) return apiError('Unauthorized', 401);
+    const session = await requireAuth();
+    if (!session) return apiError('Unauthorized', 401);
 
-    // Cache key includes role+campus to avoid data leaks between scopes
-    const cacheKey = `announcements:${admin.role}:${admin.campusId}`;
-    const cached = serverCache.get(cacheKey);
+    const cached = serverCache.get('announcements');
     if (cached) return apiSuccess(cached);
 
     await connectToDatabase();
-
-    let query: any = {};
-
-    const allowedCampuses = enforceCampusScope(admin.role, admin.campusId, undefined, admin.permissions, 'announcements');
-    const hasModulePerm = admin.permissions?.some((p: string) => p.startsWith('announcements:'));
-
-    if (!allowedCampuses.includes('all')) {
-      if (admin.role === 'group_leader' && !hasModulePerm) {
-        // Group leaders see announcements targeting their campus/all AND their groups
-        query.$or = [
-          { targetCampuses: { $in: [...allowedCampuses, 'all'] }, targetGroups: { $in: [...admin.groups, 'all'] } },
-          { targetCampuses: { $in: [...allowedCampuses, 'all'] }, targetGroups: { $size: 0 } },
-          { targetCampuses: { $in: [...allowedCampuses, 'all'] }, targetGroups: { $exists: false } },
-        ];
-      } else {
-        // Campus leaders or members with module permission see announcements targeting their allowed campuses or 'all'
-        query.$or = [
-          { targetCampuses: { $in: [...allowedCampuses, 'all'] } },
-        ];
-      }
-    }
-
-    const announcements = await Announcement.find(query)
+    const announcements = await Announcement.find({})
       .sort({ isPinned: -1, createdAt: -1 })
       .lean();
 
-    serverCache.set(cacheKey, announcements, CACHE_TTL.ANNOUNCEMENTS, ['announcements']);
+    serverCache.set('announcements', announcements, CACHE_TTL.ANNOUNCEMENTS, ['announcements']);
     return apiSuccess(announcements);
   });
 }
