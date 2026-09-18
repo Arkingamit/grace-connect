@@ -26,8 +26,10 @@ import { LiveStreamSection } from '@/components/ui/live-stream';
 import { CampusDetails } from '@/components/ui/campus-details';
 import { AnnouncementsSection } from '@/components/ui/announcements-section';
 import { NoteShareSection } from '@/components/ui/note-share-section';
+import { toast } from 'sonner';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
+import { NativeSettings, AndroidSettings, IOSSettings } from 'capacitor-native-settings';
 import { AuthGate } from '@/components/ui/auth-gate';
 import { ProfileSwitcher } from '@/components/ui/profile-switcher';
 import { ViewRegistrationPassButton, PendingMemberEpass } from '@/components/ui/registration-pass-dialog';
@@ -804,16 +806,19 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                   console.warn("Native location permission request failed", e);
                 }
               }
-              if (!navigator.geolocation) { alert('Geolocation not supported'); return; }
+              if (!navigator.geolocation) {
+                toast.error('Location is not available on this device.');
+                return;
+              }
               const btn = document.getElementById('checkin-icon');
               if (btn) btn.classList.add('animate-pulse');
               navigator.geolocation.getCurrentPosition(
                 async (position) => {
                   try {
                     const sessRes = await fetch('/api/attendance/active');
-                    if (!sessRes.ok) { if (btn) btn.classList.remove('animate-pulse'); alert('No active sessions right now.'); return; }
+                    if (!sessRes.ok) { if (btn) btn.classList.remove('animate-pulse'); toast.error('No active sessions right now.'); return; }
                     const sessions = await sessRes.json();
-                    if (!Array.isArray(sessions) || sessions.length === 0) { if (btn) btn.classList.remove('animate-pulse'); alert('No active sessions right now.'); return; }
+                    if (!Array.isArray(sessions) || sessions.length === 0) { if (btn) btn.classList.remove('animate-pulse'); toast.error('No active sessions right now.'); return; }
                     const session = sessions[0];
                     const res = await fetch('/api/attendance/check-in', {
                       method: 'POST',
@@ -823,13 +828,34 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                     const data = await res.json();
                     if (btn) btn.classList.remove('animate-pulse');
                     if (res.ok) {
-                      alert('✅ Checked in successfully!');
+                      toast.success('Checked in successfully!');
                     } else {
-                      alert(data.message || data.error || 'Check-in failed');
+                      toast.error(data.message || data.error || 'Check-in failed');
                     }
-                  } catch { if (btn) btn.classList.remove('animate-pulse'); alert('Connection error. Try again.'); }
+                  } catch { if (btn) btn.classList.remove('animate-pulse'); toast.error('Connection error. Try again.'); }
                 },
-                () => { if (btn) btn.classList.remove('animate-pulse'); alert('Location access denied. Please enable GPS.'); },
+                (error) => {
+                  if (btn) btn.classList.remove('animate-pulse');
+                  const denied = error.code === 1;
+                  toast.error(
+                    denied
+                      ? 'Location is off. Enable GPS in Settings to check in.'
+                      : "Couldn't get your location. Try again.",
+                    denied && Capacitor.isNativePlatform()
+                      ? {
+                          action: {
+                            label: 'Settings',
+                            onClick: () => {
+                              void NativeSettings.open({
+                                optionAndroid: AndroidSettings.ApplicationDetails,
+                                optionIOS: IOSSettings.App,
+                              });
+                            },
+                          },
+                        }
+                      : undefined,
+                  );
+                },
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
               );
             }} className="flex flex-col items-center gap-2 group">
