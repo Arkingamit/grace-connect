@@ -21,7 +21,7 @@ const SystemSettingsSchema = new Schema<ISystemSettings>({
   minAppVersionIos: { type: String, default: '0.1.0' },
   latestAppVersionAndroid: { type: String, default: '0.1.0' },
   latestAppVersionIos: { type: String, default: '0.1.0' },
-  androidStoreUrl: { type: String, default: '' },
+  androidStoreUrl: { type: String, default: 'https://play.google.com/store/apps/details?id=com.graceconnect.app' },
   iosStoreUrl: { type: String, default: '' },
   forceUpdateMessage: {
     type: String,

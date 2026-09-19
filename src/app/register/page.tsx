@@ -2,17 +2,17 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { campusRegisterPath, readCampusInvite } from "@/lib/campus-invite";
 
 /**
- * /register now redirects to the unified login page.
- * Registration starts with OAuth verification at /login; the QR scanner
- * is shown after the identity is verified (for new users).
+ * Bare /register: reuse a campus already captured from a QR, otherwise login.
  */
 export default function RegisterEntryPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/login");
+    const campusId = readCampusInvite();
+    router.replace(campusId ? campusRegisterPath(campusId) : "/login");
   }, [router]);
 
   return null;

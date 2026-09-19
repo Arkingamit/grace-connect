@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Camera as LucideCamera, X, QrCode, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Capacitor } from '@capacitor/core';
-import { Camera } from '@capacitor/camera';
 import { NativeSettings, AndroidSettings, IOSSettings } from 'capacitor-native-settings';
+import { ensureCameraPermission } from '@/lib/native-camera';
 
 declare global {
   interface Window {
@@ -23,6 +23,7 @@ export function SessionQRScanner({ onClose }: SessionQRScannerProps) {
   const scannerRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<'permission' | 'scan' | 'init' | null>(null);
   const [scannedSession, setScannedSession] = useState<boolean>(false);
   const [retryKey, setRetryKey] = useState(0);
 
@@ -76,10 +77,14 @@ export function SessionQRScanner({ onClose }: SessionQRScannerProps) {
       }
 
       if (Capacitor.isNativePlatform()) {
-        try {
-          await Camera.requestPermissions({ permissions: ['camera'] });
-        } catch (e) {
-          console.warn("Native camera permission request failed", e);
+        const allowed = await ensureCameraPermission();
+        if (!allowed) {
+          if (mounted) {
+            setErrorKind('permission');
+            setError('Camera is off. Enable it in Settings, then scan again.');
+            setIsLoading(false);
+          }
+          return;
         }
       }
 
@@ -110,8 +115,10 @@ export function SessionQRScanner({ onClose }: SessionQRScannerProps) {
             } else {
               html5QrCode.stop().then(() => {
                 scannerRef.current = null;
+                setErrorKind('scan');
                 setError('Invalid QR code. Please scan a valid session QR code.');
               }).catch(() => {
+                setErrorKind('scan');
                 setError('Invalid QR code. Please scan a valid session QR code.');
               });
             }
@@ -121,10 +128,11 @@ export function SessionQRScanner({ onClose }: SessionQRScannerProps) {
         if (mounted) setIsLoading(false);
       } catch (err: any) {
         if (mounted) {
+          setErrorKind('permission');
           if (err?.message?.includes?.('NotAllowedError') || err?.name === 'NotAllowedError') {
-            setError('Camera access denied. Please allow camera permission and try again.');
+            setError('Camera is off. Enable it in Settings, then scan again.');
           } else {
-            setError('Could not start camera. Make sure your device has a camera and camera permissions are enabled.');
+            setError('Could not start the camera. Enable camera permission and try again.');
           }
           setIsLoading(false);
         }
@@ -133,6 +141,7 @@ export function SessionQRScanner({ onClose }: SessionQRScannerProps) {
 
     loadAndStart().catch(err => {
       if (mounted) {
+        setErrorKind('init');
         setError(err.message || 'Failed to initialize scanner');
         setIsLoading(false);
       }
@@ -187,40 +196,46 @@ export function SessionQRScanner({ onClose }: SessionQRScannerProps) {
             <p className="text-red-500 font-semibold mb-1">Scan Failed</p>
             <p className="text-white/80 text-xs mb-4 leading-relaxed">{error}</p>
             <div className="flex flex-col gap-2 w-full max-w-[200px]">
-              <Button
-                size="sm"
-                className="w-full bg-[#8B2323] hover:bg-[#721515] text-white font-medium"
-                onClick={async () => {
-                  try {
-                    if (Capacitor.isNativePlatform()) {
+              {errorKind === 'permission' ? (
+                <Button
+                  size="sm"
+                  className="w-full bg-[#8B2323] hover:bg-[#721515] text-white font-medium"
+                  onClick={async () => {
+                    const allowed = await ensureCameraPermission();
+                    if (!allowed && Capacitor.isNativePlatform()) {
                       try {
-                        const status = await Camera.requestPermissions({ permissions: ['camera'] });
-                        if (status.camera === 'denied') {
-                          throw new Error('denied');
-                        }
-                      } catch (err) {
-                        // User permanently denied or plugin threw error
                         if (Capacitor.getPlatform() === 'ios') {
                           await NativeSettings.openIOS({ option: IOSSettings.App });
                         } else {
                           await NativeSettings.openAndroid({ option: AndroidSettings.ApplicationDetails });
                         }
-                        return; // Stop trying to load
+                      } catch {
+                        // ignore
                       }
-                    } else {
-                      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                      stream.getTracks().forEach(t => t.stop());
+                      return;
                     }
                     setError(null);
+                    setErrorKind(null);
                     setIsLoading(true);
-                    setRetryKey(k => k + 1);
-                  } catch (err: any) {
-                    setError('Permission denied again. Please enable it in your settings.');
-                  }
-                }}
-              >
-                Enable Camera
-              </Button>
+                    setRetryKey((k) => k + 1);
+                  }}
+                >
+                  Enable Camera
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  className="w-full bg-[#8B2323] hover:bg-[#721515] text-white font-medium"
+                  onClick={() => {
+                    setError(null);
+                    setErrorKind(null);
+                    setIsLoading(true);
+                    setRetryKey((k) => k + 1);
+                  }}
+                >
+                  Scan again
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

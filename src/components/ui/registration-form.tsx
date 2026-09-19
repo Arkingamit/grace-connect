@@ -14,13 +14,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  Church, User, Heart, Phone, Lock, ArrowRight, ArrowLeft, Check, Building2, ScanLine, Globe, QrCode as QrIcon, Users, Search, X, Camera, Pencil,
+  Church, User, Heart, Lock, ArrowRight, ArrowLeft, Check, Building2, ScanLine, Globe, QrCode as QrIcon, Users, Search, X, Camera, Pencil,
 } from 'lucide-react';
 import { QRScanner } from '@/components/ui/qr-scanner';
 import { AvatarUploader } from '@/components/ui/avatar-uploader';
 import { fileToDataUrl, setStoredAvatar } from '@/lib/avatar-storage';
 import { getMaxBirthdayDate, isFutureBirthday } from '@/lib/date-utils';
 import { DateInput } from '@/components/ui/date-input';
+import { PhoneNumberInput } from '@/components/ui/phone-number-input';
 import { GoogleLogin } from '@react-oauth/google';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
@@ -527,7 +528,7 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
     <AuthPageShell>
       <AuthCard>
         {!submitted && (
-          <AuthModeToggle mode="signup" loginHref="/login" />
+          <AuthModeToggle mode="signup" loginHref={lockedCampusId ? `/login?campusId=${encodeURIComponent(lockedCampusId)}` : "/login"} />
         )}
         <div className="text-left mb-6">
           <h1 className="text-3xl font-bold tracking-tight text-[#1A202C]">
@@ -635,16 +636,22 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>First Name *</Label>
+                    <Label htmlFor="reg-first-name">First Name *</Label>
                     <Input
+                      id="reg-first-name"
+                      name="given-name"
+                      autoComplete="given-name"
                       value={form.firstName}
                       onChange={e => updateField('firstName', e.target.value)}
                       placeholder="John"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Middle Name</Label>
+                    <Label htmlFor="reg-middle-name">Middle Name</Label>
                     <Input
+                      id="reg-middle-name"
+                      name="additional-name"
+                      autoComplete="additional-name"
                       value={form.middleName}
                       onChange={e => updateField('middleName', e.target.value)}
                       placeholder="Michael"
@@ -652,8 +659,11 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Last Name *</Label>
+                  <Label htmlFor="reg-last-name">Last Name *</Label>
                   <Input
+                    id="reg-last-name"
+                    name="family-name"
+                    autoComplete="family-name"
                     value={form.lastName}
                     onChange={e => updateField('lastName', e.target.value)}
                     placeholder="Smith"
@@ -864,19 +874,29 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
 
             {/* Step 3: Contact & Account */}
             {step === 3 && (
-              <>
+              <form
+                autoComplete="on"
+                className="space-y-5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!canProceedStep3) return;
+                  if (hasPreVerified) {
+                    void handlePreVerifiedSubmit();
+                    return;
+                  }
+                  setError('');
+                  setStep(4);
+                }}
+              >
                 <div className="space-y-2">
-                  <Label>Phone Number *</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      type="tel"
-                      value={form.phone}
-                      onChange={e => updateField('phone', e.target.value)}
-                      placeholder="+91 99999 99999"
-                      className="pl-9"
-                    />
-                  </div>
+                  <Label htmlFor="reg-phone">Phone Number *</Label>
+                  <PhoneNumberInput
+                    id="reg-phone"
+                    name="phone"
+                    value={form.phone}
+                    onChange={(value) => updateField('phone', value)}
+                    required
+                  />
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -890,12 +910,14 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
                 </div>
                 {!whatsappSame && (
                   <div className="space-y-2 animate-in slide-in-from-top-2">
-                    <Label>WhatsApp Number *</Label>
-                    <Input
-                      type="tel"
+                    <Label htmlFor="reg-whatsapp">WhatsApp Number *</Label>
+                    <PhoneNumberInput
+                      id="reg-whatsapp"
+                      name="whatsapp"
+                      autoComplete="tel"
                       value={form.whatsapp}
-                      onChange={e => updateField('whatsapp', e.target.value)}
-                      placeholder="+91 99999 99999"
+                      onChange={(value) => updateField('whatsapp', value)}
+                      required
                     />
                   </div>
                 )}
@@ -907,31 +929,28 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
                 )}
                 
                 <div className="flex w-full min-w-0 gap-2 pt-2 sm:gap-3">
-                  <Button variant="outline" className="min-w-0 flex-1 gap-1.5 px-3" onClick={() => setStep(2)}>
+                  <Button type="button" variant="outline" className="min-w-0 flex-1 gap-1.5 px-3" onClick={() => setStep(2)}>
                     <ArrowLeft className="w-4 h-4" /> Back
                   </Button>
                   {hasPreVerified ? (
                     <Button
+                      type="submit"
                       className="min-w-0 flex-1 gap-1.5 px-3"
                       disabled={!canProceedStep3}
-                      onClick={handlePreVerifiedSubmit}
                     >
                       Register <ArrowRight className="w-4 h-4" />
                     </Button>
                   ) : (
                     <Button
+                      type="submit"
                       className="min-w-0 flex-1 gap-1.5 px-3"
                       disabled={!canProceedStep3}
-                      onClick={() => {
-                        setError('');
-                        setStep(4);
-                      }}
                     >
                       Continue <ArrowRight className="w-4 h-4" />
                     </Button>
                   )}
                 </div>
-              </>
+              </form>
             )}
 
             {/* Step 4: Profile card preview + final verify (only when not pre-verified) */}
@@ -1086,7 +1105,7 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
 
         <p className="text-center text-sm text-[#7A6150] mt-6">
           Already have an account?{' '}
-          <Link href="/login" className="font-semibold text-[#8B2323] hover:underline">
+          <Link href={lockedCampusId ? `/login?campusId=${encodeURIComponent(lockedCampusId)}` : "/login"} className="font-semibold text-[#8B2323] hover:underline">
             Log In
           </Link>
         </p>

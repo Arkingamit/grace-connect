@@ -14,6 +14,7 @@ import { NotificationProvider } from "@/components/ui/notification-provider";
 import { NativeBackNavigation } from "@/components/ui/native-back-navigation";
 import { NavigationHistoryProvider } from "@/components/ui/navigation-history-provider";
 import { NativePermissionGate } from "@/components/ui/native-permission-gate";
+import { NativeDeepLink } from "@/components/ui/native-deep-link";
 
 // QueryClient created OUTSIDE the component to prevent recreation on re-render
 const queryClient = new QueryClient({
@@ -54,6 +55,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
                   <Suspense fallback={null}>
                     <NavigationHistoryProvider>
                       <NativeBackNavigation />
+                      <NativeDeepLink />
                       <VersionGate>
                         {children}
                       </VersionGate>

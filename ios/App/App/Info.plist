@@ -77,6 +77,17 @@
 				<string>com.googleusercontent.apps.641349616597-5npf7tgp6ifsu9evc1h4oe328rr8o12c</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.graceconnect.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>graceconnect</string>
+				<string>com.graceconnect.app</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

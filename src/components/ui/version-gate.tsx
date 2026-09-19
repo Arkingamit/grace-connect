@@ -33,9 +33,13 @@ function resolveMinVersion(settings: any, platform: string): string {
 }
 
 function resolveStoreUrl(settings: any, platform: string): string {
-  if (platform === 'android') return settings.androidStoreUrl || '';
-  if (platform === 'ios') return settings.iosStoreUrl || '';
-  return settings.androidStoreUrl || settings.iosStoreUrl || '';
+  if (platform === 'android') {
+    return settings.androidStoreUrl || 'https://play.google.com/store/apps/details?id=com.graceconnect.app';
+  }
+  if (platform === 'ios') {
+    return settings.iosStoreUrl || process.env.NEXT_PUBLIC_IOS_APP_STORE_URL || '';
+  }
+  return settings.androidStoreUrl || settings.iosStoreUrl || 'https://play.google.com/store/apps/details?id=com.graceconnect.app';
 }
 
 export function VersionGate({ children }: { children: React.ReactNode }) {

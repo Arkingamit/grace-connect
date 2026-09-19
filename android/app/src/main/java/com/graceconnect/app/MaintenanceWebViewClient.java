@@ -61,6 +61,9 @@ public class MaintenanceWebViewClient extends BridgeWebViewClient {
     @Override
     public void onPageFinished(WebView view, String url) {
         super.onPageFinished(view, url);
+        if (view.getContext() instanceof MainActivity) {
+            ((MainActivity) view.getContext()).onWebViewReady();
+        }
         if (isMaintenanceUrl(url) && lastFailedUrl != null) {
             // Let the page return the user to where they were once the site is back.
             String escaped = lastFailedUrl.replace("\\", "\\\\").replace("'", "\\'");

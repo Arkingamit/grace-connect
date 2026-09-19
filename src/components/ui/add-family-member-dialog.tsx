@@ -8,12 +8,13 @@ import { Input } from './input';
 import { Label } from './label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { Checkbox } from './checkbox';
-import { Check, ArrowRight, ArrowLeft, Heart, User, Phone, Camera, Pencil } from 'lucide-react';
+import { Check, ArrowRight, ArrowLeft, Heart, User, Camera, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { AvatarUploader } from '@/components/ui/avatar-uploader';
 import { fileToDataUrl, setStoredAvatar } from '@/lib/avatar-storage';
 import { getMaxBirthdayDate, isFutureBirthday } from '@/lib/date-utils';
 import { DateInput } from '@/components/ui/date-input';
+import { PhoneNumberInput } from '@/components/ui/phone-number-input';
 import { useKeyboardAwareDialogPosition } from '@/hooks/useKeyboardInset';
 import { cn } from '@/lib/utils';
 
@@ -427,22 +428,26 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
           )}
 
           {step === 3 && (
-            <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <form
+              autoComplete="on"
+              className="space-y-4 animate-in fade-in zoom-in-95 duration-200"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setStep(4);
+              }}
+            >
               <div className="space-y-2">
-                <Label>Phone Number (Optional for children)</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => {
-                      setPhone(e.target.value);
-                      if (whatsappSame) setWhatsapp(e.target.value);
-                    }}
-                    placeholder="e.g. +91 99999 99999"
-                    className="pl-9 rounded-xl"
-                  />
-                </div>
+                <Label htmlFor="family-phone">Phone Number (Optional for children)</Label>
+                <PhoneNumberInput
+                  id="family-phone"
+                  name="phone"
+                  value={phone}
+                  onChange={(value) => {
+                    setPhone(value);
+                    if (whatsappSame) setWhatsapp(value);
+                  }}
+                  className="rounded-xl"
+                />
               </div>
 
               <div className="flex items-center gap-2">
@@ -458,12 +463,12 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
 
               {!whatsappSame && (
                 <div className="space-y-2 animate-in slide-in-from-top-2">
-                  <Label>WhatsApp Number</Label>
-                  <Input
-                    type="tel"
+                  <Label htmlFor="family-whatsapp">WhatsApp Number</Label>
+                  <PhoneNumberInput
+                    id="family-whatsapp"
+                    name="whatsapp"
                     value={whatsapp}
-                    onChange={(e) => setWhatsapp(e.target.value)}
-                    placeholder="e.g. +91 99999 99999"
+                    onChange={setWhatsapp}
                     className="rounded-xl"
                   />
                 </div>
@@ -471,9 +476,7 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
 
               <DialogFooter className="pt-4 flex gap-2 sm:flex-col">
                 <Button
-                  type="button"
-                  disabled={false}
-                  onClick={() => setStep(4)}
+                  type="submit"
                   className="rounded-full w-full bg-[#8B2323] hover:bg-[#721515] gap-2 order-1"
                 >
                   Next <ArrowRight className="w-4 h-4" />
@@ -487,7 +490,7 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
                   <ArrowLeft className="w-4 h-4" /> Back
                 </Button>
               </DialogFooter>
-            </div>
+            </form>
           )}
 
           {step === 4 && (

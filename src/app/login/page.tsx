@@ -21,6 +21,12 @@ import {
 } from "@/components/ui/auth-layout";
 import { ViewRegistrationPassButton } from "@/components/ui/registration-pass-dialog";
 import graceLogo from "../../../assets/logo.png";
+import {
+  campusIdFromSearch,
+  campusRegisterPath,
+  readCampusInvite,
+  rememberCampusInvite,
+} from "@/lib/campus-invite";
 
 /**
  * Unified Login Page
@@ -31,7 +37,8 @@ import graceLogo from "../../../assets/logo.png";
  *      - Existing + approved → auto-login, redirect to /
  *      - Existing + pending  → show "pending approval" message
  *      - Existing + rejected → show rejection message
- *      - New user            → show QR scanner, then redirect to /register/[campusId]
+ *      - New user            → /register/[campusId] when campus is already
+ *        known from a scanned QR; otherwise show the campus QR scanner
  */
 export default function LoginPage() {
   const router = useRouter();
@@ -89,6 +96,11 @@ export default function LoginPage() {
   }, [router]);
 
   useEffect(() => {
+    const campusId = campusIdFromSearch(searchParams);
+    if (campusId) rememberCampusInvite(campusId);
+  }, [searchParams]);
+
+  useEffect(() => {
     const appleError = searchParams.get("appleError");
     if (appleError) {
       setNotice("");
@@ -109,9 +121,8 @@ export default function LoginPage() {
           break;
 
         case "new":
-          // New user — store credential, show QR scanner
+          // New user — store credential, then continue at the campus form if known
           setPendingCredential({ credential, provider, picture });
-          // Save to sessionStorage so the registration form can pick it up
           try {
             sessionStorage.setItem(
               "grace-verified-credential",
@@ -119,6 +130,13 @@ export default function LoginPage() {
             );
           } catch {
             // private mode
+          }
+          {
+            const campusId = campusIdFromSearch(searchParams) || readCampusInvite();
+            if (campusId) {
+              router.push(campusRegisterPath(campusId));
+              break;
+            }
           }
           setShowScanner(true);
           break;
@@ -136,7 +154,7 @@ export default function LoginPage() {
           break;
       }
     },
-    [router]
+    [router, searchParams]
   );
 
   /** Google web popup success — access token is verified server-side */

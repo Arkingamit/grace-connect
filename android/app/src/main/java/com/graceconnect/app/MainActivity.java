@@ -1,30 +1,29 @@
 package com.graceconnect.app;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Bundle;
 import android.view.WindowManager;
 import android.webkit.WebView;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
+import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.WindowCompat;
 
 import com.codetrixstudio.capacitor.GoogleAuth.GoogleAuth;
 import com.getcapacitor.BridgeActivity;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class MainActivity extends BridgeActivity {
 
-    private static final int PERMISSION_REQUEST_CODE = 1001;
+    private volatile boolean hideNativeSplash = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
+        splashScreen.setKeepOnScreenCondition(() -> !hideNativeSplash);
+        new Handler(Looper.getMainLooper()).postDelayed(() -> hideNativeSplash = true, 2500);
+
         // Credential Manager Google (Grace Music strategy) + Codetrix for iOS parity if present.
         registerPlugin(GraceGoogleAuthPlugin.class);
         registerPlugin(GraceMediaPlugin.class);
@@ -36,19 +35,26 @@ public class MainActivity extends BridgeActivity {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 
+        Runnable enableAutofill = () -> {
+            if (getBridge() == null) return;
+            WebView webView = getBridge().getWebView();
+            if (webView != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                webView.setImportantForAutofill(android.view.View.IMPORTANT_FOR_AUTOFILL_YES);
+            }
+        };
+        enableAutofill.run();
+        new Handler(Looper.getMainLooper()).post(enableAutofill);
+
         // Replace nginx 502 / "page not available" with the bundled maintenance page.
         if (getBridge() != null) {
             getBridge().setWebViewClient(new MaintenanceWebViewClient(getBridge()));
         }
 
-        requestAppPermissions();
         registerNativeBackInterceptor();
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        requestAppPermissions();
+    void onWebViewReady() {
+        hideNativeSplash = true;
     }
 
     /**
@@ -83,31 +89,8 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
-    private void requestAppPermissions() {
-        List<String> permissionsNeeded = new ArrayList<>();
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            permissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
-        }
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            permissionsNeeded.add(Manifest.permission.ACCESS_COARSE_LOCATION);
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS);
-            }
-        }
-
-        if (!permissionsNeeded.isEmpty()) {
-            ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), PERMISSION_REQUEST_CODE);
-        }
-    }
-
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        // Capacitor plugins will handle the result automatically via BridgeActivity
     }
 }

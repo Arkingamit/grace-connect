@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Campus not found' }, { status: 404 });
   }
 
-  const loginUrl = `${url.origin}/login`;
+  const loginUrl = `${url.origin}/register/${campusId}`;
   const qrUrl =
     `https://api.qrserver.com/v1/create-qr-code/` +
     `?size=${size}x${size}&data=${encodeURIComponent(loginUrl)}&format=png&margin=10`;

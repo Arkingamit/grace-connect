@@ -29,20 +29,20 @@ export default function QRCodesPage() {
     ? campuses.filter(c => c.id === currentUser.campusId)
     : campuses;
 
-  const getRegistrationUrl = () => {
+  const getRegistrationUrl = (campusId: string) => {
     if (typeof window !== 'undefined') {
-      return `${window.location.origin}/login`;
+      return `${window.location.origin}/register/${campusId}`;
     }
-    return 'https://graceconnect.graceahmedabad.org/login';
+    return `https://graceconnect.graceahmedabad.org/register/${campusId}`;
   };
 
-  const getQRImageUrl = (size: number = 200) => {
-    const registrationUrl = getRegistrationUrl();
+  const getQRImageUrl = (campusId: string, size: number = 200) => {
+    const registrationUrl = getRegistrationUrl(campusId);
     return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(registrationUrl)}&format=png&margin=10`;
   };
 
   const copyLink = useCallback((campusId: string) => {
-    const url = getRegistrationUrl();
+    const url = getRegistrationUrl(campusId);
     navigator.clipboard.writeText(url);
     setCopiedId(campusId);
     setTimeout(() => setCopiedId(null), 2000);
@@ -99,8 +99,8 @@ export default function QRCodesPage() {
         <div className="text-sm">
           <p className="font-medium text-foreground">How it works</p>
           <p className="text-muted-foreground mt-0.5">
-            When someone scans a campus QR code, they&apos;re taken to Sign Up. They can join immediately
-            with Google or Apple — no pastor approval step.
+            When someone scans a campus QR code, they go to that campus&apos;s registration page
+            and can join with Google or Apple.
           </p>
         </div>
       </div>
@@ -119,8 +119,8 @@ export default function QRCodesPage() {
       {/* QR Code Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {mounted && visibleCampuses.map(campus => {
-          const url = getRegistrationUrl();
-          const qrImageUrl = getQRImageUrl();
+          const url = getRegistrationUrl(campus.id);
+          const qrImageUrl = getQRImageUrl(campus.id);
           const isCopied = copiedId === campus.id;
 
           return (

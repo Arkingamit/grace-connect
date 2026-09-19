@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAdminData } from '@/lib/admin-data-context';
@@ -8,17 +8,20 @@ import { RegistrationForm } from '@/components/ui/registration-form';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Church, AlertTriangle, ArrowRight } from 'lucide-react';
+import { rememberCampusInvite } from '@/lib/campus-invite';
+import { AppOpenGate } from '@/components/ui/app-open-gate';
 
 export default function CampusRegisterPage() {
   const params = useParams();
   const campusId = params.campusId as string;
-  const { campuses } = useAdminData();
+  const { campuses, isLoading } = useAdminData();
 
   // Read pre-verified credentials from sessionStorage (set by /login after OAuth)
   const [preCredential, setPreCredential] = useState('');
   const [preProvider, setPreProvider] = useState<'google' | 'apple'>('google');
 
   useEffect(() => {
+    if (campusId) rememberCampusInvite(campusId);
     try {
       const raw = sessionStorage.getItem('grace-verified-credential');
       if (raw) {
@@ -31,9 +34,17 @@ export default function CampusRegisterPage() {
     } catch {
       // private mode
     }
-  }, []);
+  }, [campusId]);
 
-  const campus = campuses.find(c => c.id === campusId);
+  const campus = campuses.find(c => c.id.toLowerCase() === String(campusId || '').toLowerCase());
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[#FAF7F2]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#8B2323] border-t-transparent" />
+      </div>
+    );
+  }
 
   // Invalid campus — show error
   if (!campus) {
@@ -79,10 +90,14 @@ export default function CampusRegisterPage() {
   }
 
   return (
-    <RegistrationForm
-      lockedCampusId={campusId}
-      preVerifiedCredential={preCredential || undefined}
-      preVerifiedProvider={preCredential ? preProvider : undefined}
-    />
+    <Suspense fallback={null}>
+      <AppOpenGate campusId={campus.id}>
+        <RegistrationForm
+          lockedCampusId={campus.id}
+          preVerifiedCredential={preCredential || undefined}
+          preVerifiedProvider={preCredential ? preProvider : undefined}
+        />
+      </AppOpenGate>
+    </Suspense>
   );
 }
