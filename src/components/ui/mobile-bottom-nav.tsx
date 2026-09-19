@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Home, PlayCircle, CalendarHeart, FileText } from "lucide-react";
-import { LayoutGroup, motion } from "framer-motion";
+import { animate, motion, useMotionValue } from "framer-motion";
 import { useKeyboardOpen } from "@/hooks/useKeyboardInset";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +19,7 @@ const EXPAND_DELTA = -6;
 const NAV_SWIPE_FLICK = 36;
 const PAGE_SWIPE_MIN = 64;
 const PAGE_EDGE = 28;
+const SPRING = { type: "spring" as const, stiffness: 480, damping: 36, mass: 0.55 };
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Home", href: "/", icon: Home, exact: true },
@@ -61,38 +62,108 @@ export function MobileBottomNav() {
   const router = useRouter();
   const keyboardOpen = useKeyboardOpen();
   const [compact, setCompact] = useState(false);
-  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const lastY = useRef(0);
+  const barRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const pointerIdRef = useRef<number | null>(null);
   const startXRef = useRef(0);
   const draggingRef = useRef(false);
   const suppressClickRef = useRef(false);
+  const firstLayout = useRef(true);
+  const dragStartIndexRef = useRef(0);
+  const highlightRef = useRef(0);
+
+  const pillX = useMotionValue(0);
+  const pillY = useMotionValue(0);
+  const pillW = useMotionValue(0);
+  const pillH = useMotionValue(0);
 
   const pathIndex = useMemo(() => {
     const index = tabIndexForPath(pathname);
     return index < 0 ? 0 : index;
   }, [pathname]);
 
-  const shownIndex = previewIndex ?? pathIndex;
+  const [activeIndex, setActiveIndex] = useState(pathIndex);
+  const [highlightIndex, setHighlightIndex] = useState(pathIndex);
   const onTabRoute = tabIndexForPath(pathname) >= 0;
+
+  const placePill = useCallback((index: number, instant: boolean) => {
+    const bar = barRef.current;
+    const el = itemRefs.current[index];
+    if (!bar || !el) return;
+    const barRect = bar.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
+    const x = rect.left - barRect.left;
+    const y = rect.top - barRect.top;
+    if (instant) {
+      pillX.set(x);
+      pillY.set(y);
+      pillW.set(rect.width);
+      pillH.set(rect.height);
+      return;
+    }
+    void animate(pillX, x, SPRING);
+    void animate(pillY, y, SPRING);
+    void animate(pillW, rect.width, SPRING);
+    void animate(pillH, rect.height, SPRING);
+  }, [pillH, pillW, pillX, pillY]);
+
+  const followPointer = useCallback((clientX: number) => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const barLeft = bar.getBoundingClientRect().left;
+    const tabs = itemRefs.current
+      .map((el) => {
+        if (!el) return null;
+        const rect = el.getBoundingClientRect();
+        return {
+          left: rect.left - barLeft,
+          top: rect.top - bar.getBoundingClientRect().top,
+          width: rect.width,
+          height: rect.height,
+          center: rect.left - barLeft + rect.width / 2,
+        };
+      })
+      .filter((tab): tab is NonNullable<typeof tab> => Boolean(tab));
+    if (tabs.length < 2) return;
+
+    const x = clientX - barLeft;
+    let i = 0;
+    for (let n = 0; n < tabs.length - 1; n++) {
+      if (x >= tabs[n].center) i = n;
+    }
+    const a = tabs[i];
+    const b = tabs[Math.min(i + 1, tabs.length - 1)];
+    const span = b.center - a.center || 1;
+    const t = Math.max(0, Math.min(1, (x - a.center) / span));
+    const left = a.left + (b.left - a.left) * t;
+    const width = a.width + (b.width - a.width) * t;
+    const stretch = 1 + Math.min(0.16, Math.abs(x - (a.center + span * t)) / 160);
+    pillX.set(left - (width * (stretch - 1)) / 2);
+    pillW.set(width * stretch);
+    pillH.set(a.height);
+    pillY.set(a.top + (b.top - a.top) * t);
+    const hovered = t < 0.5 ? i : Math.min(i + 1, tabs.length - 1);
+    highlightRef.current = hovered;
+    setHighlightIndex(hovered);
+  }, [pillH, pillW, pillX, pillY]);
 
   const goToIndex = useCallback(
     (index: number) => {
       const next = Math.max(0, Math.min(NAV_ITEMS.length - 1, index));
       const item = NAV_ITEMS[next];
       if (!item) return;
+      setActiveIndex(next);
+      setHighlightIndex(next);
+      highlightRef.current = next;
+      placePill(next, false);
       const alreadyThere = item.exact
         ? pathname === item.href
         : pathname === item.href || pathname.startsWith(`${item.href}/`);
-      if (alreadyThere) {
-        setPreviewIndex(null);
-        return;
-      }
-      setPreviewIndex(next);
+      if (alreadyThere) return;
       router.replace(item.href);
     },
-    [pathname, router],
+    [pathname, placePill, router],
   );
 
   const indexFromX = useCallback((clientX: number) => {
@@ -116,8 +187,16 @@ export function MobileBottomNav() {
   }, [router]);
 
   useEffect(() => {
-    setPreviewIndex(null);
-  }, [pathname]);
+    setActiveIndex(pathIndex);
+    setHighlightIndex(pathIndex);
+    highlightRef.current = pathIndex;
+  }, [pathIndex]);
+
+  useLayoutEffect(() => {
+    const instant = firstLayout.current;
+    firstLayout.current = false;
+    placePill(activeIndex, instant);
+  }, [activeIndex, compact, placePill]);
 
   useEffect(() => {
     const readY = (target: EventTarget | null) => {
@@ -209,6 +288,7 @@ export function MobileBottomNav() {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     pointerIdRef.current = event.pointerId;
     startXRef.current = event.clientX;
+    dragStartIndexRef.current = highlightRef.current;
     draggingRef.current = false;
     suppressClickRef.current = false;
   };
@@ -216,13 +296,13 @@ export function MobileBottomNav() {
   const onNavPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (pointerIdRef.current !== event.pointerId) return;
     const dx = event.clientX - startXRef.current;
-    if (!draggingRef.current && Math.abs(dx) < 10) return;
+    if (!draggingRef.current && Math.abs(dx) < 8) return;
     if (!draggingRef.current) {
       draggingRef.current = true;
       suppressClickRef.current = true;
       event.currentTarget.setPointerCapture(event.pointerId);
     }
-    setPreviewIndex(indexFromX(event.clientX));
+    followPointer(event.clientX);
   };
 
   const finishNavGesture = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -232,14 +312,16 @@ export function MobileBottomNav() {
     pointerIdRef.current = null;
     draggingRef.current = false;
 
-    if (!dragged) {
-      setPreviewIndex(null);
-      return;
-    }
+    if (!dragged) return;
 
-    let next = indexFromX(event.clientX);
-    if (next === pathIndex && Math.abs(dx) >= NAV_SWIPE_FLICK) {
-      next = pathIndex + (dx < 0 ? 1 : -1);
+    const start = dragStartIndexRef.current;
+    let next = highlightRef.current;
+    if (next === start) {
+      next = indexFromX(event.clientX);
+    }
+    // Dragging the pill toward the next tab is a rightward move (dx > 0).
+    if (next === start && Math.abs(dx) >= NAV_SWIPE_FLICK) {
+      next = start + (dx > 0 ? 1 : -1);
     }
     goToIndex(next);
   };
@@ -253,76 +335,71 @@ export function MobileBottomNav() {
     >
       <div
         className={cn(
-          "pointer-events-auto mx-auto max-w-[22rem] origin-bottom transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          compact ? "scale-[0.88] translate-y-1" : "scale-100 translate-y-0",
+          "pointer-events-auto mx-auto origin-bottom transition-[max-width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          compact ? "max-w-[19rem]" : "max-w-[22rem]",
         )}
       >
-        <LayoutGroup id="mobile-bottom-nav">
-          <div
-            className={cn(
-              "relative flex touch-pan-x items-center gap-0.5 rounded-full transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-              "border border-white/55 bg-white/35 shadow-[0_10px_40px_-12px_rgba(58,45,39,0.35),inset_0_1px_0_rgba(255,255,255,0.75)]",
-              "backdrop-blur-2xl backdrop-saturate-150",
-              compact ? "px-1.5 py-1" : "px-1 py-1",
-            )}
-            onPointerDown={onNavPointerDown}
-            onPointerMove={onNavPointerMove}
-            onPointerUp={finishNavGesture}
-            onPointerCancel={finishNavGesture}
-          >
-            {NAV_ITEMS.map((item, index) => {
-              const Icon = item.icon;
-              const isActive = shownIndex === index;
+        <div
+          ref={barRef}
+          className={cn(
+            "liquid-glass-nav relative flex touch-pan-x items-center gap-0.5 rounded-full transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            compact ? "px-1.5 py-1" : "px-1 py-1",
+          )}
+          onPointerDown={onNavPointerDown}
+          onPointerMove={onNavPointerMove}
+          onPointerUp={finishNavGesture}
+          onPointerCancel={finishNavGesture}
+        >
+          <motion.span
+            aria-hidden
+            className="liquid-glass-pill pointer-events-none absolute left-0 top-0 rounded-full"
+            style={{ x: pillX, y: pillY, width: pillW, height: pillH }}
+          />
+          {NAV_ITEMS.map((item, index) => {
+            const Icon = item.icon;
+            const isActive = highlightIndex === index;
 
-              return (
-                <button
-                  key={item.href}
-                  ref={(el) => {
-                    itemRefs.current[index] = el;
-                  }}
-                  type="button"
-                  onClick={() => {
-                    if (suppressClickRef.current) {
-                      suppressClickRef.current = false;
-                      return;
-                    }
-                    goToIndex(index);
-                  }}
+            return (
+              <button
+                key={item.href}
+                ref={(el) => {
+                  itemRefs.current[index] = el;
+                }}
+                type="button"
+                onClick={() => {
+                  if (suppressClickRef.current) {
+                    suppressClickRef.current = false;
+                    return;
+                  }
+                  goToIndex(index);
+                }}
+                className={cn(
+                  "relative z-10 flex flex-1 flex-col items-center justify-center rounded-full transition-colors duration-200",
+                  compact ? "h-11 px-2" : "h-[3.4rem] px-2",
+                  isActive ? "text-[#8B2323]" : "text-[#7A6150] active:text-[#3A2D27]",
+                )}
+                aria-current={isActive ? "page" : undefined}
+                aria-label={item.label}
+              >
+                <Icon
+                  strokeWidth={isActive ? 2.25 : 1.75}
                   className={cn(
-                    "relative z-10 flex flex-1 flex-col items-center justify-center rounded-full transition-colors duration-200",
-                    compact ? "h-11 px-2" : "h-[3.4rem] px-2",
-                    isActive ? "text-[#8B2323]" : "text-[#7A6150] active:text-[#3A2D27]",
+                    "relative z-10 shrink-0 transition-all duration-300",
+                    compact ? "h-[22px] w-[22px]" : "h-5 w-5",
                   )}
-                  aria-current={isActive ? "page" : undefined}
-                  aria-label={item.label}
+                />
+                <span
+                  className={cn(
+                    "relative z-10 overflow-hidden text-[10px] font-semibold leading-none tracking-wide transition-all duration-300",
+                    compact ? "mt-0 max-h-0 opacity-0" : "mt-0.5 max-h-4 opacity-100",
+                  )}
                 >
-                  {isActive ? (
-                    <motion.span
-                      layoutId="bottom-nav-pill"
-                      className="absolute inset-0 rounded-full bg-[#FBE8E8]/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] ring-1 ring-[#8B2323]/10"
-                      transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.7 }}
-                    />
-                  ) : null}
-                  <Icon
-                    strokeWidth={isActive ? 2.25 : 1.75}
-                    className={cn(
-                      "relative z-10 shrink-0 transition-all duration-300",
-                      compact ? "h-[22px] w-[22px]" : "h-5 w-5",
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      "relative z-10 overflow-hidden text-[10px] font-semibold leading-none tracking-wide transition-all duration-300",
-                      compact ? "mt-0 max-h-0 opacity-0" : "mt-0.5 max-h-4 opacity-100",
-                    )}
-                  >
-                    {item.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </LayoutGroup>
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </nav>
   );
