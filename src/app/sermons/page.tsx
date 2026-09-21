@@ -231,9 +231,9 @@ export default function SermonsPage() {
                           </div>
                           <span className="text-xs font-medium">{latestSermon?.pastor || 'Pastor Geo'}</span>
                         </div>
-                        <Button variant="ghost" size="sm" className="h-8 group/btn px-0 hover:bg-transparent text-primary">
+                        <span className="inline-flex items-center h-8 text-xs font-semibold text-primary group/btn">
                           View Series <ChevronRight className="w-4 h-4 ml-1 group-hover/btn:translate-x-1 transition-transform" />
-                        </Button>
+                        </span>
                       </div>
                     </CardContent>
                   </Card>

@@ -69,8 +69,8 @@ export default function SeriesDetailPage() {
 
   const visibleSermons = getVisibleSermons(activeCampusId, currentUser?.groups || [], currentUser?.role);
   
-  const series = sermonSeries.find(s => s.id === id);
-  const seriesSermons = visibleSermons.filter(s => s.seriesId === id);
+  const series = sermonSeries.find(s => s.id === id || s._id === id);
+  const seriesSermons = visibleSermons.filter(s => s.seriesId === id || s.seriesId === series?.id);
   
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   
@@ -149,6 +149,13 @@ export default function SeriesDetailPage() {
           <Play className="w-5 h-5 text-[#8B2323]" /> Series Content
         </h3>
         <div className="space-y-4">
+          {seriesSermons.length === 0 && (
+            <div className="text-center py-16 px-6 rounded-2xl border border-dashed border-[#E5D5C5] bg-white/60">
+              <Tv className="w-10 h-10 text-[#8B2323]/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-[#1A202C]">No sermons in this series yet</p>
+              <p className="text-xs text-[#7A6150] mt-1">Add a sermon and assign it to this series to see it here.</p>
+            </div>
+          )}
           <AnimatePresence>
             {seriesSermons.map((sermon, index) => {
               const isActive = selectedVideoId === sermon.videoId;

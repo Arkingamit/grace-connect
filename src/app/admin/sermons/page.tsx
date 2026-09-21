@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from 'react';
+import NextLink from 'next/link';
 import { useAdminData, type Sermon, type SermonSeries, hasGlobalScope, getAllowedCampuses, getAllowedGroups, getGroupsForCampus, isCoreTeamLeader, isFasLeader } from '@/lib/admin-data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -486,8 +487,10 @@ export default function SermonManagementPage() {
                     <span className="text-xs text-muted-foreground font-medium">
                       {sermons.filter(s => s.seriesId === series.id).length} Sermons
                     </span>
-                    <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
-                      View Series <ChevronRight className="w-3 h-3" />
+                    <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" asChild>
+                      <NextLink href={`/sermons/series/${series.id}`}>
+                        View Series <ChevronRight className="w-3 h-3" />
+                      </NextLink>
                     </Button>
                   </div>
                 </CardContent>
