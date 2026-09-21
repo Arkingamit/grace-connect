@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAdminData, type Sermon, type SermonSeries, hasGlobalScope, getAllowedCampuses, getAllowedGroups, getGroupsForCampus, isCoreTeamLeader, isFasLeader } from '@/lib/admin-data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,7 @@ import {
   Megaphone,
   AlertCircle,
   Users,
+  Loader2,
 } from 'lucide-react';
 
 export default function SermonManagementPage() {
@@ -91,6 +92,9 @@ export default function SermonManagementPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'sermon' | 'series', id: string } | null>(null);
   const [campusMode, setCampusModeState] = useState<'all'|'specific'>('all');
   const [groupMode, setGroupMode] = useState<'all'|'specific'>('all');
+  const [fetchingYoutube, setFetchingYoutube] = useState(false);
+  const youtubeFetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFetchedVideoId = useRef<string | null>(null);
   const isCampusLeader = currentUser?.role === 'campus_leader';
   const isGroupLeader = currentUser?.role === 'group_leader';
   const isCore = isCoreTeamLeader(currentUser?.role || 'member', currentUser?.campusId);
@@ -167,6 +171,45 @@ export default function SermonManagementPage() {
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
+  const applyYoutubeMetadata = async (videoId: string) => {
+    if (lastFetchedVideoId.current === videoId) return;
+    lastFetchedVideoId.current = videoId;
+    setFetchingYoutube(true);
+    try {
+      const res = await fetch(`/api/youtube/stats?ids=${encodeURIComponent(videoId)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const meta = data.stats?.[videoId];
+      if (!meta) {
+        lastFetchedVideoId.current = null;
+        return;
+      }
+      setSermonForm((prev) => ({
+        ...prev,
+        title: meta.title || prev.title,
+        duration: meta.durationLabel || prev.duration,
+        date: meta.dateLabel || prev.date,
+        description: meta.description || prev.description,
+        videoId,
+      }));
+    } catch (err) {
+      console.error("Failed to auto-fetch sermon details from YouTube:", err);
+      lastFetchedVideoId.current = null;
+    } finally {
+      setFetchingYoutube(false);
+    }
+  };
+
+  const handleYoutubeUrlChange = (url: string) => {
+    setSermonForm((prev) => ({ ...prev, youtubeUrl: url }));
+    if (youtubeFetchTimer.current) clearTimeout(youtubeFetchTimer.current);
+    const videoId = extractVideoId(url);
+    if (!videoId) return;
+    youtubeFetchTimer.current = setTimeout(() => {
+      void applyYoutubeMetadata(videoId);
+    }, 400);
+  };
+
   const handleSermonSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const videoId = extractVideoId(sermonForm.youtubeUrl);
@@ -206,6 +249,7 @@ export default function SermonManagementPage() {
   const openAddSermon = () => {
     setEditingSermonId(null);
     setSermonFormStep('basics');
+    lastFetchedVideoId.current = null;
     setSermonForm({
       title: '',
       pastor: 'Pastor Geo',
@@ -231,6 +275,7 @@ export default function SermonManagementPage() {
   const openEditSermon = (sermon: Sermon) => {
     setEditingSermonId(sermon.id);
     setSermonFormStep('basics');
+    lastFetchedVideoId.current = sermon.videoId;
     const nextGroups = isFas
       ? (sermon.targetGroups || []).includes('all')
         ? [...currentUser.groups]
@@ -512,20 +557,34 @@ export default function SermonManagementPage() {
                         className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60"
                         placeholder="https://www.youtube.com/watch?v=..."
                         value={sermonForm.youtubeUrl}
-                        onChange={(e) => setSermonForm({ ...sermonForm, youtubeUrl: e.target.value })}
+                        onChange={(e) => handleYoutubeUrlChange(e.target.value)}
+                        onBlur={(e) => {
+                          const videoId = extractVideoId(e.target.value);
+                          if (videoId) void applyYoutubeMetadata(videoId);
+                        }}
                         required
                       />
+                      <p className="text-[10px] text-muted-foreground">
+                        {fetchingYoutube
+                          ? "Fetching title, date, duration, and description from YouTube…"
+                          : "Paste a YouTube link to fill title, date, duration, and short description."}
+                      </p>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="title" className="text-[#3A2D27] font-semibold">Sermon Title *</Label>
-                        <Input
-                          id="title"
-                          className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60"
-                          value={sermonForm.title}
-                          onChange={(e) => setSermonForm({ ...sermonForm, title: e.target.value })}
-                          required
-                        />
+                        <div className="relative">
+                          <Input
+                            id="title"
+                            className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 pr-9"
+                            value={sermonForm.title}
+                            onChange={(e) => setSermonForm({ ...sermonForm, title: e.target.value })}
+                            required
+                          />
+                          {fetchingYoutube ? (
+                            <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#8B2323]" />
+                          ) : null}
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="pastor" className="text-[#3A2D27] font-semibold">Pastor *</Label>
@@ -903,16 +962,6 @@ export default function SermonManagementPage() {
                 className="w-full min-h-[100px] p-3 rounded-xl bg-[#FAF7F2] border border-[#E5D5C5]/60 text-sm"
                 value={seriesForm.description}
                 onChange={(e) => setSeriesForm({ ...seriesForm, description: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category" className="text-[#3A2D27] font-semibold">Category *</Label>
-              <Input
-                id="category"
-                className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60"
-                value={seriesForm.category}
-                onChange={(e) => setSeriesForm({ ...seriesForm, category: e.target.value })}
-                required
               />
             </div>
             <DialogFooter className="pt-2 pb-1 gap-2 sm:gap-2">
