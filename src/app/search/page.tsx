@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, Search as SearchIcon, Calendar, BookOpen, Bell, ArrowRight } from 'lucide-react';
 import { useAdminData } from '@/lib/admin-data-context';
+import { sermonWatchHref } from '@/lib/sermon-utils';
 import { Card } from '@/components/ui/card';
 
 export default function SearchPage() {
@@ -126,7 +127,7 @@ export default function SearchPage() {
                   <BookOpen className="w-4 h-4 text-[#8B2323]" /> Sermons
                 </h3>
                 {results.sermons.map(sermon => (
-                  <Link key={`sermon-${sermon.id}`} href={`/sermons/series/${sermon.seriesId}`}>
+                  <Link key={`sermon-${sermon.id}`} href={sermonWatchHref(sermon)}>
                     <Card className="p-4 border-0 shadow-sm bg-white/80 backdrop-blur-sm rounded-2xl flex items-center gap-4 hover:bg-white transition-colors active:scale-95 duration-150">
                       <div className="w-12 h-12 rounded-xl bg-[#F3EAE1] flex items-center justify-center shrink-0">
                         <BookOpen className="w-5 h-5 text-[#8B2323]" />

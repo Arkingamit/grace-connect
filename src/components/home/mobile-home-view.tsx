@@ -17,6 +17,7 @@ import { useAdminData, type FlipCardItem } from '@/lib/admin-data-context';
 import { useAuth } from '@/lib/auth-context';
 import { GUEST_HIGHLIGHT_CARD } from '@/lib/hooks/use-system';
 import { contentToHighlightItems, mergeHighlightItems, isManualHighlightVisible } from '@/lib/highlight-utils';
+import { sermonWatchHref } from '@/lib/sermon-utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -629,7 +630,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
       if (sermon) {
         displayTitle = sermon.title;
         displayDesc = `${sermon.pastor} - ${new Date(sermon.date).toLocaleDateString()}`;
-        displayLink = `/sermons/series/${sermon.seriesId}`;
+        displayLink = sermonWatchHref(sermon);
         displayBtn = 'Watch Sermon';
       }
     } else if (item.type === 'worship_video') {
@@ -1149,7 +1150,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
 
                   <div className="flex gap-4 overflow-x-auto pb-4 -mr-4 pr-4 snap-x no-scrollbar">
                     {sermons.slice(0, 5).map(sermon => (
-                      <Link href={`/sermons/series/${sermon.seriesId}`} key={sermon.id} className="min-w-[280px] w-[280px] h-[160px] rounded-3xl overflow-hidden relative shadow-sm snap-start group block">
+                      <Link href={sermonWatchHref(sermon)} key={sermon.id} className="min-w-[280px] w-[280px] h-[160px] rounded-3xl overflow-hidden relative shadow-sm snap-start group block">
                         <img src={`https://img.youtube.com/vi/${sermon.videoId}/mqdefault.jpg`} alt={sermon.title} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-4">
                           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-red-600/90 backdrop-blur-sm text-white flex items-center justify-center pl-1 shadow-lg">
@@ -1272,7 +1273,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
 
                   <div className="flex gap-4 overflow-x-auto pb-4 -mr-4 pr-4 snap-x no-scrollbar">
                     {sermons.slice(0, 5).map(sermon => (
-                      <Link href={`/sermons/series/${sermon.seriesId}`} key={sermon.id} className="min-w-[280px] w-[280px] h-[160px] rounded-3xl overflow-hidden relative shadow-sm snap-start group block">
+                      <Link href={sermonWatchHref(sermon)} key={sermon.id} className="min-w-[280px] w-[280px] h-[160px] rounded-3xl overflow-hidden relative shadow-sm snap-start group block">
                         <img src={`https://img.youtube.com/vi/${sermon.videoId}/mqdefault.jpg`} alt={sermon.title} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-4">
                           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-red-600/90 backdrop-blur-sm text-white flex items-center justify-center pl-1 shadow-lg">

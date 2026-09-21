@@ -68,7 +68,7 @@ export default function SermonManagementPage() {
     pastor: 'Pastor Geo',
     date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
     duration: '40 min',
-    seriesId: sermonSeries[0]?.id || '',
+    seriesId: '',
     videoId: '',
     youtubeUrl: '',
     description: '',
@@ -222,7 +222,7 @@ export default function SermonManagementPage() {
     const sermonData = {
       ...sermonForm,
       videoId,
-      seriesId: sermonForm.seriesId,
+      seriesId: sermonForm.seriesId || null,
     };
 
     // Remove youtubeUrl as it's not in the model
@@ -256,7 +256,7 @@ export default function SermonManagementPage() {
       pastor: 'Pastor Geo',
       date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
       duration: '40 min',
-      seriesId: sermonSeries[0]?.id || '',
+      seriesId: '',
       videoId: '',
       youtubeUrl: '',
       description: '',
@@ -284,6 +284,7 @@ export default function SermonManagementPage() {
       : (sermon.targetGroups || ['all']);
     setSermonForm({
       ...sermon,
+      seriesId: sermon.seriesId || '',
       isFeatured: !!sermon.isFeatured,
       youtubeUrl: `https://youtube.com/watch?v=${sermon.videoId}`,
       materials: (sermon.materials || []).map(m => ({
@@ -444,7 +445,7 @@ export default function SermonManagementPage() {
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {sermon.duration}</span>
                     </div>
                     <Badge variant="outline" className="text-[9px] px-1.5 h-4">
-                      {sermonSeries.find(s => s.id === sermon.seriesId)?.title || 'No Series'}
+                      {sermonSeries.find(s => s.id === sermon.seriesId)?.title || 'Individual'}
                     </Badge>
                   </div>
                 </CardContent>
@@ -602,15 +603,14 @@ export default function SermonManagementPage() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="series" className="text-[#3A2D27] font-semibold">Series / Playlist *</Label>
+                        <Label htmlFor="series" className="text-[#3A2D27] font-semibold">Series / Playlist</Label>
                         <select
                           id="series"
                           className="w-full h-11 px-3 rounded-xl bg-[#FAF7F2] border border-[#E5D5C5]/60 text-sm"
                           value={sermonForm.seriesId}
                           onChange={(e) => setSermonForm({ ...sermonForm, seriesId: e.target.value })}
-                          required
                         >
-                          <option value="">Select a series</option>
+                          <option value="">None — Individual sermon</option>
                           {sermonSeries.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
                         </select>
                       </div>

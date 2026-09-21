@@ -66,7 +66,7 @@ export function SermonsPreview() {
                 <div className="p-8 flex flex-col justify-center space-y-5">
                   <div>
                     <Badge variant="outline" className="mb-3 text-[10px]">
-                      {sermonSeries.find(s => s.id === featuredSermon.seriesId)?.title || 'Latest Series'}
+                      {sermonSeries.find(s => s.id === featuredSermon.seriesId)?.title || 'Individual'}
                     </Badge>
                     <h3 className="text-2xl lg:text-3xl font-bold mb-3 leading-tight">{featuredSermon.title}</h3>
                     <p className="text-muted-foreground leading-relaxed line-clamp-3">{featuredSermon.description}</p>

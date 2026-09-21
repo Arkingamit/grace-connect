@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth-context';
 import { GUEST_HIGHLIGHT_CARD } from '@/lib/hooks/use-system';
 import { contentToHighlightItems, mergeHighlightItems, isManualHighlightVisible } from '@/lib/highlight-utils';
 import Link from 'next/link';
+import { sermonWatchHref } from '@/lib/sermon-utils';
 
 const christianIcons = [
   // Cross
@@ -66,7 +67,7 @@ export const HeroSection = () => {
       if (sermon) {
         displayTitle = sermon.title;
         displayDesc = `${sermon.pastor} - ${new Date(sermon.date).toLocaleDateString()}`;
-        displayLink = `/sermons/series/${sermon.seriesId}`;
+        displayLink = sermonWatchHref(sermon);
         displayBtn = 'Watch Sermon';
       }
     } else if (item.type === 'worship_video') {

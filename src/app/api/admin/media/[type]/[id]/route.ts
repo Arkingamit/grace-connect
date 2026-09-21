@@ -27,6 +27,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ type: st
     }
 
     const body = await req.json();
+    if (type === 'sermons' && !body.seriesId) body.seriesId = null;
 
     // Verify existing item scope
     const existingItem = await Model.findById(id);

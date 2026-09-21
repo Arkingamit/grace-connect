@@ -15,7 +15,7 @@ export const SermonSeries: Model<ISermonSeries> = mongoose.models.SermonSeries |
 
 // ── Sermon ─────────────────────────────────────────────────────
 export interface ISermon extends Document {
-  seriesId: mongoose.Types.ObjectId;
+  seriesId?: mongoose.Types.ObjectId | null;
   title: string;
   pastor: string;
   date: string;
@@ -37,7 +37,7 @@ export interface ISermon extends Document {
 }
 
 const SermonSchema = new Schema<ISermon>({
-  seriesId: { type: Schema.Types.ObjectId, ref: 'SermonSeries', required: true },
+  seriesId: { type: Schema.Types.ObjectId, ref: 'SermonSeries', default: null },
   title: { type: String, required: true },
   pastor: { type: String, required: true },
   date: { type: String, required: true },

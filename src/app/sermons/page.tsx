@@ -3,7 +3,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAdminData } from '@/lib/admin-data-context';
+import { sermonWatchHref } from '@/lib/sermon-utils';
 import { useNavigationHistory } from '@/components/ui/navigation-history-provider';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,6 +61,8 @@ function formatDate(isoString?: string) {
 export default function SermonsPage() {
   const { sermonSeries, sermons, getVisibleSermons, currentUser } = useAdminData();
   const { goBack } = useNavigationHistory();
+  const searchParams = useSearchParams();
+  const deepSermonId = searchParams.get('sermon');
   const [search, setSearch] = useState('');
   const [activePastor, setActivePastor] = useState('All');
   const [activeCampusId, setActiveCampusId] = useState('global');
@@ -117,6 +121,16 @@ export default function SermonsPage() {
     const matchesPastor = activePastor === 'All' || sermon.pastor === activePastor;
     return matchesSearch && matchesPastor;
   });
+
+  const standaloneSermons = filteredSermons.filter(s => !s.seriesId);
+
+  React.useEffect(() => {
+    if (!deepSermonId) return;
+    const match = sermons.find(s => s.id === deepSermonId || s._id === deepSermonId);
+    if (!match) return;
+    setViewMode('sermons');
+    setPlayingVideoId(match.videoId);
+  }, [deepSermonId, sermons]);
 
   return (
     <div className="min-h-screen pb-20">
@@ -240,6 +254,50 @@ export default function SermonsPage() {
                 </Link>
               );
             })}
+            {standaloneSermons.map((sermon) => (
+              <Link href={sermonWatchHref(sermon)} key={sermon.id} className="group">
+                <Card className="glass-card h-full overflow-hidden border-0 hover-lift transition-all duration-500">
+                  <div className="aspect-[16/9] relative overflow-hidden bg-muted">
+                    <img
+                      src={`https://img.youtube.com/vi/${sermon.videoId}/hqdefault.jpg`}
+                      alt={sermon.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
+                    <div className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded flex items-center justify-center text-[10px] font-semibold text-white tracking-wider z-10">
+                      {videoStats[sermon.videoId]?.duration ? formatDuration(videoStats[sermon.videoId].duration) : sermon.duration || '0:00'}
+                    </div>
+                    <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground border-0">
+                      Individual
+                    </Badge>
+                  </div>
+                  <CardContent className="p-6">
+                    <h4 className="font-bold text-lg mb-2 line-clamp-2 group-hover:text-primary transition-colors">{sermon.title}</h4>
+                    <p className="text-[12px] text-muted-foreground font-medium tracking-wide mb-3">
+                      {videoStats[sermon.videoId]?.viewCount && (
+                        <span>{formatViews(videoStats[sermon.videoId].viewCount)} • </span>
+                      )}
+                      {videoStats[sermon.videoId]?.publishedAt ? formatDate(videoStats[sermon.videoId].publishedAt) : sermon.date}
+                    </p>
+                    {sermon.description && (
+                      <p className="text-muted-foreground text-sm line-clamp-2 mb-6 min-h-[40px]">
+                        {sermon.description}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between pt-4 border-t border-border/50">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <User className="w-4 h-4 text-primary" />
+                        </div>
+                        <span className="text-xs font-medium">{sermon.pastor || 'Pastor Geo'}</span>
+                      </div>
+                      <span className="inline-flex items-center h-8 text-xs font-semibold text-primary group/btn">
+                        Watch <ChevronRight className="w-4 h-4 ml-1 group-hover/btn:translate-x-1 transition-transform" />
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
           </div>
         ) : (
           <div className="space-y-4 max-w-4xl mx-auto">
@@ -429,7 +487,7 @@ export default function SermonsPage() {
           </div>
         )}
 
-        {((viewMode === 'series' && filteredSeries.length === 0) || (viewMode === 'sermons' && filteredSermons.length === 0)) && (
+        {((viewMode === 'series' && filteredSeries.length === 0 && standaloneSermons.length === 0) || (viewMode === 'sermons' && filteredSermons.length === 0)) && (
           <div className="text-center py-32 glass-card rounded-3xl border-0">
             <Tv className="w-20 h-20 text-muted-foreground/20 mx-auto mb-6" />
             <h3 className="text-2xl font-bold mb-2">No {viewMode === 'series' ? 'Series' : 'Sermons'} Found</h3>

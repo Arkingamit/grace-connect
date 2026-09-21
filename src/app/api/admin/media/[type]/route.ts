@@ -63,6 +63,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
     }
 
     const body = await req.json();
+    if (type === 'sermons' && !body.seriesId) body.seriesId = null;
 
     // Enforce scope for models that support it
     if (type === 'gallery' || type === 'sermons') {

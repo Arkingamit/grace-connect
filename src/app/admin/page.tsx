@@ -443,7 +443,7 @@ export default function AdminDashboardPage() {
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
                   {sermons.map((sermon) => {
-                    const seriesTitle = seriesMap.get(sermon.seriesId) || 'Series 1';
+                    const seriesTitle = seriesMap.get(sermon.seriesId) || 'Individual';
                     return (
                       <Link key={sermon.id} href="/admin/sermons" className="min-w-[160px] w-[160px] shrink-0 group block">
                         <div className="relative aspect-video rounded-xl overflow-hidden shadow-sm group-hover:shadow-md transition-all duration-300">
@@ -591,7 +591,7 @@ export default function AdminDashboardPage() {
                       <div className="p-4">
                         <h4 className="font-semibold text-sm text-foreground truncate">{sermon.title}</h4>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {seriesMap.get(sermon.seriesId) || 'Foundations'} • {new Date(sermon.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {seriesMap.get(sermon.seriesId) || 'Individual'} • {new Date(sermon.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </p>
                       </div>
                     </div>

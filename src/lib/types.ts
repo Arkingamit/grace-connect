@@ -164,7 +164,7 @@ export interface WorshipVideo {
 export interface Sermon {
   id: string;
   _id?: string;
-  seriesId: string;
+  seriesId?: string | null;
   title: string;
   pastor: string;
   date: string;
