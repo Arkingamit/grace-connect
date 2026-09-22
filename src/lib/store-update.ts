@@ -1,5 +1,4 @@
 import { Capacitor } from "@capacitor/core";
-import { App } from "@capacitor/app";
 import { ANDROID_PACKAGE_ID } from "@/lib/campus-invite";
 
 function httpsStoreUrl(url: string): string {
@@ -33,6 +32,25 @@ export function resolveStoreUpdateUrl(
   return raw;
 }
 
+async function nativeOpenUrl(url: string): Promise<boolean> {
+  try {
+    const openUrl = (
+      window as Window & {
+        Capacitor?: {
+          Plugins?: {
+            App?: { openUrl?: (options: { url: string }) => Promise<void> };
+          };
+        };
+      }
+    ).Capacitor?.Plugins?.App?.openUrl;
+    if (typeof openUrl !== "function") return false;
+    await openUrl({ url });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Open Play Store / App Store from the native shell.
  * `window.open(url, "_system")` is Cordova-only and is ignored by Capacitor 8.
@@ -44,20 +62,8 @@ export async function openExternalUrl(url: string): Promise<void> {
   const https = httpsStoreUrl(target);
 
   if (Capacitor.isNativePlatform()) {
-    try {
-      await App.openUrl({ url: target });
-      return;
-    } catch {
-      // market:// / itms-apps:// may fail if the store app is missing.
-    }
-    if (https && https !== target) {
-      try {
-        await App.openUrl({ url: https });
-        return;
-      } catch {
-        // Fall through to window.open.
-      }
-    }
+    if (await nativeOpenUrl(target)) return;
+    if (https && https !== target && (await nativeOpenUrl(https))) return;
   }
 
   window.open(https || target, "_blank", "noopener,noreferrer");
