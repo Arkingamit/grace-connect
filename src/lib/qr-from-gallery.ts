@@ -98,9 +98,17 @@ export async function decodeQrFromFile(file: File): Promise<string> {
   }
 }
 
+export type GalleryQrFailureReason = "cancelled" | "photos-denied" | "not-found";
+
 export type GalleryQrResult =
   | { ok: true; text: string }
-  | { ok: false; reason: "cancelled" | "photos-denied" | "not-found" };
+  | { ok: false; reason: GalleryQrFailureReason };
+
+export function isGalleryQrFailure(
+  result: GalleryQrResult,
+): result is { ok: false; reason: GalleryQrFailureReason } {
+  return result.ok === false;
+}
 
 export async function pickAndDecodeQr(): Promise<GalleryQrResult> {
   try {
