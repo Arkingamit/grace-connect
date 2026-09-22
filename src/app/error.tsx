@@ -30,7 +30,7 @@ export default function Error({
           We&apos;re updating the app
         </h2>
         <p className="mb-6 text-sm leading-relaxed text-[#5B6470]">
-          Grace Connect hit a snag. Try again after sometime, or contact admin Arkin Gamit if the problem persists.
+          Grace Connect hit a snag. Try again after sometime.
         </p>
         <Button onClick={() => reset()} className="h-11 w-full rounded-full gap-2 bg-[#810008] hover:bg-[#721515]">
           <RefreshCcw className="w-4 h-4" /> Try again

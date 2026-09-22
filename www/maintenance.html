@@ -140,8 +140,7 @@
       <p class="brand">Grace Connect</p>
       <h1 id="title">We're updating the app</h1>
       <p id="message">
-        Grace Connect is under maintenance right now. Try again after sometime,
-        or contact admin Arkin Gamit if the problem persists.
+        Grace Connect is under maintenance right now. Try again after sometime.
       </p>
       <div class="actions">
         <button type="button" class="primary" id="retryBtn">Try again</button>
@@ -197,7 +196,7 @@
           } else {
             titleEl.textContent = "We're updating the app";
             messageEl.textContent =
-              "Grace Connect is under maintenance right now. Try again after sometime, or contact admin Arkin Gamit if the problem persists.";
+              "Grace Connect is under maintenance right now. Try again after sometime.";
             retryBtn.textContent = "Try again";
           }
         }
@@ -259,7 +258,7 @@
             setStatus(
               failReason() === "offline" || navigator.onLine === false
                 ? "Still offline. Turn on Wi-Fi or mobile data."
-                : "Still updating. Try again after sometime, or contact admin Arkin Gamit if the problem persists."
+                : "Still updating. Try again after sometime."
             );
           }
         }

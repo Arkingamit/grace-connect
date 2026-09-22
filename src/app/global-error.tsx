@@ -19,7 +19,7 @@ export default function GlobalError({
               We&apos;re updating the app
             </h2>
             <p style={{ margin: "0 0 1.5rem", fontSize: "0.9rem", lineHeight: 1.55, color: "#5B6470" }}>
-              Grace Connect hit a snag. Try again after sometime, or contact admin Arkin Gamit if the problem persists.
+              Grace Connect hit a snag. Try again after sometime.
             </p>
             <button
               type="button"
