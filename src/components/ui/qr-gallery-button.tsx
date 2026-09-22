@@ -18,11 +18,11 @@ type QrGalleryButtonProps = {
 };
 
 async function applyGalleryResult(
-  result: { ok: true; text: string } | { ok: false; reason: string },
+  result: { ok: boolean; text?: string; reason?: string },
   onDecoded: (text: string) => void,
 ) {
   if (result.ok) {
-    onDecoded(result.text);
+    if (result.text) onDecoded(result.text);
     return;
   }
   if (result.reason === "cancelled") return;

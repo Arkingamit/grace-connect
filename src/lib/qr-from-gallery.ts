@@ -100,15 +100,11 @@ export async function decodeQrFromFile(file: File): Promise<string> {
 
 export type GalleryQrFailureReason = "cancelled" | "photos-denied" | "not-found";
 
-export type GalleryQrResult =
-  | { ok: true; text: string }
-  | { ok: false; reason: GalleryQrFailureReason };
-
-export function isGalleryQrFailure(
-  result: GalleryQrResult,
-): result is { ok: false; reason: GalleryQrFailureReason } {
-  return result.ok === false;
-}
+export type GalleryQrResult = {
+  ok: boolean;
+  text?: string;
+  reason?: GalleryQrFailureReason;
+};
 
 export async function pickAndDecodeQr(): Promise<GalleryQrResult> {
   try {
