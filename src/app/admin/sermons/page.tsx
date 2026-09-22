@@ -329,6 +329,7 @@ export default function SermonManagementPage() {
       showOnHighlight: !!sermon.showOnHighlight,
       highlightDurationHours: sermon.highlightDurationHours || 24,
       highlightExpiresAt: sermon.highlightExpiresAt || null,
+      sendNotification: false,
     });
     setCampusModeState((sermon.targetCampuses || []).includes('all') ? 'all' : 'specific');
     setGroupMode(isFas ? 'specific' : ((sermon.targetGroups || []).includes('all') ? 'all' : 'specific'));

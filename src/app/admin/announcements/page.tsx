@@ -162,6 +162,7 @@ export default function AnnouncementsPage() {
       showOnHighlight: !!announcement.showOnHighlight,
       highlightDurationHours: announcement.highlightDurationHours || 24,
       highlightExpiresAt: announcement.highlightExpiresAt || null,
+      sendNotification: false,
     });
     setDialogOpen(true);
   };

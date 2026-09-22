@@ -282,6 +282,7 @@ export default function EventsPage() {
       showOnHighlight: !!event.showOnHighlight,
       highlightDurationHours: event.highlightDurationHours || 24,
       highlightExpiresAt: event.highlightExpiresAt || null,
+      sendNotification: false,
       attendanceConfig: event.attendanceConfig || {
         enabled: false,
         radius: 500,

@@ -15,6 +15,7 @@ import { NativeBackNavigation } from "@/components/ui/native-back-navigation";
 import { NavigationHistoryProvider } from "@/components/ui/navigation-history-provider";
 import { NativePermissionGate } from "@/components/ui/native-permission-gate";
 import { NativeDeepLink } from "@/components/ui/native-deep-link";
+import { ConnectivityGate } from "@/components/ui/connectivity-gate";
 
 // QueryClient created OUTSIDE the component to prevent recreation on re-render
 const queryClient = new QueryClient({
@@ -51,6 +52,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
                 <Toaster />
                 <Sonner />
                 <NotificationProvider>
+                  <ConnectivityGate />
                   <NativePermissionGate />
                   <Suspense fallback={null}>
                     <NavigationHistoryProvider>

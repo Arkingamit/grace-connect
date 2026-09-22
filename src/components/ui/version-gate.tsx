@@ -1,94 +1,18 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
-import { ForceUpdate } from './force-update';
-import { APP_VERSION } from '@/lib/version';
+import React from "react";
+import { ForceUpdateModal } from "./force-update";
 
-function compareVersions(v1: string, v2: string): number {
-  const parts1 = v1.split('.').map(Number);
-  const parts2 = v2.split('.').map(Number);
-
-  const len = Math.max(parts1.length, parts2.length);
-  for (let i = 0; i < len; i++) {
-    const p1 = parts1[i] || 0;
-    const p2 = parts2[i] || 0;
-    if (p1 > p2) return 1;
-    if (p1 < p2) return -1;
-  }
-  return 0;
-}
-
-function resolveMinVersion(settings: any, platform: string): string {
-  if (platform === 'android') {
-    return settings.minAppVersionAndroid || settings.minAppVersion || '0.1.0';
-  }
-  if (platform === 'ios') {
-    return settings.minAppVersionIos || settings.minAppVersion || '0.1.0';
-  }
-  // Web / unknown: use the stricter of the two platform mins when available
-  const android = settings.minAppVersionAndroid || settings.minAppVersion || '0.1.0';
-  const ios = settings.minAppVersionIos || settings.minAppVersion || '0.1.0';
-  return compareVersions(android, ios) >= 0 ? android : ios;
-}
-
-function resolveStoreUrl(settings: any, platform: string): string {
-  if (platform === 'android') {
-    return settings.androidStoreUrl || 'https://play.google.com/store/apps/details?id=com.graceconnect.app';
-  }
-  if (platform === 'ios') {
-    return settings.iosStoreUrl || process.env.NEXT_PUBLIC_IOS_APP_STORE_URL || '';
-  }
-  return settings.androidStoreUrl || settings.iosStoreUrl || 'https://play.google.com/store/apps/details?id=com.graceconnect.app';
-}
-
+/**
+ * Overlays the Grace Music-style store update prompt on native apps.
+ * The website is never blocked — only the Android/iOS shell is checked
+ * against the Play / App Store version from /api/app-version.
+ */
 export function VersionGate({ children }: { children: React.ReactNode }) {
-  const [needsUpdate, setNeedsUpdate] = useState(false);
-  const [storeUrl, setStoreUrl] = useState('');
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 4000);
-
-    const checkVersion = async () => {
-      try {
-        const res = await fetch('/api/system/settings', { signal: controller.signal });
-        if (res.ok) {
-          const settings = await res.json();
-          const platform = Capacitor.isNativePlatform()
-            ? Capacitor.getPlatform()
-            : 'web';
-          const minVersion = resolveMinVersion(settings, platform);
-
-          if (minVersion && compareVersions(APP_VERSION, minVersion) < 0) {
-            setNeedsUpdate(true);
-            setStoreUrl(resolveStoreUrl(settings, platform));
-            setMessage(
-              settings.forceUpdateMessage ||
-                'A critical update is required to continue using Grace Connect. Please update to the latest version.'
-            );
-          }
-        }
-      } catch (error) {
-        if ((error as { name?: string })?.name !== 'AbortError') {
-          console.error('Failed to check app version:', error);
-        }
-      } finally {
-        window.clearTimeout(timeout);
-      }
-    };
-
-    void checkVersion();
-    return () => {
-      window.clearTimeout(timeout);
-      controller.abort();
-    };
-  }, []);
-
-  if (needsUpdate) {
-    return <ForceUpdate storeUrl={storeUrl} message={message} />;
-  }
-
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <ForceUpdateModal />
+    </>
+  );
 }

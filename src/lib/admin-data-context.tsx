@@ -549,13 +549,17 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
 
 
   const updateSystemSettings = useCallback(async (s: Partial<SystemSettings>) => {
-    const res = await fetch('/api/admin/settings', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const res = await fetch('/api/system/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(s),
     });
     if (res.ok) {
       setSystemSettings(await res.json());
+      return;
     }
+    throw new Error('Failed to update system settings');
   }, []);
 
   const checkVisibility = (item: any, campusId: string, userGroups: string[], role?: string) => {

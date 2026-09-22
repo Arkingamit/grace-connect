@@ -1,5 +1,10 @@
 package com.graceconnect.app;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.os.Build;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -21,32 +26,63 @@ public class MaintenanceWebViewClient extends BridgeWebViewClient {
 
     private final Bridge bridge;
     private String lastFailedUrl;
+    private String lastReason = "maintenance";
 
     public MaintenanceWebViewClient(Bridge bridge) {
         super(bridge);
         this.bridge = bridge;
     }
 
-    private String maintenanceUrl() {
-        return bridge.getLocalUrl() + "/" + MAINTENANCE_PAGE;
+    private String maintenanceUrl(String reason) {
+        String base = bridge.getLocalUrl() + "/" + MAINTENANCE_PAGE;
+        if ("offline".equals(reason)) return base + "?reason=offline";
+        return base + "?reason=maintenance";
     }
 
     private boolean isMaintenanceUrl(String url) {
         return url != null && url.contains(MAINTENANCE_PAGE);
     }
 
-    private void showMaintenance(WebView view, WebResourceRequest request) {
+    private boolean isNetworkAvailable() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) bridge.getContext()
+                .getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm == null) return false;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Network network = cm.getActiveNetwork();
+                if (network == null) return false;
+                NetworkCapabilities caps = cm.getNetworkCapabilities(network);
+                return caps != null && (
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                    || caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+                    || caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+                    || caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+                );
+            }
+            android.net.NetworkInfo info = cm.getActiveNetworkInfo();
+            return info != null && info.isConnected();
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    private boolean isOfflineError() {
+        return !isNetworkAvailable();
+    }
+
+    private void showMaintenance(WebView view, WebResourceRequest request, String reason) {
         String failed = request.getUrl() != null ? request.getUrl().toString() : null;
         if (isMaintenanceUrl(failed)) return;
         lastFailedUrl = failed;
-        view.loadUrl(maintenanceUrl());
+        lastReason = reason;
+        view.post(() -> view.loadUrl(maintenanceUrl(reason)));
     }
 
     @Override
     public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
         super.onReceivedError(view, request, error);
         if (request.isForMainFrame()) {
-            showMaintenance(view, request);
+            showMaintenance(view, request, isOfflineError() ? "offline" : "maintenance");
         }
     }
 
@@ -54,7 +90,7 @@ public class MaintenanceWebViewClient extends BridgeWebViewClient {
     public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
         super.onReceivedHttpError(view, request, errorResponse);
         if (request.isForMainFrame() && errorResponse != null && errorResponse.getStatusCode() >= 500) {
-            showMaintenance(view, request);
+            showMaintenance(view, request, isNetworkAvailable() ? "maintenance" : "offline");
         }
     }
 
@@ -64,10 +100,13 @@ public class MaintenanceWebViewClient extends BridgeWebViewClient {
         if (view.getContext() instanceof MainActivity) {
             ((MainActivity) view.getContext()).onWebViewReady();
         }
-        if (isMaintenanceUrl(url) && lastFailedUrl != null) {
-            // Let the page return the user to where they were once the site is back.
-            String escaped = lastFailedUrl.replace("\\", "\\\\").replace("'", "\\'");
-            view.evaluateJavascript("window.__GRACE_RETRY_URL='" + escaped + "';", null);
+        if (isMaintenanceUrl(url)) {
+            String reason = lastReason != null ? lastReason : "maintenance";
+            view.evaluateJavascript("window.__GRACE_FAIL_REASON='" + reason + "';", null);
+            if (lastFailedUrl != null) {
+                String escaped = lastFailedUrl.replace("\\", "\\\\").replace("'", "\\'");
+                view.evaluateJavascript("window.__GRACE_RETRY_URL='" + escaped + "';", null);
+            }
         }
     }
 }

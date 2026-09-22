@@ -113,6 +113,7 @@ export default function WorshipManagementPage() {
       showOnHighlight: !!video.showOnHighlight,
       highlightDurationHours: video.highlightDurationHours || 24,
       highlightExpiresAt: video.highlightExpiresAt || null,
+      sendNotification: false,
     });
     setEditingId(video.id);
     setDialogOpen(true);

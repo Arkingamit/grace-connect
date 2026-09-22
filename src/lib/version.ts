@@ -1,4 +1,4 @@
-// This file exports the current application version.
-// It is used by the Force Update mechanism to compare against the minimum required version set in the Admin Dashboard.
+// Fallback only when Capacitor App.getInfo() is unavailable.
+// Native force-update compares Play / App Store versionName, not this value.
 
 export const APP_VERSION = "0.1.0";

@@ -22,6 +22,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -102,6 +112,8 @@ export default function SettingsPage() {
   const [statsGroups, setStatsGroups] = useState(systemSettings?.statsGroups || 25);
   const [statsYears, setStatsYears] = useState(systemSettings?.statsYears || 15);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [forceConfirmOpen, setForceConfirmOpen] = useState(false);
+  const [pendingForce, setPendingForce] = useState<'android' | 'ios' | null>(null);
 
   React.useEffect(() => {
     if (systemSettings) {
@@ -364,6 +376,64 @@ export default function SettingsPage() {
     setSavingMembers(false);
   };
 
+  const isForcingVersion = (min: string) => {
+    const v = String(min || '').trim();
+    return v.length > 0 && v !== '0.0.0' && v !== '0.1.0';
+  };
+
+  const requestForceAll = (platform: 'android' | 'ios') => {
+    const latest = String(platform === 'android' ? latestAppVersionAndroid : latestAppVersionIos).trim();
+    const url = String(platform === 'android' ? androidStoreUrl : iosStoreUrl).trim();
+    const label = platform === 'android' ? 'Android' : 'iOS';
+    const store = platform === 'android' ? 'Play Store' : 'App Store';
+    if (!latest || latest === '0.0.0' || latest === '0.1.0') {
+      toast.error(`Set the ${label} store version you just released, then click Force.`);
+      return;
+    }
+    if (!url) {
+      toast.error(`Save the ${store} URL first so ${label} users can tap Update.`);
+      return;
+    }
+    setPendingForce(platform);
+    setForceConfirmOpen(true);
+  };
+
+  const confirmForceAll = async () => {
+    if (!pendingForce) return;
+    const latest = pendingForce === 'android' ? latestAppVersionAndroid : latestAppVersionIos;
+    const url = pendingForce === 'android' ? androidStoreUrl : iosStoreUrl;
+    const label = pendingForce === 'android' ? 'Android' : 'iOS';
+    const store = pendingForce === 'android' ? 'Play Store' : 'App Store';
+    try {
+      await updateSystemSettings({
+        ...(pendingForce === 'android'
+          ? { minAppVersionAndroid: latest, latestAppVersionAndroid: latest, androidStoreUrl: url }
+          : { minAppVersionIos: latest, latestAppVersionIos: latest, iosStoreUrl: url }),
+      });
+      if (pendingForce === 'android') setMinAppVersionAndroid(latest);
+      else setMinAppVersionIos(latest);
+      toast.success(`All ${label} users must update from the ${store}.`);
+      setForceConfirmOpen(false);
+      setPendingForce(null);
+    } catch {
+      toast.error('Failed to save force-update settings.');
+    }
+  };
+
+  const stopForcingPlatform = async (platform: 'android' | 'ios') => {
+    const label = platform === 'android' ? 'Android' : 'iOS';
+    try {
+      await updateSystemSettings({
+        ...(platform === 'android' ? { minAppVersionAndroid: '0.0.0' } : { minAppVersionIos: '0.0.0' }),
+      });
+      if (platform === 'android') setMinAppVersionAndroid('0.0.0');
+      else setMinAppVersionIos('0.0.0');
+      toast.success(`${label} users are no longer forced to update.`);
+    } catch {
+      toast.error('Failed to stop forcing updates.');
+    }
+  };
+
   const handleSaveSettings = async () => {
     setSavingSettings(true);
     // Keep legacy minAppVersion in sync with the stricter of the two platform mins
@@ -379,20 +449,26 @@ export default function SettingsPage() {
         break;
       }
     }
-    await updateSystemSettings({
-      minAppVersion: androidIsStricter ? minAppVersionAndroid : minAppVersionIos,
-      minAppVersionAndroid,
-      minAppVersionIos,
-      latestAppVersionAndroid,
-      latestAppVersionIos,
-      androidStoreUrl,
-      iosStoreUrl,
-      forceUpdateMessage,
-      statsMembers,
-      statsGroups,
-      statsYears,
-    });
-    setSavingSettings(false);
+    try {
+      await updateSystemSettings({
+        minAppVersion: androidIsStricter ? minAppVersionAndroid : minAppVersionIos,
+        minAppVersionAndroid,
+        minAppVersionIos,
+        latestAppVersionAndroid,
+        latestAppVersionIos,
+        androidStoreUrl,
+        iosStoreUrl,
+        forceUpdateMessage,
+        statsMembers,
+        statsGroups,
+        statsYears,
+      });
+      toast.success('System settings saved.');
+    } catch {
+      toast.error('Failed to save system settings.');
+    } finally {
+      setSavingSettings(false);
+    }
   };
 
   return (
@@ -549,7 +625,7 @@ export default function SettingsPage() {
             <div>
               <h3 className="text-sm font-semibold text-[#1A202C]">App Version Control</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Force mobile users to update when a new version is released. Set Android and Apple separately.
+                Android and iOS are independent. Set the store version you just released, then optionally force that platform to update. 0.0.0 / 0.1.0 means no prompt.
               </p>
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
@@ -586,6 +662,24 @@ export default function SettingsPage() {
                   />
                   <p className="text-[10px] text-muted-foreground">Google Play Store link for the app.</p>
                 </div>
+                {isForcingVersion(minAppVersionAndroid) ? (
+                  <p className="text-xs text-destructive">Android users must update from the Play Store to continue.</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Android users are not being forced to update.</p>
+                )}
+                <div className="flex flex-col gap-2">
+                  <Button type="button" variant="destructive" onClick={() => requestForceAll('android')}>
+                    Force all Android users to update
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!isForcingVersion(minAppVersionAndroid)}
+                    onClick={() => void stopForcingPlatform('android')}
+                  >
+                    Stop forcing Android
+                  </Button>
+                </div>
               </div>
 
               <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-4">
@@ -620,6 +714,24 @@ export default function SettingsPage() {
                     placeholder="https://apps.apple.com/app/id..."
                   />
                   <p className="text-[10px] text-muted-foreground">Apple App Store link for the app.</p>
+                </div>
+                {isForcingVersion(minAppVersionIos) ? (
+                  <p className="text-xs text-destructive">iOS users must update from the App Store to continue.</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">iOS users are not being forced to update.</p>
+                )}
+                <div className="flex flex-col gap-2">
+                  <Button type="button" variant="destructive" onClick={() => requestForceAll('ios')}>
+                    Force all iOS users to update
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!isForcingVersion(minAppVersionIos)}
+                    onClick={() => void stopForcingPlatform('ios')}
+                  >
+                    Stop forcing iOS
+                  </Button>
                 </div>
               </div>
             </div>
@@ -683,6 +795,28 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
       )}
+
+      <AlertDialog open={forceConfirmOpen} onOpenChange={(open) => {
+        setForceConfirmOpen(open);
+        if (!open) setPendingForce(null);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Force all {pendingForce === 'ios' ? 'iOS' : 'Android'} users?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Every {pendingForce === 'ios' ? 'iOS' : 'Android'} user below the store version will need to update from the {pendingForce === 'ios' ? 'App Store' : 'Play Store'} before they can keep using the app. {pendingForce === 'ios' ? 'Android' : 'iOS'} users are not affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmForceAll()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Force {pendingForce === 'ios' ? 'iOS' : 'Android'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Campus Create/Edit Dialog */}
       <Dialog open={campusDialogOpen} onOpenChange={setCampusDialogOpen}>

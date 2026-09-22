@@ -140,20 +140,19 @@
       <p class="brand">Grace Connect</p>
       <h1 id="title">We're updating the app</h1>
       <p id="message">
-        Grace Connect is under maintenance right now. We'll be back in a few
-        minutes — the app will open automatically once it's ready.
+        Grace Connect is under maintenance right now. Try again after sometime,
+        or contact admin Arkin Gamit if the problem persists.
       </p>
       <div class="actions">
         <button type="button" class="primary" id="retryBtn">Try again</button>
       </div>
-      <div class="status" id="status" aria-live="polite"><span class="pulse"></span>Checking every few seconds…</div>
+      <div class="status" id="status" aria-live="polite"></div>
     </div>
 
     <script>
       (function () {
         var APP_ORIGIN = "https://graceconnect.graceahmedabad.org";
         var PROBE_PATH = "/logo.svg";
-        var PROBE_INTERVAL_MS = 6000;
 
         var retryBtn = document.getElementById("retryBtn");
         var statusEl = document.getElementById("status");
@@ -174,18 +173,32 @@
           statusEl.innerHTML = html || "";
         }
 
+        function failReason() {
+          try {
+            var params = new URLSearchParams(window.location.search || "");
+            var q = params.get("reason");
+            if (q === "offline" || q === "maintenance") return q;
+          } catch (e) {}
+          if (window.__GRACE_FAIL_REASON === "offline" || window.__GRACE_FAIL_REASON === "maintenance") {
+            return window.__GRACE_FAIL_REASON;
+          }
+          return navigator.onLine === false ? "offline" : "maintenance";
+        }
+
         function renderMode() {
-          var offline = navigator.onLine === false;
+          var offline = failReason() === "offline" || navigator.onLine === false;
           iconMaintenance.style.display = offline ? "none" : "";
           iconOffline.style.display = offline ? "" : "none";
           if (offline) {
-            titleEl.textContent = "No internet connection";
+            titleEl.textContent = "Connect to the internet";
             messageEl.textContent =
-              "Connect to Wi-Fi or mobile data to use Grace Connect. The app will open automatically when you're back online.";
+              "You're offline. Turn on Wi-Fi or mobile data, then tap Try again.";
+            retryBtn.textContent = "Try again";
           } else {
             titleEl.textContent = "We're updating the app";
             messageEl.textContent =
-              "Grace Connect is under maintenance right now. We'll be back in a few minutes — the app will open automatically once it's ready.";
+              "Grace Connect is under maintenance right now. Try again after sometime, or contact admin Arkin Gamit if the problem persists.";
+            retryBtn.textContent = "Try again";
           }
         }
 
@@ -244,13 +257,10 @@
           renderMode();
           if (manual) {
             setStatus(
-              navigator.onLine === false
+              failReason() === "offline" || navigator.onLine === false
                 ? "Still offline. Turn on Wi-Fi or mobile data."
-                : "Still updating. We'll keep checking for you."
+                : "Still updating. Try again after sometime, or contact admin Arkin Gamit if the problem persists."
             );
-            setTimeout(function () {
-              if (!navigating) setStatus('<span class="pulse"></span>Checking every few seconds…');
-            }, 3000);
           }
         }
 
@@ -264,12 +274,6 @@
         window.addEventListener("offline", renderMode);
 
         renderMode();
-        setInterval(function () {
-          probe(false);
-        }, PROBE_INTERVAL_MS);
-        setTimeout(function () {
-          probe(false);
-        }, 1500);
       })();
     </script>
   </body>

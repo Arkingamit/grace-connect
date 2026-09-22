@@ -110,6 +110,7 @@ export default function AdminBroadcastsPage() {
       showOnHighlight: !!b.showOnHighlight,
       highlightDurationHours: b.highlightDurationHours || 24,
       highlightExpiresAt: b.highlightExpiresAt || null,
+      sendNotification: false,
     });
     setDialogOpen(true);
   };

@@ -1,4 +1,4 @@
-import Notification from '@/models/Notification';
+import Notification, { type INotification } from '@/models/Notification';
 import { sendPushToTargeted } from '@/lib/push-utils';
 
 export function wantsMemberNotification(input: unknown): boolean {
@@ -18,7 +18,7 @@ export function takeSendNotificationFlag(body: Record<string, unknown>): boolean
 type NotifyMembersInput = {
   title: string;
   message: string;
-  type: string;
+  type: INotification['type'];
   sourceId?: string;
   targetCampuses?: string[];
   targetGroups?: string[];
