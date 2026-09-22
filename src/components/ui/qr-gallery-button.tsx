@@ -32,27 +32,27 @@ export function QrGalleryButton({
     try {
       await beforePick?.();
       const result = await pickAndDecodeQr();
-      if (!result.ok) {
-        if (result.reason === "cancelled") return;
-        if (result.reason === "photos-denied") {
-          toast.error("Allow photo access in Settings to upload a QR code.");
-          if (Capacitor.isNativePlatform()) {
-            try {
-              if (Capacitor.getPlatform() === "ios") {
-                await NativeSettings.openIOS({ option: IOSSettings.App });
-              } else {
-                await NativeSettings.openAndroid({ option: AndroidSettings.ApplicationDetails });
-              }
-            } catch {
-              // ignore
-            }
-          }
-          return;
-        }
-        toast.error("No QR code found in that photo. Try a clearer image.");
+      if (result.ok) {
+        onDecoded(result.text);
         return;
       }
-      onDecoded(result.text);
+      if (result.reason === "cancelled") return;
+      if (result.reason === "photos-denied") {
+        toast.error("Allow photo access in Settings to upload a QR code.");
+        if (Capacitor.isNativePlatform()) {
+          try {
+            if (Capacitor.getPlatform() === "ios") {
+              await NativeSettings.openIOS({ option: IOSSettings.App });
+            } else {
+              await NativeSettings.openAndroid({ option: AndroidSettings.ApplicationDetails });
+            }
+          } catch {
+            // ignore
+          }
+        }
+        return;
+      }
+      toast.error("No QR code found in that photo. Try a clearer image.");
     } finally {
       setBusy(false);
     }
