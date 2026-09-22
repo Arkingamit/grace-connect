@@ -16,10 +16,11 @@ type NavItem = {
 
 const COMPACT_DELTA = 8;
 const EXPAND_DELTA = -6;
-const NAV_SWIPE_FLICK = 36;
+const NAV_SWIPE_FLICK = 28;
 const PAGE_SWIPE_MIN = 64;
-const PAGE_EDGE = 28;
-const SPRING = { type: "spring" as const, stiffness: 480, damping: 36, mass: 0.55 };
+const PAGE_EDGE = 40;
+const PILL_INSET = 3;
+const PILL_MOVE = { type: "tween" as const, duration: 0.28, ease: [0.22, 1, 0.36, 1] as const };
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Home", href: "/", icon: Home, exact: true },
@@ -36,11 +37,17 @@ function tabIndexForPath(pathname: string) {
   );
 }
 
+function isOnTab(pathname: string, item: NavItem) {
+  return item.exact
+    ? pathname === item.href
+    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+}
+
 function isIgnoredSwipeTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false;
   if (
     target.closest(
-      'nav[aria-label="Primary"], .swiper, .swiper-slide, [data-no-tab-swipe], input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"], [role="slider"], [data-radix-scroll-area-viewport]',
+      'nav[aria-label="Primary"], .swiper, .swiper-slide, [data-no-tab-swipe], .highlights-stack-card, input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"], [role="slider"], [data-radix-scroll-area-viewport]',
     )
   ) {
     return true;
@@ -55,6 +62,22 @@ function isIgnoredSwipeTarget(target: EventTarget | null) {
     node = node.parentElement;
   }
   return false;
+}
+
+function tabMetrics(el: HTMLElement) {
+  return {
+    left: el.offsetLeft + PILL_INSET,
+    top: el.offsetTop + PILL_INSET,
+    width: Math.max(0, el.offsetWidth - PILL_INSET * 2),
+    height: Math.max(0, el.offsetHeight - PILL_INSET * 2),
+    center: el.offsetLeft + el.offsetWidth / 2,
+  };
+}
+
+function localX(bar: HTMLElement, clientX: number) {
+  const rect = bar.getBoundingClientRect();
+  const scale = rect.width / (bar.offsetWidth || 1) || 1;
+  return (clientX - rect.left) / scale;
 }
 
 export function MobileBottomNav() {
@@ -72,6 +95,7 @@ export function MobileBottomNav() {
   const firstLayout = useRef(true);
   const dragStartIndexRef = useRef(0);
   const highlightRef = useRef(0);
+  const activeIndexRef = useRef(0);
 
   const pillX = useMotionValue(0);
   const pillY = useMotionValue(0);
@@ -86,48 +110,66 @@ export function MobileBottomNav() {
   const [activeIndex, setActiveIndex] = useState(pathIndex);
   const [highlightIndex, setHighlightIndex] = useState(pathIndex);
   const onTabRoute = tabIndexForPath(pathname) >= 0;
+  activeIndexRef.current = activeIndex;
+  highlightRef.current = highlightIndex;
 
   const placePill = useCallback((index: number, instant: boolean) => {
     const bar = barRef.current;
     const el = itemRefs.current[index];
     if (!bar || !el) return;
-    const barRect = bar.getBoundingClientRect();
-    const rect = el.getBoundingClientRect();
-    const x = rect.left - barRect.left;
-    const y = rect.top - barRect.top;
+    const { left, top, width, height } = tabMetrics(el);
     if (instant) {
-      pillX.set(x);
-      pillY.set(y);
-      pillW.set(rect.width);
-      pillH.set(rect.height);
+      pillX.set(left);
+      pillY.set(top);
+      pillW.set(width);
+      pillH.set(height);
       return;
     }
-    void animate(pillX, x, SPRING);
-    void animate(pillY, y, SPRING);
-    void animate(pillW, rect.width, SPRING);
-    void animate(pillH, rect.height, SPRING);
+    void animate(pillX, left, PILL_MOVE);
+    void animate(pillY, top, PILL_MOVE);
+    void animate(pillW, width, PILL_MOVE);
+    void animate(pillH, height, PILL_MOVE);
+  }, [pillH, pillW, pillX, pillY]);
+
+  const setSheen = useCallback((clientX: number, swiping: boolean) => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const x = localX(bar, clientX);
+    const pct = Math.max(6, Math.min(94, (x / (bar.offsetWidth || 1)) * 100));
+    bar.style.setProperty("--sheen-x", `${pct}%`);
+    bar.style.setProperty("--pill-sheen", `${100 - pct}%`);
+    bar.classList.toggle("is-swiping", swiping);
+  }, []);
+
+  const clearSheen = useCallback(() => {
+    barRef.current?.classList.remove("is-swiping");
+  }, []);
+
+  const lerpPill = useCallback((fromIndex: number, toIndex: number, t: number) => {
+    const fromEl = itemRefs.current[fromIndex];
+    const toEl = itemRefs.current[toIndex];
+    if (!fromEl || !toEl) return;
+    const a = tabMetrics(fromEl);
+    const b = tabMetrics(toEl);
+    const tt = Math.max(0, Math.min(1, t));
+    const jelly = 1 + Math.sin(tt * Math.PI) * 0.16;
+    const width = (a.width + (b.width - a.width) * tt) * jelly;
+    const natural = a.width + (b.width - a.width) * tt;
+    pillX.set(a.left + (b.left - a.left) * tt - (width - natural) / 2);
+    pillY.set(a.top + (b.top - a.top) * tt);
+    pillW.set(width);
+    pillH.set(a.height + (b.height - a.height) * tt);
   }, [pillH, pillW, pillX, pillY]);
 
   const followPointer = useCallback((clientX: number) => {
     const bar = barRef.current;
     if (!bar) return;
-    const barLeft = bar.getBoundingClientRect().left;
     const tabs = itemRefs.current
-      .map((el) => {
-        if (!el) return null;
-        const rect = el.getBoundingClientRect();
-        return {
-          left: rect.left - barLeft,
-          top: rect.top - bar.getBoundingClientRect().top,
-          width: rect.width,
-          height: rect.height,
-          center: rect.left - barLeft + rect.width / 2,
-        };
-      })
+      .map((el) => (el ? tabMetrics(el) : null))
       .filter((tab): tab is NonNullable<typeof tab> => Boolean(tab));
     if (tabs.length < 2) return;
 
-    const x = clientX - barLeft;
+    const x = localX(bar, clientX);
     let i = 0;
     for (let n = 0; n < tabs.length - 1; n++) {
       if (x >= tabs[n].center) i = n;
@@ -136,51 +178,35 @@ export function MobileBottomNav() {
     const b = tabs[Math.min(i + 1, tabs.length - 1)];
     const span = b.center - a.center || 1;
     const t = Math.max(0, Math.min(1, (x - a.center) / span));
-    const left = a.left + (b.left - a.left) * t;
-    const width = a.width + (b.width - a.width) * t;
-    const stretch = 1 + Math.min(0.16, Math.abs(x - (a.center + span * t)) / 160);
-    pillX.set(left - (width * (stretch - 1)) / 2);
-    pillW.set(width * stretch);
-    pillH.set(a.height);
+    const jelly = 1 + Math.sin(t * Math.PI) * 0.16;
+    const width = (a.width + (b.width - a.width) * t) * jelly;
+    const natural = a.width + (b.width - a.width) * t;
+    pillX.set(a.left + (b.left - a.left) * t - (width - natural) / 2);
+    pillW.set(width);
+    pillH.set(a.height + (b.height - a.height) * t);
     pillY.set(a.top + (b.top - a.top) * t);
     const hovered = t < 0.5 ? i : Math.min(i + 1, tabs.length - 1);
     highlightRef.current = hovered;
     setHighlightIndex(hovered);
-  }, [pillH, pillW, pillX, pillY]);
+    setSheen(clientX, true);
+  }, [pillH, pillW, pillX, pillY, setSheen]);
 
   const goToIndex = useCallback(
     (index: number) => {
       const next = Math.max(0, Math.min(NAV_ITEMS.length - 1, index));
       const item = NAV_ITEMS[next];
       if (!item) return;
+      activeIndexRef.current = next;
+      highlightRef.current = next;
       setActiveIndex(next);
       setHighlightIndex(next);
-      highlightRef.current = next;
       placePill(next, false);
-      const alreadyThere = item.exact
-        ? pathname === item.href
-        : pathname === item.href || pathname.startsWith(`${item.href}/`);
-      if (alreadyThere) return;
+      clearSheen();
+      if (isOnTab(pathname, item)) return;
       router.replace(item.href);
     },
-    [pathname, placePill, router],
+    [clearSheen, pathname, placePill, router],
   );
-
-  const indexFromX = useCallback((clientX: number) => {
-    let best = 0;
-    let bestDist = Infinity;
-    itemRefs.current.forEach((el, i) => {
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const center = rect.left + rect.width / 2;
-      const dist = Math.abs(clientX - center);
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = i;
-      }
-    });
-    return best;
-  }, []);
 
   useEffect(() => {
     NAV_ITEMS.forEach((item) => router.prefetch(item.href));
@@ -190,6 +216,7 @@ export function MobileBottomNav() {
     setActiveIndex(pathIndex);
     setHighlightIndex(pathIndex);
     highlightRef.current = pathIndex;
+    activeIndexRef.current = pathIndex;
   }, [pathIndex]);
 
   useLayoutEffect(() => {
@@ -197,6 +224,28 @@ export function MobileBottomNav() {
     firstLayout.current = false;
     placePill(activeIndex, instant);
   }, [activeIndex, compact, placePill]);
+
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+
+    const sync = () => placePill(activeIndexRef.current, true);
+    const ro = new ResizeObserver(sync);
+    ro.observe(bar);
+    itemRefs.current.forEach((el) => {
+      if (el) ro.observe(el);
+    });
+    window.addEventListener("resize", sync);
+    window.visualViewport?.addEventListener("resize", sync);
+    window.visualViewport?.addEventListener("scroll", sync);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", sync);
+      window.visualViewport?.removeEventListener("resize", sync);
+      window.visualViewport?.removeEventListener("scroll", sync);
+    };
+  }, [compact, placePill]);
 
   useEffect(() => {
     const readY = (target: EventTarget | null) => {
@@ -246,6 +295,15 @@ export function MobileBottomNav() {
     let startY = 0;
     let startT = 0;
     let tracking = false;
+    let pageDragging = false;
+
+    const snapBack = () => {
+      if (!pageDragging) return;
+      placePill(activeIndexRef.current, false);
+      setHighlightIndex(activeIndexRef.current);
+      highlightRef.current = activeIndexRef.current;
+      clearSheen();
+    };
 
     const onTouchStart = (event: TouchEvent) => {
       if (event.touches.length !== 1) {
@@ -260,71 +318,117 @@ export function MobileBottomNav() {
       startY = touch.clientY;
       startT = Date.now();
       tracking = true;
+      pageDragging = false;
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (!tracking || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (!pageDragging && Math.abs(dx) < 12) return;
+      if (Math.abs(dx) < Math.abs(dy) * 1.2) return;
+      pageDragging = true;
+      const from = activeIndexRef.current;
+      const to = Math.max(0, Math.min(NAV_ITEMS.length - 1, from + (dx < 0 ? 1 : -1)));
+      const t = to === from ? 0 : Math.min(1, Math.abs(dx) / 140);
+      lerpPill(from, to, t);
+      const hovered = t < 0.5 ? from : to;
+      highlightRef.current = hovered;
+      setHighlightIndex(hovered);
+      setSheen(touch.clientX, true);
     };
 
     const onTouchEnd = (event: TouchEvent) => {
       if (!tracking) return;
       tracking = false;
       const touch = event.changedTouches[0];
-      if (!touch) return;
+      if (!touch) {
+        snapBack();
+        pageDragging = false;
+        return;
+      }
       const dx = touch.clientX - startX;
       const dy = touch.clientY - startY;
       const dt = Math.max(1, Date.now() - startT);
       const isFlick = Math.abs(dx) > 40 && Math.abs(dx) / dt > 0.45;
       const isSwipe = Math.abs(dx) >= PAGE_SWIPE_MIN;
-      if ((!isSwipe && !isFlick) || Math.abs(dx) < Math.abs(dy) * 1.35) return;
-      goToIndex(pathIndex + (dx < 0 ? 1 : -1));
+      if ((!isSwipe && !isFlick) || Math.abs(dx) < Math.abs(dy) * 1.35) {
+        snapBack();
+        pageDragging = false;
+        return;
+      }
+      pageDragging = false;
+      goToIndex(activeIndexRef.current + (dx < 0 ? 1 : -1));
     };
 
     window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
     window.addEventListener("touchend", onTouchEnd, { passive: true });
+    window.addEventListener("touchcancel", onTouchEnd, { passive: true });
     return () => {
       window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [goToIndex, keyboardOpen, onTabRoute, pathIndex]);
+  }, [clearSheen, goToIndex, keyboardOpen, lerpPill, onTabRoute, placePill, setSheen]);
 
-  const onNavPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    pointerIdRef.current = event.pointerId;
-    startXRef.current = event.clientX;
-    dragStartIndexRef.current = highlightRef.current;
-    draggingRef.current = false;
-    suppressClickRef.current = false;
-  };
+  const followPointerRef = useRef(followPointer);
+  const goToIndexRef = useRef(goToIndex);
+  const clearSheenRef = useRef(clearSheen);
+  followPointerRef.current = followPointer;
+  goToIndexRef.current = goToIndex;
+  clearSheenRef.current = clearSheen;
 
-  const onNavPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+  const onWindowPointerMove = useRef((event: PointerEvent) => {
     if (pointerIdRef.current !== event.pointerId) return;
     const dx = event.clientX - startXRef.current;
     if (!draggingRef.current && Math.abs(dx) < 8) return;
-    if (!draggingRef.current) {
-      draggingRef.current = true;
-      suppressClickRef.current = true;
-      event.currentTarget.setPointerCapture(event.pointerId);
-    }
-    followPointer(event.clientX);
-  };
+    draggingRef.current = true;
+    suppressClickRef.current = true;
+    followPointerRef.current(event.clientX);
+  }).current;
 
-  const finishNavGesture = (event: React.PointerEvent<HTMLDivElement>) => {
+  const onWindowPointerUp = useRef((event: PointerEvent) => {
     if (pointerIdRef.current !== event.pointerId) return;
     const dx = event.clientX - startXRef.current;
     const dragged = draggingRef.current;
     pointerIdRef.current = null;
     draggingRef.current = false;
-
-    if (!dragged) return;
+    window.removeEventListener("pointermove", onWindowPointerMove);
+    window.removeEventListener("pointerup", onWindowPointerUp);
+    window.removeEventListener("pointercancel", onWindowPointerUp);
+    if (!dragged) {
+      clearSheenRef.current();
+      return;
+    }
 
     const start = dragStartIndexRef.current;
     let next = highlightRef.current;
-    if (next === start) {
-      next = indexFromX(event.clientX);
-    }
-    // Dragging the pill toward the next tab is a rightward move (dx > 0).
     if (next === start && Math.abs(dx) >= NAV_SWIPE_FLICK) {
-      next = start + (dx > 0 ? 1 : -1);
+      next = start + (dx < 0 ? 1 : -1);
     }
-    goToIndex(next);
+    goToIndexRef.current(next);
+  }).current;
+
+  const onNavPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    pointerIdRef.current = event.pointerId;
+    startXRef.current = event.clientX;
+    dragStartIndexRef.current = activeIndexRef.current;
+    draggingRef.current = false;
+    suppressClickRef.current = false;
+    window.addEventListener("pointermove", onWindowPointerMove);
+    window.addEventListener("pointerup", onWindowPointerUp);
+    window.addEventListener("pointercancel", onWindowPointerUp);
   };
+
+  useEffect(() => () => {
+    window.removeEventListener("pointermove", onWindowPointerMove);
+    window.removeEventListener("pointerup", onWindowPointerUp);
+    window.removeEventListener("pointercancel", onWindowPointerUp);
+  }, [onWindowPointerMove, onWindowPointerUp]);
 
   if (keyboardOpen) return null;
 
@@ -342,18 +446,16 @@ export function MobileBottomNav() {
         <div
           ref={barRef}
           className={cn(
-            "liquid-glass-nav relative flex touch-pan-x items-center gap-0.5 rounded-full transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            "relative flex touch-none items-center gap-0.5 rounded-full transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
             compact ? "px-1.5 py-1" : "px-1 py-1",
           )}
           onPointerDown={onNavPointerDown}
-          onPointerMove={onNavPointerMove}
-          onPointerUp={finishNavGesture}
-          onPointerCancel={finishNavGesture}
         >
+          <div className="liquid-glass-nav pointer-events-none absolute inset-0 rounded-full" />
           <motion.span
             aria-hidden
-            className="liquid-glass-pill pointer-events-none absolute left-0 top-0 rounded-full"
-            style={{ x: pillX, y: pillY, width: pillW, height: pillH }}
+            className="liquid-glass-pill pointer-events-none absolute z-[1] rounded-full will-change-[left,width]"
+            style={{ left: pillX, top: pillY, width: pillW, height: pillH }}
           />
           {NAV_ITEMS.map((item, index) => {
             const Icon = item.icon;
@@ -374,9 +476,9 @@ export function MobileBottomNav() {
                   goToIndex(index);
                 }}
                 className={cn(
-                  "relative z-10 flex flex-1 flex-col items-center justify-center rounded-full transition-colors duration-200",
+                  "relative z-10 flex flex-1 flex-col items-center justify-center rounded-full transition-colors duration-200 [-webkit-tap-highlight-color:transparent]",
                   compact ? "h-11 px-2" : "h-[3.4rem] px-2",
-                  isActive ? "text-[#8B2323]" : "text-[#7A6150] active:text-[#3A2D27]",
+                  isActive ? "text-[#8B2323]" : "text-[#4A3A32] active:text-[#3A2D27]",
                 )}
                 aria-current={isActive ? "page" : undefined}
                 aria-label={item.label}

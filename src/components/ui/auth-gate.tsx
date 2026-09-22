@@ -46,7 +46,7 @@ export function AuthGate({
 
   if (isPending) {
     return (
-      <div className={`relative w-full flex items-center justify-center px-4 py-10 ${className}`}>
+      <div className={`relative w-full flex items-center justify-center px-4 py-10 pt-[max(2.5rem,calc(env(safe-area-inset-top,0px)+1.25rem))] ${className}`}>
         <div className="relative z-10 w-full max-w-[400px]">
           {showBack && (
             <button
@@ -65,7 +65,7 @@ export function AuthGate({
   }
 
   return (
-    <div className={`relative w-full flex items-center justify-center px-4 py-10 ${className}`}>
+    <div className={`relative w-full flex items-center justify-center px-4 py-10 pt-[max(2.5rem,calc(env(safe-area-inset-top,0px)+1.25rem))] ${className}`}>
       <div
         className="pointer-events-none absolute inset-0 z-0 opacity-60"
         style={{

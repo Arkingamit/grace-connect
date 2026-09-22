@@ -11,6 +11,7 @@ import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { Camera } from '@capacitor/camera';
 import { NativeSettings, AndroidSettings, IOSSettings } from 'capacitor-native-settings';
+import { QrGalleryButton } from '@/components/ui/qr-gallery-button';
 
 declare global {
   interface Window {
@@ -74,7 +75,7 @@ export default function LeaderScannerPage() {
     };
   }, [stopScanner]);
 
-  const processScan = async (qrCodeText: string) => {
+  const processScan = async (qrCodeText: string, resumeCamera = true) => {
     if (!selectedSessionId) return;
     
     // Pause scanner briefly to show result
@@ -99,7 +100,7 @@ export default function LeaderScannerPage() {
         if (!navigator.geolocation) {
           toast.error("Geolocation is not supported by your browser");
           setLastScanResult({ success: false, message: 'GPS required but not supported' });
-          setTimeout(() => { setLastScanResult(null); startScanner(); }, 3000);
+          setTimeout(() => { setLastScanResult(null); if (resumeCamera) startScanner(); }, 3000);
           return;
         }
 
@@ -114,7 +115,7 @@ export default function LeaderScannerPage() {
         } catch (err) {
           toast.error("Failed to get your location. GPS is required for this session.");
           setLastScanResult({ success: false, message: 'Failed to get GPS location' });
-          setTimeout(() => { setLastScanResult(null); startScanner(); }, 3000);
+          setTimeout(() => { setLastScanResult(null); if (resumeCamera) startScanner(); }, 3000);
           return;
         }
       }
@@ -147,7 +148,7 @@ export default function LeaderScannerPage() {
     // Auto resume scanner after 3 seconds
     setTimeout(() => {
       setLastScanResult(null);
-      startScanner();
+      if (resumeCamera) startScanner();
     }, 3000);
   };
 
@@ -263,12 +264,19 @@ export default function LeaderScannerPage() {
           )}
 
           {!isScanning && sessions.length > 0 && (
-            <Button 
-              className="w-full bg-[#8B2323] hover:bg-[#721515] h-12 text-lg"
-              onClick={startScanner}
-            >
-              <QrCode className="w-5 h-5 mr-2" /> Start Scanner
-            </Button>
+            <div className="space-y-2">
+              <Button 
+                className="w-full bg-[#8B2323] hover:bg-[#721515] h-12 text-lg"
+                onClick={startScanner}
+              >
+                <QrCode className="w-5 h-5 mr-2" /> Start Scanner
+              </Button>
+              <QrGalleryButton
+                variant="light"
+                className="w-full h-12"
+                onDecoded={(text) => void processScan(text, false)}
+              />
+            </div>
           )}
         </CardContent>
       </Card>
@@ -315,6 +323,13 @@ export default function LeaderScannerPage() {
               >
                 Stop
               </Button>
+            </div>
+            <div className="absolute bottom-4 inset-x-4 z-20">
+              <QrGalleryButton
+                className="w-full"
+                beforePick={stopScanner}
+                onDecoded={(text) => void processScan(text)}
+              />
             </div>
           </CardContent>
         </Card>

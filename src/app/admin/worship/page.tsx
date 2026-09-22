@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useAdminData, type WorshipVideo } from '@/lib/admin-data-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,10 +26,12 @@ import {
   Search,
   History,
   Star,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HighlightPublishOptions } from '@/components/admin/highlight-publish-options';
 import { DEFAULT_HIGHLIGHT_FIELDS, withHighlightExpiry } from '@/lib/highlight-utils';
+import { extractYoutubeVideoId, youtubeThumbnailUrl } from '@/lib/youtube';
 
 
 
@@ -54,40 +56,46 @@ export default function WorshipManagementPage() {
     title: '',
     videoId: '',
     youtubeUrl: '',
+    artist: '',
+    duration: '',
     ...DEFAULT_HIGHLIGHT_FIELDS,
+    sendNotification: false,
   };
 
   const [form, setForm] = useState(initialForm);
+  const [fetchingYoutube, setFetchingYoutube] = useState(false);
+  const youtubeFetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const extractVideoId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+  const applyYoutubeMetadata = async (url: string, forceTitle = false) => {
+    const videoId = extractYoutubeVideoId(url);
+    if (!videoId) return;
+    setFetchingYoutube(true);
+    try {
+      const res = await fetch(`/api/youtube/stats?ids=${encodeURIComponent(videoId)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const meta = data.stats?.[videoId];
+      if (!meta) return;
+      setForm((prev) => ({
+        ...prev,
+        videoId,
+        title: (forceTitle || !prev.title) && meta.title ? meta.title : prev.title,
+        artist: meta.artist || prev.artist,
+        duration: meta.durationLabel || prev.duration,
+      }));
+    } catch (err) {
+      console.error("Failed to auto-fetch video details:", err);
+    } finally {
+      setFetchingYoutube(false);
+    }
   };
 
-  const handleUrlChange = async (url: string) => {
-    setForm((prev) => ({ ...prev, youtubeUrl: url }));
-    
-    const videoId = extractVideoId(url);
-    if (videoId) {
-      try {
-        const res = await fetch(`/api/youtube/stats?ids=${videoId}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.stats && data.stats[videoId] && data.stats[videoId].title) {
-            setForm((prev) => {
-              // Only auto-fill if the title is currently empty
-              if (!prev.title) {
-                return { ...prev, title: data.stats[videoId].title };
-              }
-              return prev;
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Failed to auto-fetch video title:", err);
-      }
-    }
+  const handleUrlChange = (url: string) => {
+    setForm((prev) => ({ ...prev, youtubeUrl: url, videoId: extractYoutubeVideoId(url) || prev.videoId }));
+    if (youtubeFetchTimer.current) clearTimeout(youtubeFetchTimer.current);
+    youtubeFetchTimer.current = setTimeout(() => {
+      void applyYoutubeMetadata(url);
+    }, 350);
   };
 
   const handleOpenCreate = () => {
@@ -100,6 +108,8 @@ export default function WorshipManagementPage() {
     setForm({
       ...video,
       youtubeUrl: `https://youtube.com/watch?v=${video.videoId}`,
+      artist: video.artist || '',
+      duration: video.duration || '',
       showOnHighlight: !!video.showOnHighlight,
       highlightDurationHours: video.highlightDurationHours || 24,
       highlightExpiresAt: video.highlightExpiresAt || null,
@@ -110,7 +120,7 @@ export default function WorshipManagementPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const videoId = extractVideoId(form.youtubeUrl);
+    const videoId = extractYoutubeVideoId(form.youtubeUrl);
     if (!videoId) {
       alert("Invalid YouTube URL");
       return;
@@ -119,9 +129,12 @@ export default function WorshipManagementPage() {
     const videoData = withHighlightExpiry({
       title: form.title,
       videoId: videoId,
+      artist: form.artist,
+      duration: form.duration,
       showOnHighlight: form.showOnHighlight,
       highlightDurationHours: form.highlightDurationHours,
       highlightExpiresAt: form.highlightExpiresAt,
+      ...(editingId === null ? { sendNotification: form.sendNotification } : {}),
     });
 
     if (editingId !== null) {
@@ -265,18 +278,66 @@ export default function WorshipManagementPage() {
                 placeholder="https://www.youtube.com/watch?v=..." 
                 value={form.youtubeUrl}
                 onChange={(e) => handleUrlChange(e.target.value)}
+                onBlur={(e) => void applyYoutubeMetadata(e.target.value)}
                 required
               />
-              <p className="text-[10px] text-muted-foreground">Supported: youtube.com, youtu.be, embed links</p>
+              <p className="text-[10px] text-muted-foreground">
+                {fetchingYoutube
+                  ? "Fetching title, artist, and duration from YouTube…"
+                  : "Paste a YouTube, youtu.be, Shorts, or embed link to fill the song details."}
+              </p>
+              {extractYoutubeVideoId(form.youtubeUrl) ? (
+                <div className="flex items-center gap-3 rounded-xl border border-[#E5D5C5]/60 bg-[#FAF7F2] p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={youtubeThumbnailUrl(extractYoutubeVideoId(form.youtubeUrl)!)}
+                    alt=""
+                    className="h-14 w-[6.2rem] rounded-lg object-cover"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[#1A202C]">
+                      {form.title || "Fetching details…"}
+                    </p>
+                    <p className="truncate text-[11px] text-[#7A6150]">
+                      {[form.artist, form.duration].filter(Boolean).join(" • ")}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="title">Title *</Label>
-              <Input 
-                id="title" 
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                required
-              />
+              <div className="relative">
+                <Input 
+                  id="title" 
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  required
+                />
+                {fetchingYoutube ? (
+                  <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#8B2323]" />
+                ) : null}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="artist">Artist</Label>
+                <Input
+                  id="artist"
+                  value={form.artist}
+                  onChange={(e) => setForm({ ...form, artist: e.target.value })}
+                  placeholder="Channel / artist"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="duration">Duration</Label>
+                <Input
+                  id="duration"
+                  value={form.duration}
+                  onChange={(e) => setForm({ ...form, duration: e.target.value })}
+                  placeholder="4 min"
+                />
+              </div>
             </div>
 
             <HighlightPublishOptions
@@ -284,6 +345,13 @@ export default function WorshipManagementPage() {
               highlightDurationHours={form.highlightDurationHours}
               onShowChange={(show) => setForm({ ...form, showOnHighlight: show })}
               onDurationChange={(hours) => setForm({ ...form, highlightDurationHours: hours })}
+              sendNotification={form.sendNotification}
+              onSendNotificationChange={
+                editingId
+                  ? undefined
+                  : (send) => setForm({ ...form, sendNotification: send })
+              }
+              notificationHint="Members will get a push and in-app alert for this video. Leave unchecked to publish quietly."
             />
 
             <DialogFooter className="pt-4">

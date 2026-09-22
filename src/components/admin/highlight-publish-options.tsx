@@ -11,12 +11,16 @@ import {
 } from "@/components/ui/select";
 import { Sparkles } from "lucide-react";
 import { HIGHLIGHT_DURATION_OPTIONS } from "@/lib/highlight-utils";
+import { SendNotificationOption } from "@/components/admin/send-notification-option";
 
 type HighlightPublishOptionsProps = {
   showOnHighlight: boolean;
   highlightDurationHours: number;
   onShowChange: (show: boolean) => void;
   onDurationChange: (hours: number) => void;
+  sendNotification?: boolean;
+  onSendNotificationChange?: (send: boolean) => void;
+  notificationHint?: string;
   className?: string;
 };
 
@@ -25,12 +29,21 @@ export function HighlightPublishOptions({
   highlightDurationHours,
   onShowChange,
   onDurationChange,
+  sendNotification,
+  onSendNotificationChange,
+  notificationHint,
   className = "",
 }: HighlightPublishOptionsProps) {
   return (
-    <div
-      className={`rounded-2xl border border-[#E5D5C5]/60 bg-white p-4 space-y-4 shadow-sm ${className}`}
-    >
+    <div className={`space-y-3 ${className}`}>
+      {onSendNotificationChange && (
+        <SendNotificationOption
+          checked={!!sendNotification}
+          onChange={onSendNotificationChange}
+          description={notificationHint}
+        />
+      )}
+      <div className="rounded-2xl border border-[#E5D5C5]/60 bg-white p-4 space-y-4 shadow-sm">
       <div className="flex items-start gap-3">
         <Checkbox
           id="show-on-highlight"
@@ -80,6 +93,7 @@ export function HighlightPublishOptions({
           </p>
         </div>
       )}
+      </div>
     </div>
   );
 }

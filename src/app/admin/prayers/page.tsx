@@ -12,6 +12,7 @@ import {
   Clock, CheckCircle, XCircle, Heart, User, Shield, MessageCircle, Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { SendNotificationOption } from '@/components/admin/send-notification-option';
 
 export default function PrayerRequestsPage() {
   const { prayerRequests, campuses, currentUser, approvePrayerRequest, deletePrayerRequest } = useAdminData();
@@ -27,11 +28,17 @@ export default function PrayerRequestsPage() {
   const approvedPrayers = visiblePrayers.filter(p => p.status === 'approved');
 
   const [rejectConfirm, setRejectConfirm] = useState<string | null>(null);
+  const [notifyOnApprove, setNotifyOnApprove] = useState<Record<string, boolean>>({});
 
   const handleApprove = async (id: string) => {
     try {
-      await approvePrayerRequest(id);
-      toast.success('Prayer request approved');
+      await approvePrayerRequest(id, { sendNotification: !!notifyOnApprove[id] });
+      toast.success(notifyOnApprove[id] ? 'Prayer approved and members notified' : 'Prayer request approved');
+      setNotifyOnApprove((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     } catch (error) {
       toast.error('Failed to approve prayer request');
     }
@@ -153,7 +160,14 @@ export default function PrayerRequestsPage() {
                       {prayer.content}
                     </div>
 
-                    <div className="flex gap-2 pt-2">
+                    <div className="space-y-3 pt-2">
+                      <SendNotificationOption
+                        id={`notify-prayer-${prayer.id}`}
+                        checked={!!notifyOnApprove[prayer.id]}
+                        onChange={(send) => setNotifyOnApprove((prev) => ({ ...prev, [prayer.id]: send }))}
+                        description="Members will get a push and in-app alert for this prayer. Leave unchecked to approve quietly."
+                      />
+                      <div className="flex gap-2">
                       <Button
                         className="flex-1 gap-2 bg-emerald-500 hover:bg-emerald-600 text-white"
                         onClick={() => handleApprove(prayer.id)}
@@ -167,6 +181,7 @@ export default function PrayerRequestsPage() {
                       >
                         <Trash2 className="w-4 h-4" /> Delete
                       </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

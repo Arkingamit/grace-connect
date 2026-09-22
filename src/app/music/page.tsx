@@ -156,9 +156,9 @@ export default function MusicPage() {
   }, [fullscreenVideo]);
 
   return (
-    <section className="pt-6 pb-16 bg-transparent">
+    <section className="page-back-offset pb-16 bg-transparent">
       <div className="container mx-auto px-4 space-y-4">
-        <div className="sticky top-4 z-50 flex items-center w-fit mb-2">
+        <div className="page-back-bar mb-2">
           <Link href="/">
             <Button variant="ghost" className="pl-3 pr-5 h-10 gap-2 bg-[#EDE0E0]/40 backdrop-blur-xl hover:bg-[#EDE0E0]/60 border border-white/50 rounded-full text-gray-900 hover:text-gray-900 transition-all shadow-sm">
               <ChevronLeft className="w-5 h-5" strokeWidth={2} />

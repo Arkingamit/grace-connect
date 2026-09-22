@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bell, Calendar, Megaphone, BookOpen, Heart, Music, FileText, X, Radio } from 'lucide-react';
+import { Bell, Calendar, Megaphone, BookOpen, Heart, Music, FileText, X, Radio, Image as ImageIcon } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 
@@ -26,6 +26,8 @@ const ICON_MAP: Record<string, React.ElementType> = {
   new_prayer: Heart,
   new_sermon: BookOpen,
   new_worship_video: Music,
+  new_gallery: ImageIcon,
+  live_now: Radio,
   recurring_announcement: Megaphone,
   event_reminder: Calendar,
   system: Bell,
@@ -38,6 +40,8 @@ const COLOR_MAP: Record<string, { bg: string; icon: string; border: string }> = 
   new_prayer: { bg: 'bg-rose-50', icon: 'text-rose-600', border: 'border-rose-200' },
   new_sermon: { bg: 'bg-indigo-50', icon: 'text-indigo-600', border: 'border-indigo-200' },
   new_worship_video: { bg: 'bg-purple-50', icon: 'text-purple-600', border: 'border-purple-200' },
+  new_gallery: { bg: 'bg-sky-50', icon: 'text-sky-600', border: 'border-sky-200' },
+  live_now: { bg: 'bg-red-50', icon: 'text-red-600', border: 'border-red-200' },
   recurring_announcement: { bg: 'bg-[#FBE8E8]', icon: 'text-[#8B2323]', border: 'border-[#E5B5B5]' },
   event_reminder: { bg: 'bg-blue-50', icon: 'text-blue-600', border: 'border-blue-200' },
   system: { bg: 'bg-gray-50', icon: 'text-gray-600', border: 'border-gray-200' },

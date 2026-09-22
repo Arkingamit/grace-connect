@@ -12,8 +12,8 @@ export default function GalleryPage() {
 
   return (
     <div className="min-h-screen bg-transparent pb-24 md:pb-12 text-[#3A2D27] selection:bg-primary/20">
-      <div className="container mx-auto px-4 sm:px-6 pt-6 pb-2">
-        <div className="sticky top-4 z-50 flex items-center w-fit mb-2">
+      <div className="container mx-auto px-4 sm:px-6 page-back-offset pb-2">
+        <div className="page-back-bar mb-2">
           <Button
             onClick={() => goBack("/")}
             variant="ghost"

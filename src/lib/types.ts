@@ -279,6 +279,8 @@ export interface LiveStream {
   recurrenceDay?: string;
   recurrenceWeekOfMonth?: string;
   time?: string;
+  notifyWhenLive?: boolean;
+  lastLiveNotifiedVideoId?: string;
 }
 
 export interface UserProfile {

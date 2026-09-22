@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Capacitor } from '@capacitor/core';
 import { NativeSettings, AndroidSettings, IOSSettings } from 'capacitor-native-settings';
 import { ensureCameraPermission } from '@/lib/native-camera';
+import { QrGalleryButton } from '@/components/ui/qr-gallery-button';
 
 declare global {
   interface Window {
@@ -60,6 +61,21 @@ export function SessionQRScanner({ onClose }: SessionQRScannerProps) {
     return null;
   }, []);
 
+  const applyDecoded = useCallback((decodedText: string) => {
+    const sessionId = extractSessionId(decodedText);
+    if (sessionId) {
+      setError(null);
+      setErrorKind(null);
+      setScannedSession(true);
+      stopScanner().then(() => {
+        router.push(`/check-in/qr/${sessionId}`);
+      });
+    } else {
+      setErrorKind('scan');
+      setError('Invalid QR code. Please scan a valid session QR code.');
+    }
+  }, [extractSessionId, router, stopScanner]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -103,25 +119,7 @@ export function SessionQRScanner({ onClose }: SessionQRScannerProps) {
             aspectRatio: 1.0,
           },
           (decodedText: string) => {
-            const sessionId = extractSessionId(decodedText);
-            if (sessionId) {
-              setScannedSession(true);
-              html5QrCode.stop().then(() => {
-                scannerRef.current = null;
-                router.push(`/check-in/qr/${sessionId}`);
-              }).catch(() => {
-                router.push(`/check-in/qr/${sessionId}`);
-              });
-            } else {
-              html5QrCode.stop().then(() => {
-                scannerRef.current = null;
-                setErrorKind('scan');
-                setError('Invalid QR code. Please scan a valid session QR code.');
-              }).catch(() => {
-                setErrorKind('scan');
-                setError('Invalid QR code. Please scan a valid session QR code.');
-              });
-            }
+            applyDecoded(decodedText);
           },
           () => {}
         );
@@ -151,7 +149,7 @@ export function SessionQRScanner({ onClose }: SessionQRScannerProps) {
       mounted = false;
       stopScanner();
     };
-  }, [extractSessionId, router, stopScanner, retryKey]);
+  }, [applyDecoded, stopScanner, retryKey]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
@@ -168,7 +166,7 @@ export function SessionQRScanner({ onClose }: SessionQRScannerProps) {
         </div>
         <h2 className="text-xl font-bold text-white">Scan Session QR</h2>
         <p className="text-white/60 text-sm mt-1">
-          Point your camera at the screen to check in
+          Point your camera at the screen, or upload a photo
         </p>
       </div>
 
@@ -244,6 +242,11 @@ export function SessionQRScanner({ onClose }: SessionQRScannerProps) {
               >
                 Close Scanner
               </Button>
+              <QrGalleryButton
+                className="w-full"
+                beforePick={stopScanner}
+                onDecoded={applyDecoded}
+              />
             </div>
           </div>
         )}
@@ -254,6 +257,12 @@ export function SessionQRScanner({ onClose }: SessionQRScannerProps) {
           style={{ minHeight: 300 }}
         />
       </div>
+
+      {!error && !scannedSession && (
+        <div className="mt-6">
+          <QrGalleryButton beforePick={stopScanner} onDecoded={applyDecoded} />
+        </div>
+      )}
     </div>
   );
 }

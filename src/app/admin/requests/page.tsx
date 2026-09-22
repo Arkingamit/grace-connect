@@ -13,11 +13,13 @@ import {
 } from '@/components/ui/dialog';
 import {
   UserPlus, Clock, CheckCircle, XCircle, Mail, Phone, Calendar,
-  Building2, Heart, User, Users, Link2,
+  Building2, Heart, User, Users, Link2, Search,
 } from 'lucide-react';
 import { RejectMemberDialog } from '@/components/ui/reject-member-dialog';
 import { toast } from 'sonner';
 import { formatDDMMYYYY } from '@/lib/date-utils';
+import { getRejectionReasonLabel } from '@/lib/rejection-reasons';
+import { Input } from '@/components/ui/input';
 
 function isLinkedPlaceholderEmail(email?: string) {
   return !!email && (email.startsWith('linked_') || email.endsWith('@family.internal'));
@@ -46,11 +48,19 @@ export default function RequestsPage() {
     return true;
   });
 
+  const scopedMembers = members.filter(m =>
+    !isCampusLeader || m.campusId === currentUser.campusId
+  );
+  const approvedMembers = scopedMembers.filter(m => m.status === 'approved');
+  const rejectedMembers = scopedMembers.filter(m => m.status === 'rejected');
+
   // Approve dialog
   const [approveDialog, setApproveDialog] = useState<ChurchMember | null>(null);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [rejectTarget, setRejectTarget] = useState<ChurchMember | null>(null);
   const [rejecting, setRejecting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [search, setSearch] = useState('');
 
   const openApproveDialog = (member: ChurchMember) => {
     setApproveDialog(member);
@@ -104,6 +114,31 @@ export default function RequestsPage() {
   const isFamilyProfile = (member: ChurchMember) =>
     !!member.isLinkedProfile || isLinkedPlaceholderEmail(member.email) || !!member.parentAccountId;
 
+  const matchesSearch = (member: ChurchMember) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const haystack = [
+      getMemberDisplayName(member),
+      member.email,
+      member.phone,
+      member.whatsapp,
+      campuses.find(c => c.id === member.campusId)?.name,
+    ].join(' ').toLowerCase();
+    return haystack.includes(q);
+  };
+
+  const listMembers =
+    statusFilter === 'pending' ? pendingRequests :
+    statusFilter === 'approved' ? approvedMembers :
+    rejectedMembers;
+  const visibleMembers = listMembers.filter(matchesSearch);
+
+  const emptyCopy = {
+    pending: { title: 'No pending requests', search: 'No pending members match your search' },
+    approved: { title: 'No approved members', search: 'No approved members match your search' },
+    rejected: { title: 'No rejected members', search: 'No rejected members match your search' },
+  }[statusFilter];
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
@@ -119,53 +154,65 @@ export default function RequestsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        <Card className="border-border/50">
-          <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-              <Clock className="w-4 h-4 text-amber-500" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-lg sm:text-xl font-bold leading-none">{pendingRequests.length}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Pending</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-              <CheckCircle className="w-4 h-4 text-emerald-500" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-lg sm:text-xl font-bold leading-none">{members.filter(m => m.status === 'approved').length}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Approved</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-rose-500/10 flex items-center justify-center shrink-0">
-              <XCircle className="w-4 h-4 text-rose-500" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-lg sm:text-xl font-bold leading-none">{members.filter(m => m.status === 'rejected').length}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Rejected</p>
-            </div>
-          </CardContent>
-        </Card>
+        {([
+          { id: 'pending' as const, count: pendingRequests.length, label: 'Pending', icon: Clock, iconWrap: 'bg-amber-500/10', iconClass: 'text-amber-500', active: 'ring-2 ring-amber-400/70 border-amber-200' },
+          { id: 'approved' as const, count: approvedMembers.length, label: 'Approved', icon: CheckCircle, iconWrap: 'bg-emerald-500/10', iconClass: 'text-emerald-500', active: 'ring-2 ring-emerald-400/70 border-emerald-200' },
+          { id: 'rejected' as const, count: rejectedMembers.length, label: 'Rejected', icon: XCircle, iconWrap: 'bg-rose-500/10', iconClass: 'text-rose-500', active: 'ring-2 ring-rose-400/70 border-rose-200' },
+        ]).map((stat) => {
+          const Icon = stat.icon;
+          const selected = statusFilter === stat.id;
+          return (
+            <Card
+              key={stat.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => setStatusFilter(stat.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setStatusFilter(stat.id);
+                }
+              }}
+              className={`border-border/50 cursor-pointer transition-all ${selected ? stat.active : 'hover:shadow-md'}`}
+            >
+              <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+                <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg ${stat.iconWrap} flex items-center justify-center shrink-0`}>
+                  <Icon className={`w-4 h-4 ${stat.iconClass}`} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-xl font-bold leading-none">{stat.count}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{stat.label}</p>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
-      {/* Pending Requests */}
-      {pendingRequests.length === 0 ? (
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={`Search ${statusFilter} members...`}
+          className="pl-10 h-11 rounded-xl bg-white/80"
+        />
+      </div>
+
+      {/* Member lists */}
+      {visibleMembers.length === 0 ? (
         <div className="text-center py-16">
           <UserPlus className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-          <p className="text-muted-foreground">No pending requests</p>
+          <p className="text-muted-foreground">{search.trim() ? emptyCopy.search : emptyCopy.title}</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {pendingRequests.map(member => {
+          {visibleMembers.map(member => {
             const displayName = getMemberDisplayName(member);
             const linkedParent = getLinkedParent(member);
             const showRealEmail = member.email && !isLinkedPlaceholderEmail(member.email);
+            const status = member.status || statusFilter;
+            const rejectionLabel = getRejectionReasonLabel(member.rejectionReason);
 
             return (
               <Card key={member.id} className="border-border/50 hover:shadow-md transition-shadow overflow-hidden">
@@ -180,9 +227,19 @@ export default function RequestsPage() {
                           <h3 className="font-semibold text-base leading-tight truncate">
                             {displayName}
                           </h3>
-                          <Badge variant="outline" className="text-[10px] shrink-0">
-                            <Clock className="w-2.5 h-2.5 mr-1" /> Pending
-                          </Badge>
+                          {status === 'approved' ? (
+                            <Badge variant="outline" className="text-[10px] shrink-0 text-emerald-600 border-emerald-200 bg-emerald-50">
+                              <CheckCircle className="w-2.5 h-2.5 mr-1" /> Approved
+                            </Badge>
+                          ) : status === 'rejected' ? (
+                            <Badge variant="outline" className="text-[10px] shrink-0 text-rose-600 border-rose-200 bg-rose-50">
+                              <XCircle className="w-2.5 h-2.5 mr-1" /> Rejected
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] shrink-0">
+                              <Clock className="w-2.5 h-2.5 mr-1" /> Pending
+                            </Badge>
+                          )}
                         </div>
 
                         {showRealEmail ? (
@@ -228,27 +285,52 @@ export default function RequestsPage() {
                       </div>
                     </div>
 
+                    {status === 'approved' && member.groups?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {member.groups.map(group => (
+                          <Badge key={group} variant="secondary" className="text-[10px] font-medium">
+                            {group}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
+                    {status === 'rejected' && (rejectionLabel || member.rejectionNote) && (
+                      <div className="rounded-lg bg-rose-50 border border-rose-100 px-3 py-2">
+                        {rejectionLabel && (
+                          <p className="text-xs font-medium text-rose-700">Reason: {rejectionLabel}</p>
+                        )}
+                        {member.rejectionNote && (
+                          <p className="text-xs text-rose-600/80 mt-0.5">{member.rejectionNote}</p>
+                        )}
+                      </div>
+                    )}
+
                     <p className="text-[10px] text-muted-foreground">
-                      Submitted {formatDate(member.createdAt)}
+                      {status === 'rejected' && member.rejectedAt
+                        ? `Rejected ${formatDate(member.rejectedAt)}`
+                        : `Submitted ${formatDate(member.createdAt)}`}
                     </p>
 
-                    <div className="flex gap-2 w-full sm:w-auto sm:self-end">
-                      <Button
-                        size="sm"
-                        className="flex-1 sm:flex-none gap-1"
-                        onClick={() => openApproveDialog(member)}
-                      >
-                        <CheckCircle className="w-3.5 h-3.5" /> Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="flex-1 sm:flex-none gap-1"
-                        onClick={() => setRejectTarget(member)}
-                      >
-                        <XCircle className="w-3.5 h-3.5" /> Reject
-                      </Button>
-                    </div>
+                    {status === 'pending' && (
+                      <div className="flex gap-2 w-full sm:w-auto sm:self-end">
+                        <Button
+                          size="sm"
+                          className="flex-1 sm:flex-none gap-1"
+                          onClick={() => openApproveDialog(member)}
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" /> Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="flex-1 sm:flex-none gap-1"
+                          onClick={() => setRejectTarget(member)}
+                        >
+                          <XCircle className="w-3.5 h-3.5" /> Reject
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

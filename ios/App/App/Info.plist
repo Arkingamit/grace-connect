@@ -50,7 +50,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Grace Connect uses the camera so you can take and update your profile photo.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Grace Connect accesses your photo library so you can choose a profile picture.</string>
+	<string>Grace Connect accesses your photo library so you can choose a profile picture or scan a QR code from a photo.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Grace Connect saves images you capture to your photo library.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
@@ -58,6 +58,11 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>maps</string>
+		<string>comgooglemaps</string>
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>

@@ -4,6 +4,7 @@ import Announcement from '@/models/Announcement';
 import { calculateNextOccurrence } from '@/lib/recurrence';
 import { apiSuccess, apiError, withErrorHandler } from '@/lib/api-helpers';
 import { serverCache } from '@/lib/cache';
+import { takeSendNotificationFlag } from '@/lib/notify-members';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   return withErrorHandler(async () => {
@@ -13,6 +14,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     await connectToDatabase();
     const { id } = await params;
     const body = await req.json();
+    takeSendNotificationFlag(body);
 
     // Enforce scope restrictions
     body.targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses, admin.permissions, 'announcements');

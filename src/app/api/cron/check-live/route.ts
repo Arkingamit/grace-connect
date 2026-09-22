@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import { LiveStream } from '@/models/Media';
+import { notifyLiveIfNeeded } from '@/lib/notify-members';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes max (polling for up to 30 min needs external trigger)
@@ -93,6 +94,19 @@ export async function GET(request: Request) {
         if (liveResult.isLive && liveResult.videoId) {
           updateData.isLive = true;
           updateData.videoId = liveResult.videoId;
+          const notifiedFor = await notifyLiveIfNeeded(
+            {
+              _id: config._id,
+              title: config.title,
+              campusId: config.campusId,
+              videoId: liveResult.videoId,
+              notifyWhenLive: config.notifyWhenLive,
+              lastLiveNotifiedVideoId: config.lastLiveNotifiedVideoId,
+            },
+            !!config.isLive,
+            true
+          );
+          if (notifiedFor) updateData.lastLiveNotifiedVideoId = notifiedFor;
           results.push({ campusId: config.campusId, status: 'live', videoId: liveResult.videoId });
         } else {
           results.push({ campusId: config.campusId, status: 'not_live' });

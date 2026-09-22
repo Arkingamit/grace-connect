@@ -69,6 +69,10 @@ export interface IWorshipVideo extends Document {
   title: string;
   videoId: string;
   isFeatured: boolean;
+  artist?: string;
+  album?: string;
+  duration?: string;
+  categories?: string[];
   showOnHighlight?: boolean;
   highlightDurationHours?: number;
   highlightExpiresAt?: string | null;
@@ -78,6 +82,10 @@ const WorshipVideoSchema = new Schema<IWorshipVideo>({
   title: { type: String, required: true },
   videoId: { type: String, required: true },
   isFeatured: { type: Boolean, default: false },
+  artist: { type: String, default: '' },
+  album: { type: String, default: '' },
+  duration: { type: String, default: '' },
+  categories: [{ type: String }],
   showOnHighlight: { type: Boolean, default: false },
   highlightDurationHours: { type: Number, default: 24 },
   highlightExpiresAt: { type: String, default: null },
@@ -128,6 +136,8 @@ export interface ILiveStream extends Document {
   recurrenceWeekOfMonth: string;
   time: string;
   lastAutoChecked: Date;
+  notifyWhenLive?: boolean;
+  lastLiveNotifiedVideoId?: string;
 }
 
 const LiveStreamSchema = new Schema<ILiveStream>({
@@ -143,6 +153,8 @@ const LiveStreamSchema = new Schema<ILiveStream>({
   recurrenceWeekOfMonth: { type: String, default: '1st' },
   time: { type: String, default: '10:00' },
   lastAutoChecked: { type: Date },
+  notifyWhenLive: { type: Boolean, default: false },
+  lastLiveNotifiedVideoId: { type: String, default: '' },
 }, { timestamps: true });
 
 export const LiveStream: Model<ILiveStream> = mongoose.models.LiveStream || mongoose.model<ILiveStream>('LiveStream', LiveStreamSchema);

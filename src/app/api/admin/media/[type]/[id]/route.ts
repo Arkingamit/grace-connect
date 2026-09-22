@@ -4,6 +4,7 @@ import connectToDatabase from '@/lib/db';
 import { Sermon, SermonSeries, WorshipVideo, GalleryAlbum, LiveStream } from '@/models/Media';
 import { serverCache } from '@/lib/cache';
 import { fetchGooglePhotosCover } from '@/lib/google-photos';
+import { notifyLiveIfNeeded, takeSendNotificationFlag } from '@/lib/notify-members';
 
 const models: any = {
   sermons: Sermon,
@@ -27,6 +28,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ type: st
     }
 
     const body = await req.json();
+    takeSendNotificationFlag(body);
     if (type === 'sermons' && !body.seriesId) body.seriesId = null;
 
     // Verify existing item scope
@@ -64,7 +66,27 @@ export async function PUT(req: Request, { params }: { params: Promise<{ type: st
       }
     }
 
+    const wasLive = type === 'livestreams' ? !!existingItem.isLive : false;
     const item = await Model.findByIdAndUpdate(id, body, { new: true });
+
+    if (type === 'livestreams' && item) {
+      const notifiedFor = await notifyLiveIfNeeded(
+        {
+          _id: item._id,
+          title: item.title,
+          campusId: item.campusId,
+          videoId: item.videoId,
+          notifyWhenLive: item.notifyWhenLive,
+          lastLiveNotifiedVideoId: item.lastLiveNotifiedVideoId,
+        },
+        wasLive,
+        !!item.isLive
+      );
+      if (notifiedFor && item.lastLiveNotifiedVideoId !== notifiedFor) {
+        item.lastLiveNotifiedVideoId = notifiedFor;
+        await item.save();
+      }
+    }
 
     // Invalidate media cache for this type
     serverCache.invalidate(`media:${type}`);

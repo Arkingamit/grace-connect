@@ -36,6 +36,7 @@ import { saveJsPdf } from '@/lib/save-image';
 import * as XLSX from 'xlsx';
 import { Badge } from '@/components/ui/badge';
 import { CompactStackedList, mapUsersToStackedMembers } from '@/components/ui/stacked-list';
+import { SendNotificationOption } from '@/components/admin/send-notification-option';
 
 export default function GalleryManagementPage() {
   const { galleryAlbums, addGalleryAlbum, updateGalleryAlbum, deleteGalleryAlbum, reorderGalleryAlbums, campuses, groups, groupScopes, currentUser, users } = useAdminData();
@@ -46,6 +47,7 @@ export default function GalleryManagementPage() {
   const [draggedItem, setDraggedItem] = useState<GalleryAlbum | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [showBroadcastList, setShowBroadcastList] = useState(false);
+  const [sendNotification, setSendNotification] = useState(false);
 
   const [form, setForm] = useState<Omit<GalleryAlbum, 'id'>>({
     title: '',
@@ -201,10 +203,11 @@ export default function GalleryManagementPage() {
       updateGalleryAlbum(editingId, form);
       setEditingId(null);
     } else {
-      addGalleryAlbum(form);
+      addGalleryAlbum({ ...form, sendNotification } as Omit<GalleryAlbum, 'id'>);
       setIsAdding(false);
     }
     setAlbumFormStep('basics');
+    setSendNotification(false);
     setForm({ title: '', description: '', url: '', coverImage: '', category: 'Worship', targetCampuses: ['all'], targetGroups: ['all'], excludeCampuses: [], excludeGroups: [] });
   };
 
@@ -226,6 +229,7 @@ export default function GalleryManagementPage() {
     });
     setEditingId(album.id);
     setAlbumFormStep('basics');
+    setSendNotification(false);
     setIsAdding(true);
   };
 
@@ -275,6 +279,7 @@ export default function GalleryManagementPage() {
             });
             setEditingId(null);
             setAlbumFormStep('basics');
+            setSendNotification(false);
             setIsAdding(true);
           }} className="w-full sm:w-auto rounded-full px-6 hover-lift bg-[#8B2323] hover:bg-[#721515] text-white">
             <Plus className="w-4 h-4 mr-2" /> New Album
@@ -384,6 +389,13 @@ export default function GalleryManagementPage() {
                 {/* ── Step 2: Audience ── */}
                 {albumFormStep === 'audience' && (
               <div className="space-y-4 max-w-xl mx-auto">
+                {!editingId && (
+                  <SendNotificationOption
+                    checked={sendNotification}
+                    onChange={setSendNotification}
+                    description="Members will get a push and in-app alert for these photos. Leave unchecked to publish quietly."
+                  />
+                )}
                 <h4 className="text-sm font-semibold flex items-center gap-2">
                   <Megaphone className="w-4 h-4 text-primary" /> Audience Targeting
                 </h4>
@@ -783,6 +795,7 @@ export default function GalleryManagementPage() {
                   });
                   setEditingId(null);
                   setAlbumFormStep('basics');
+                  setSendNotification(false);
                   setIsAdding(true);
                 }} className="rounded-full px-8">
                   Add Your First Album

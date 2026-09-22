@@ -16,10 +16,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { HighlightPublishOptions } from '@/components/admin/highlight-publish-options';
 import { DEFAULT_HIGHLIGHT_FIELDS, withHighlightExpiry } from '@/lib/highlight-utils';
+import { extractYoutubeVideoId, youtubeThumbnailUrl } from '@/lib/youtube';
 import {
   Play,
   Plus,
@@ -46,6 +47,8 @@ import {
   Users,
   Loader2,
 } from 'lucide-react';
+
+const NEW_PASTOR_VALUE = '__new_pastor__';
 
 export default function SermonManagementPage() {
   const { 
@@ -79,6 +82,7 @@ export default function SermonManagementPage() {
     excludeCampuses: [] as string[],
     excludeGroups: [] as string[],
     ...DEFAULT_HIGHLIGHT_FIELDS,
+    sendNotification: false,
   });
 
   // Series Dialog State
@@ -94,6 +98,7 @@ export default function SermonManagementPage() {
   const [campusMode, setCampusModeState] = useState<'all'|'specific'>('all');
   const [groupMode, setGroupMode] = useState<'all'|'specific'>('all');
   const [fetchingYoutube, setFetchingYoutube] = useState(false);
+  const [addingPastor, setAddingPastor] = useState(false);
   const youtubeFetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFetchedVideoId = useRef<string | null>(null);
   const isCampusLeader = currentUser?.role === 'campus_leader';
@@ -166,24 +171,23 @@ export default function SermonManagementPage() {
   };
 
 
-  const extractVideoId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-  };
-
   const applyYoutubeMetadata = async (videoId: string) => {
     if (lastFetchedVideoId.current === videoId) return;
-    lastFetchedVideoId.current = videoId;
     setFetchingYoutube(true);
     try {
       const res = await fetch(`/api/youtube/stats?ids=${encodeURIComponent(videoId)}`);
       if (!res.ok) return;
       const data = await res.json();
       const meta = data.stats?.[videoId];
-      if (!meta) {
-        lastFetchedVideoId.current = null;
+      if (!meta?.title && !meta?.durationLabel && !meta?.dateLabel) {
         return;
+      }
+      lastFetchedVideoId.current = videoId;
+      const pastorFromYoutube = typeof meta.artist === "string" && /pastor/i.test(meta.artist)
+        ? meta.artist
+        : null;
+      if (pastorFromYoutube) {
+        setAddingPastor(!pastorOptions.includes(pastorFromYoutube));
       }
       setSermonForm((prev) => ({
         ...prev,
@@ -191,36 +195,44 @@ export default function SermonManagementPage() {
         duration: meta.durationLabel || prev.duration,
         date: meta.dateLabel || prev.date,
         description: meta.description || prev.description,
+        pastor: pastorFromYoutube || prev.pastor,
         videoId,
       }));
     } catch (err) {
       console.error("Failed to auto-fetch sermon details from YouTube:", err);
-      lastFetchedVideoId.current = null;
     } finally {
       setFetchingYoutube(false);
     }
   };
 
   const handleYoutubeUrlChange = (url: string) => {
-    setSermonForm((prev) => ({ ...prev, youtubeUrl: url }));
+    const videoId = extractYoutubeVideoId(url);
+    if (videoId !== lastFetchedVideoId.current) lastFetchedVideoId.current = null;
+    setSermonForm((prev) => ({ ...prev, youtubeUrl: url, videoId: videoId || prev.videoId }));
     if (youtubeFetchTimer.current) clearTimeout(youtubeFetchTimer.current);
-    const videoId = extractVideoId(url);
     if (!videoId) return;
     youtubeFetchTimer.current = setTimeout(() => {
       void applyYoutubeMetadata(videoId);
-    }, 400);
+    }, 350);
   };
 
   const handleSermonSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const videoId = extractVideoId(sermonForm.youtubeUrl);
+    const videoId = extractYoutubeVideoId(sermonForm.youtubeUrl);
     if (!videoId) {
       alert("Invalid YouTube URL");
       return;
     }
 
+    const pastorName = (sermonForm.pastor || '').trim();
+    if (!pastorName) {
+      alert('Please select a pastor or add a new pastor name.');
+      return;
+    }
+
     const sermonData = {
       ...sermonForm,
+      pastor: pastorName,
       videoId,
       seriesId: sermonForm.seriesId || null,
     };
@@ -247,13 +259,30 @@ export default function SermonManagementPage() {
     setSeriesDialogOpen(false);
   };
 
+  const pastorOptions = Array.from(new Set(
+    [
+      ...sermons.map(s => s.pastor),
+      ...campuses.map(c => c.pastor),
+      ...(!addingPastor && sermonForm.pastor ? [sermonForm.pastor] : []),
+    ]
+      .map(name => (name || '').trim())
+      .filter(Boolean)
+  )).sort((a, b) => a.localeCompare(b));
+
+  const defaultPastor = () => {
+    if (pastorOptions.includes('Pastor Geo')) return 'Pastor Geo';
+    return pastorOptions[0] || '';
+  };
+
   const openAddSermon = () => {
     setEditingSermonId(null);
     setSermonFormStep('basics');
     lastFetchedVideoId.current = null;
+    const pastor = defaultPastor();
+    setAddingPastor(!pastor);
     setSermonForm({
       title: '',
-      pastor: 'Pastor Geo',
+      pastor,
       date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
       duration: '40 min',
       seriesId: '',
@@ -267,6 +296,7 @@ export default function SermonManagementPage() {
       excludeCampuses: [],
       excludeGroups: [],
       ...DEFAULT_HIGHLIGHT_FIELDS,
+      sendNotification: false,
     });
     setCampusModeState(campusLocked ? 'specific' : 'all');
     setGroupMode(isFas || isGroupLeader ? 'specific' : 'all');
@@ -302,6 +332,7 @@ export default function SermonManagementPage() {
     });
     setCampusModeState((sermon.targetCampuses || []).includes('all') ? 'all' : 'specific');
     setGroupMode(isFas ? 'specific' : ((sermon.targetGroups || []).includes('all') ? 'all' : 'specific'));
+    setAddingPastor(!(sermon.pastor || '').trim());
     setSermonDialogOpen(true);
   };
 
@@ -563,7 +594,7 @@ export default function SermonManagementPage() {
                         value={sermonForm.youtubeUrl}
                         onChange={(e) => handleYoutubeUrlChange(e.target.value)}
                         onBlur={(e) => {
-                          const videoId = extractVideoId(e.target.value);
+                          const videoId = extractYoutubeVideoId(e.target.value);
                           if (videoId) void applyYoutubeMetadata(videoId);
                         }}
                         required
@@ -573,6 +604,24 @@ export default function SermonManagementPage() {
                           ? "Fetching title, date, duration, and description from YouTube…"
                           : "Paste a YouTube link to fill title, date, duration, and short description."}
                       </p>
+                      {extractYoutubeVideoId(sermonForm.youtubeUrl) ? (
+                        <div className="flex items-center gap-3 rounded-xl border border-[#E5D5C5]/60 bg-[#FAF7F2] p-2">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={youtubeThumbnailUrl(extractYoutubeVideoId(sermonForm.youtubeUrl)!)}
+                            alt=""
+                            className="h-14 w-[6.2rem] rounded-lg object-cover"
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-[#1A202C]">
+                              {sermonForm.title || "Fetching details…"}
+                            </p>
+                            <p className="text-[11px] text-[#7A6150]">
+                              {[sermonForm.date, sermonForm.duration].filter(Boolean).join(" • ")}
+                            </p>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -592,27 +641,70 @@ export default function SermonManagementPage() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="pastor" className="text-[#3A2D27] font-semibold">Pastor *</Label>
-                        <Input
-                          id="pastor"
-                          className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60"
-                          value={sermonForm.pastor}
-                          onChange={(e) => setSermonForm({ ...sermonForm, pastor: e.target.value })}
-                          required
-                        />
+                        <Select
+                          value={addingPastor ? NEW_PASTOR_VALUE : (sermonForm.pastor || undefined)}
+                          onValueChange={(value) => {
+                            if (value === NEW_PASTOR_VALUE) {
+                              setAddingPastor(true);
+                              setSermonForm({ ...sermonForm, pastor: '' });
+                            } else {
+                              setAddingPastor(false);
+                              setSermonForm({ ...sermonForm, pastor: value });
+                            }
+                          }}
+                        >
+                          <SelectTrigger
+                            id="pastor"
+                            className="h-11 w-full rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 px-3 text-sm shadow-none focus:ring-[#8B2323]"
+                          >
+                            <SelectValue placeholder="Select a pastor" />
+                          </SelectTrigger>
+                          <SelectContent className="z-[80] rounded-xl border-[#E5D5C5]/70 bg-white">
+                            {pastorOptions.map((name) => (
+                              <SelectItem key={name} value={name} className="rounded-lg pl-8">
+                                {name}
+                              </SelectItem>
+                            ))}
+                            <SelectSeparator className="bg-[#E5D5C5]/70" />
+                            <SelectItem value={NEW_PASTOR_VALUE} className="rounded-lg pl-8 font-semibold text-[#8B2323]">
+                              + Add new pastor
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {addingPastor && (
+                          <Input
+                            autoFocus
+                            className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60"
+                            placeholder="Enter new pastor name"
+                            value={sermonForm.pastor}
+                            onChange={(e) => setSermonForm({ ...sermonForm, pastor: e.target.value })}
+                            required
+                          />
+                        )}
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="series" className="text-[#3A2D27] font-semibold">Series / Playlist</Label>
-                        <select
-                          id="series"
-                          className="w-full h-11 px-3 rounded-xl bg-[#FAF7F2] border border-[#E5D5C5]/60 text-sm"
-                          value={sermonForm.seriesId}
-                          onChange={(e) => setSermonForm({ ...sermonForm, seriesId: e.target.value })}
+                        <Select
+                          value={sermonForm.seriesId || "none"}
+                          onValueChange={(value) => setSermonForm({ ...sermonForm, seriesId: value === "none" ? "" : value })}
                         >
-                          <option value="">None — Individual sermon</option>
-                          {sermonSeries.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
-                        </select>
+                          <SelectTrigger
+                            id="series"
+                            className="h-11 w-full rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 px-3 text-sm shadow-none focus:ring-[#8B2323]"
+                          >
+                            <SelectValue placeholder="None — Individual sermon" />
+                          </SelectTrigger>
+                          <SelectContent className="z-[80] rounded-xl border-[#E5D5C5]/70 bg-white">
+                            <SelectItem value="none" className="rounded-lg pl-8">None — Individual sermon</SelectItem>
+                            {sermonSeries.map((s) => (
+                              <SelectItem key={s.id} value={s.id} className="rounded-lg pl-8">
+                                {s.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="date" className="text-[#3A2D27] font-semibold">Date *</Label>
@@ -750,6 +842,13 @@ export default function SermonManagementPage() {
                     highlightDurationHours={sermonForm.highlightDurationHours}
                     onShowChange={(show) => setSermonForm({ ...sermonForm, showOnHighlight: show })}
                     onDurationChange={(hours) => setSermonForm({ ...sermonForm, highlightDurationHours: hours })}
+                    sendNotification={sermonForm.sendNotification}
+                    onSendNotificationChange={
+                      editingSermonId
+                        ? undefined
+                        : (send) => setSermonForm({ ...sermonForm, sendNotification: send })
+                    }
+                    notificationHint="Members will get a push and in-app alert for this sermon. Leave unchecked to publish quietly."
                   />
                 </div>
               )}
@@ -941,37 +1040,48 @@ export default function SermonManagementPage() {
 
       {/* Series Dialog */}
       <Dialog open={seriesDialogOpen} onOpenChange={setSeriesDialogOpen}>
-        <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
-          <DialogHeader className="px-4 sm:px-6 pt-5 pb-4 border-b border-[#E5D5C5]/60">
+        <DialogContent className="max-w-md overflow-hidden p-0 gap-0">
+          <DialogHeader className="space-y-0 px-4 text-left sm:px-6 pt-5 pb-4 border-b border-[#E5D5C5]/60">
             <DialogTitle className="font-serif text-xl text-[#1A202C]">
               {editingSeriesId ? 'Edit Series' : 'Create New Series'}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSeriesSubmit} className="space-y-4 px-4 sm:px-6 py-5">
-            <div className="space-y-2">
-              <Label htmlFor="seriesTitle" className="text-[#3A2D27] font-semibold">Series Title *</Label>
-              <Input
-                id="seriesTitle"
-                className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60"
-                value={seriesForm.title}
-                onChange={(e) => setSeriesForm({ ...seriesForm, title: e.target.value })}
-                required
-              />
+          <form onSubmit={handleSeriesSubmit} className="px-4 sm:px-6 py-5">
+            <div className="space-y-4 rounded-2xl border border-[#E5D5C5]/60 bg-white p-4 shadow-sm">
+              <div className="space-y-2">
+                <Label htmlFor="seriesTitle" className="text-[#3A2D27] font-semibold">Series Title *</Label>
+                <Input
+                  id="seriesTitle"
+                  className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  value={seriesForm.title}
+                  onChange={(e) => setSeriesForm({ ...seriesForm, title: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="seriesDescription" className="text-[#3A2D27] font-semibold">Description</Label>
+                <textarea
+                  id="seriesDescription"
+                  className="w-full min-h-[100px] px-3 py-3 rounded-xl bg-[#FAF7F2] border border-[#E5D5C5]/60 text-sm text-[#1A202C] outline-none shadow-none resize-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  value={seriesForm.description}
+                  onChange={(e) => setSeriesForm({ ...seriesForm, description: e.target.value })}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="seriesDescription" className="text-[#3A2D27] font-semibold">Description</Label>
-              <textarea
-                id="seriesDescription"
-                className="w-full min-h-[100px] p-3 rounded-xl bg-[#FAF7F2] border border-[#E5D5C5]/60 text-sm"
-                value={seriesForm.description}
-                onChange={(e) => setSeriesForm({ ...seriesForm, description: e.target.value })}
-              />
-            </div>
-            <DialogFooter className="pt-2 pb-1 gap-2 sm:gap-2">
+            <div className="mt-5 flex flex-col gap-2">
+              <Button
+                type="submit"
+                className="h-11 w-full rounded-xl bg-[#8B2323] hover:bg-[#721515] hover:translate-y-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                onClick={(e) => {
+                  (e.currentTarget as HTMLButtonElement).blur();
+                }}
+              >
+                {editingSeriesId ? 'Save Changes' : 'Create Series'}
+              </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-xl border-[#E5D5C5] focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="h-11 w-full rounded-xl border-[#E5D5C5] bg-white hover:bg-[#FAF7F2] hover:translate-y-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                 onClick={(e) => {
                   (e.currentTarget as HTMLButtonElement).blur();
                   setSeriesDialogOpen(false);
@@ -979,16 +1089,7 @@ export default function SermonManagementPage() {
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                className="rounded-xl bg-[#8B2323] hover:bg-[#721515] focus-visible:ring-0 focus-visible:ring-offset-0"
-                onClick={(e) => {
-                  (e.currentTarget as HTMLButtonElement).blur();
-                }}
-              >
-                {editingSeriesId ? 'Save Changes' : 'Create Series'}
-              </Button>
-            </DialogFooter>
+            </div>
           </form>
         </DialogContent>
       </Dialog>

@@ -34,10 +34,9 @@ import { NativeSettings, AndroidSettings, IOSSettings } from 'capacitor-native-s
 import { AuthGate } from '@/components/ui/auth-gate';
 import { ProfileSwitcher } from '@/components/ui/profile-switcher';
 import { ViewRegistrationPassButton, PendingMemberEpass } from '@/components/ui/registration-pass-dialog';
-import { getMapsUrl } from '@/lib/maps';
+import { getMapsUrl, onOpenMaps } from '@/lib/maps';
 import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
 import { formatDDMMYYYY } from '@/lib/date-utils';
-
 const christianIcons = [
   // Cross
   <svg key="cross" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-primary animate-pulse"><path d="M12 3v18M8 8h8" /></svg>,
@@ -344,7 +343,7 @@ function HighlightsCardStack({
   };
 
   return (
-    <div>
+    <div data-no-tab-swipe>
       {/* Header */}
       <div className="mb-4">
         <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">Highlights</h2>
@@ -681,21 +680,11 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
         className={`${forceVisible ? 'flex' : 'desktop:hidden flex'} flex-col min-h-screen text-[#3A2D27] pb-20 font-sans relative w-full overflow-x-hidden bg-transparent`}
       >
 
-        {/* 1. Header — slides away on scroll down; frost blur covers the status bar when it's gone */}
+        {/* 1. Header — slides away on scroll down; global status frost covers the notch */}
         <div
           className="h-[calc(4rem+env(safe-area-inset-top))] shrink-0"
           aria-hidden
         />
-        <div
-          aria-hidden
-          className={cn(
-            "fixed inset-x-0 top-0 z-[45] pointer-events-none transition-opacity duration-300",
-            headerVisible ? "opacity-0" : "opacity-100",
-          )}
-          style={{ height: "calc(env(safe-area-inset-top, 0px) + 28px)" }}
-        >
-          <div className="h-full bg-gradient-to-b from-[#FAF7F2]/80 via-[#FAF7F2]/45 to-transparent backdrop-blur-md" />
-        </div>
         <header
           className={cn(
             "fixed inset-x-0 top-0 z-50 border-b border-[#a59d94]/60 bg-[#FAF7F2]/80 px-4 shadow-[0_4px_16px_-2px_rgba(58,45,39,0.12),0_1px_0px_rgba(255,255,255,0.6)_inset] backdrop-blur-md pt-[env(safe-area-inset-top)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -1089,11 +1078,13 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                   <div className="mt-2">
                                     {(() => {
                                       const label = event.location || 'Grace Community';
-                                      const mapsHref = getMapsUrl({
+                                      const mapsOptions = {
                                         mapUrl: event.mapUrl,
+                                        location: event.location,
                                         latitude: event.attendanceConfig?.latitude,
                                         longitude: event.attendanceConfig?.longitude,
-                                      });
+                                      };
+                                      const mapsHref = getMapsUrl(mapsOptions);
                                       if (!mapsHref) {
                                         return (
                                           <div className="flex items-center gap-1.5 text-[#7A6150]">
@@ -1105,12 +1096,12 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                       return (
                                         <div className="inline-flex min-w-0 max-w-full -space-x-px rounded-lg shadow-sm shadow-black/5" onClick={(e) => e.stopPropagation()}>
                                           <Button asChild variant="outline" className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 px-2 text-[11px] font-medium text-[#1A202C] border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1]">
-                                            <a href={mapsHref} target="_blank" rel="noopener noreferrer">
+                                            <a href={mapsHref} target="_blank" rel="noopener noreferrer" onClick={onOpenMaps(mapsOptions)}>
                                               <span className="truncate">{label}</span>
                                             </a>
                                           </Button>
                                           <Button asChild variant="outline" size="icon" className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 w-7 shrink-0 border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1] p-0 [&_img]:!size-4">
-                                            <a href={mapsHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center">
+                                            <a href={mapsHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center" onClick={onOpenMaps(mapsOptions)}>
                                               <MapsPinIcon className="w-4 h-4" />
                                             </a>
                                           </Button>
@@ -1435,23 +1426,25 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                         <div className="mt-2">
                                           {(() => {
                                             const label = event.location || 'Grace Community';
-                                            const mapsHref = getMapsUrl({
+                                            const mapsOptions = {
                                               mapUrl: event.mapUrl,
+                                              location: event.location,
                                               latitude: event.attendanceConfig?.latitude,
                                               longitude: event.attendanceConfig?.longitude,
-                                            });
+                                            };
+                                            const mapsHref = getMapsUrl(mapsOptions);
                                             if (!mapsHref) {
                                               return <span className="line-clamp-1 text-xs font-medium text-[#7A6150]">{label}</span>;
                                             }
                                             return (
                                               <div className="inline-flex min-w-0 max-w-full -space-x-px rounded-lg shadow-sm shadow-black/5" onClick={(e) => e.stopPropagation()}>
                                                 <Button asChild variant="outline" className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 px-2 text-[11px] font-medium text-[#1A202C] border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1]">
-                                                  <a href={mapsHref} target="_blank" rel="noopener noreferrer">
+                                                  <a href={mapsHref} target="_blank" rel="noopener noreferrer" onClick={onOpenMaps(mapsOptions)}>
                                                     <span className="truncate">{label}</span>
                                                   </a>
                                                 </Button>
                                                 <Button asChild variant="outline" size="icon" className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 w-7 shrink-0 border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1] p-0 [&_img]:!size-4">
-                                                  <a href={mapsHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center">
+                                                  <a href={mapsHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center" onClick={onOpenMaps(mapsOptions)}>
                                                     <MapsPinIcon className="w-4 h-4" />
                                                   </a>
                                                 </Button>

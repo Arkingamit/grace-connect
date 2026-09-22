@@ -9,6 +9,7 @@ import { Capacitor } from '@capacitor/core';
 import { NativeSettings, AndroidSettings, IOSSettings } from 'capacitor-native-settings';
 import { ensureCameraPermission } from '@/lib/native-camera';
 import { rememberCampusInvite } from '@/lib/campus-invite';
+import { QrGalleryButton } from '@/components/ui/qr-gallery-button';
 
 /**
  * QR Scanner component that uses the device camera to scan campus QR codes.
@@ -56,7 +57,6 @@ export function QRScanner({ onClose }: QRScannerProps) {
     onClose();
   }, [stopScanner, onClose]);
 
-  // Extract campusId from a scanned URL
   const extractCampusId = useCallback((text: string): string | null => {
     try {
       const url = new URL(text);
@@ -75,6 +75,29 @@ export function QRScanner({ onClose }: QRScannerProps) {
     if (campus) return campus.id;
     return null;
   }, [campuses]);
+
+  const applyDecoded = useCallback((decodedText: string) => {
+    const extractedId = extractCampusId(decodedText);
+
+    if (extractedId) {
+      const campus = campuses.find(c => c.id.toLowerCase().trim() === extractedId.toLowerCase().trim());
+      if (campus) {
+        setError(null);
+        setErrorKind(null);
+        setScannedCampus(campus.name);
+        stopScanner().then(() => {
+          rememberCampusInvite(campus.id);
+          router.push(`/register/${campus.id}`);
+        });
+      } else {
+        setErrorKind('scan');
+        setError(`Campus not found. Scanned ID: "${extractedId}".`);
+      }
+    } else {
+      setErrorKind('scan');
+      setError('This QR is for sign-in, not a campus code. Scan again, or pick your campus on the next screen.');
+    }
+  }, [campuses, extractCampusId, router, stopScanner]);
 
   useEffect(() => {
     let mounted = true;
@@ -120,40 +143,7 @@ export function QRScanner({ onClose }: QRScannerProps) {
             aspectRatio: 1.0,
           },
           (decodedText: string) => {
-            const extractedId = extractCampusId(decodedText);
-
-            if (extractedId) {
-              const campus = campuses.find(c => c.id.toLowerCase().trim() === extractedId.toLowerCase().trim());
-              if (campus) {
-                setScannedCampus(campus.name);
-                html5QrCode.stop().then(() => {
-                  scannerRef.current = null;
-                  rememberCampusInvite(campus.id);
-                  router.push(`/register/${campus.id}`);
-                }).catch(() => {
-                  rememberCampusInvite(campus.id);
-                  router.push(`/register/${campus.id}`);
-                });
-              } else {
-                html5QrCode.stop().then(() => {
-                  scannerRef.current = null;
-                  setErrorKind('scan');
-                  setError(`Campus not found. Scanned ID: "${extractedId}".`);
-                }).catch(() => {
-                  setErrorKind('scan');
-                  setError(`Campus not found. Scanned ID: "${extractedId}".`);
-                });
-              }
-            } else {
-              html5QrCode.stop().then(() => {
-                scannerRef.current = null;
-                setErrorKind('scan');
-                setError('This QR is for sign-in, not a campus code. Scan again, or pick your campus on the next screen.');
-              }).catch(() => {
-                setErrorKind('scan');
-                setError('This QR is for sign-in, not a campus code. Scan again, or pick your campus on the next screen.');
-              });
-            }
+            applyDecoded(decodedText);
           },
           () => {
             // QR code not detected — silent, keep scanning
@@ -185,7 +175,7 @@ export function QRScanner({ onClose }: QRScannerProps) {
       mounted = false;
       stopScanner();
     };
-  }, [campuses, extractCampusId, router, stopScanner, retryKey]);
+  }, [applyDecoded, stopScanner, retryKey]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
@@ -204,7 +194,7 @@ export function QRScanner({ onClose }: QRScannerProps) {
         </div>
         <h2 className="text-xl font-bold text-white">Scan Campus QR Code</h2>
         <p className="text-white/60 text-sm mt-1">
-          Point your camera at a campus QR code to register
+          Point your camera at a campus QR code, or upload a photo
         </p>
       </div>
 
@@ -284,6 +274,11 @@ export function QRScanner({ onClose }: QRScannerProps) {
               >
                 Close Scanner
               </Button>
+              <QrGalleryButton
+                className="w-full"
+                beforePick={stopScanner}
+                onDecoded={applyDecoded}
+              />
             </div>
           </div>
         )}
@@ -299,9 +294,12 @@ export function QRScanner({ onClose }: QRScannerProps) {
 
       {/* Hint */}
       {!error && !scannedCampus && (
-        <p className="text-white/40 text-xs mt-6 text-center max-w-xs">
-          Ask your campus pastor for the QR code, or select your campus manually on the registration page.
-        </p>
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <QrGalleryButton beforePick={stopScanner} onDecoded={applyDecoded} />
+          <p className="text-white/40 text-xs text-center max-w-xs">
+            Ask your campus pastor for the QR code, or upload a screenshot of it.
+          </p>
+        </div>
       )}
     </div>
   );

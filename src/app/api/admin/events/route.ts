@@ -5,9 +5,8 @@ import EventModel from '@/models/Event';
 import { eventSchema } from '@/lib/validations';
 import { generateOccurrences } from '@/lib/recurrence';
 import mongoose from 'mongoose';
-import Notification from '@/models/Notification';
-import { sendPushToTargeted } from '@/lib/push-utils';
 import { serverCache, CACHE_TTL } from '@/lib/cache';
+import { notifyMembers, wantsMemberNotification } from '@/lib/notify-members';
 
 import AttendanceRecord from '@/models/AttendanceRecord';
 
@@ -74,6 +73,7 @@ export async function POST(req: Request) {
     }
 
     const eventData = parseResult.data as any;
+    const sendNotification = wantsMemberNotification(body);
 
     // Enforce scope restrictions
     eventData.targetCampuses = enforceCampusScope(admin.role, admin.campusId, eventData.targetCampuses, admin.permissions, 'events');
@@ -105,19 +105,16 @@ export async function POST(req: Request) {
       }));
 
       const createdEvents = await EventModel.insertMany(eventsToCreate);
-      await Notification.create({
-        title: `New Event: ${eventData.title}`,
-        message: `A new event series has been scheduled. Check it out!`,
-        type: 'new_event',
-        sourceId: createdEvents[0]._id.toString(),
-        targetCampuses: eventData.targetCampuses || ['all'],
-        targetGroups: eventData.targetGroups || [],
-      });
-      await sendPushToTargeted({
-        title: `New Event: ${eventData.title}`,
-        body: `A new event series has been scheduled. Check it out!`,
-        type: 'new_event'
-      }, eventData.targetCampuses || ['all'], eventData.targetGroups || []);
+      if (sendNotification) {
+        await notifyMembers({
+          title: `New Event: ${eventData.title}`,
+          message: 'A new event series has been scheduled. Check it out!',
+          type: 'new_event',
+          sourceId: createdEvents[0]._id.toString(),
+          targetCampuses: eventData.targetCampuses || ['all'],
+          targetGroups: eventData.targetGroups || [],
+        });
+      }
 
       // Invalidate events cache
       serverCache.invalidate('events');
@@ -125,19 +122,16 @@ export async function POST(req: Request) {
       return NextResponse.json(createdEvents[0], { status: 201 });
     } else {
       const event = await EventModel.create(eventData);
-      await Notification.create({
-        title: `New Event: ${event.title}`,
-        message: `A new event has been scheduled. Check it out!`,
-        type: 'new_event',
-        sourceId: event._id.toString(),
-        targetCampuses: event.targetCampuses || ['all'],
-        targetGroups: event.targetGroups || [],
-      });
-      await sendPushToTargeted({
-        title: `New Event: ${event.title}`,
-        body: `A new event has been scheduled. Check it out!`,
-        type: 'new_event'
-      }, event.targetCampuses || ['all'], event.targetGroups || []);
+      if (sendNotification) {
+        await notifyMembers({
+          title: `New Event: ${event.title}`,
+          message: 'A new event has been scheduled. Check it out!',
+          type: 'new_event',
+          sourceId: event._id.toString(),
+          targetCampuses: event.targetCampuses || ['all'],
+          targetGroups: event.targetGroups || [],
+        });
+      }
 
       // Invalidate events cache
       serverCache.invalidate('events');

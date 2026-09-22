@@ -29,7 +29,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { saveJsPdf } from '@/lib/save-image';
 import * as XLSX from 'xlsx';
-import { getMapsUrl } from '@/lib/maps';
+import { getMapsUrl, onOpenMaps } from '@/lib/maps';
 import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
 import { CompactStackedList, mapUsersToStackedMembers } from '@/components/ui/stacked-list';
 import { memberUnderLeaderScope } from '@/lib/leader-scope';
@@ -79,6 +79,7 @@ const emptyForm = {
   },
   allowResponseEdits: true,
   ...DEFAULT_HIGHLIGHT_FIELDS,
+  sendNotification: false,
 };
 
 export default function EventsPage() {
@@ -748,12 +749,13 @@ export default function EventsPage() {
                 <div className="flex items-center gap-2 min-w-0 w-full">
                   <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
                   {(() => {
-                    const href = getMapsUrl({
+                    const mapsOptions = {
                       mapUrl: event.mapUrl,
                       location: event.location,
                       latitude: event.attendanceConfig?.latitude,
                       longitude: event.attendanceConfig?.longitude,
-                    });
+                    };
+                    const href = getMapsUrl(mapsOptions);
                     return href ? (
                       <div className="inline-flex min-w-0 flex-1 max-w-full -space-x-px rounded-lg shadow-sm shadow-black/5 overflow-hidden">
                         <Button
@@ -761,7 +763,7 @@ export default function EventsPage() {
                           variant="outline"
                           className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 !h-8 !px-2.5 !text-xs font-medium border-border/60"
                         >
-                          <a href={href} target="_blank" rel="noopener noreferrer" className="min-w-0">
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="min-w-0" onClick={onOpenMaps(mapsOptions)}>
                             <span className="truncate block">{event.location}</span>
                           </a>
                         </Button>
@@ -772,7 +774,7 @@ export default function EventsPage() {
                           className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 !h-8 !w-8 shrink-0 border-border/60 p-0 [&_img]:!size-[18px]"
                           aria-label="Open directions in Maps"
                         >
-                          <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center">
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center" onClick={onOpenMaps(mapsOptions)}>
                             <MapsPinIcon className="w-[16px] h-[16px]" />
                           </a>
                         </Button>
@@ -1349,6 +1351,13 @@ export default function EventsPage() {
                 highlightDurationHours={form.highlightDurationHours}
                 onShowChange={(show) => setForm({ ...form, showOnHighlight: show })}
                 onDurationChange={(hours) => setForm({ ...form, highlightDurationHours: hours })}
+                sendNotification={form.sendNotification}
+                onSendNotificationChange={
+                  editingId
+                    ? undefined
+                    : (send) => setForm({ ...form, sendNotification: send })
+                }
+                notificationHint="Members will get a push and in-app alert for this event. Leave unchecked to publish quietly."
               />
             </div>
             )}

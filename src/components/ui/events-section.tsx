@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Calendar, Clock, MapPin, Users, ArrowRight, Building2, Images, X, Loader2, ExternalLink, ChevronLeft, CheckCircle2, QrCode } from 'lucide-react';
-import { getMapsUrl } from '@/lib/maps';
+import { getMapsUrl, onOpenMaps } from '@/lib/maps';
 import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
 import { EventMonthCalendar } from '@/components/ui/event-month-calendar';
 import { AnimatedTicket } from '@/components/ui/ticket-confirmation-card';
@@ -42,7 +42,8 @@ function EventLocationLink({
   longitude?: number | null;
   className?: string;
 }) {
-  const href = getMapsUrl({ mapUrl, location, latitude, longitude });
+  const mapsOptions = { mapUrl, location, latitude, longitude };
+  const href = getMapsUrl(mapsOptions);
   if (!href || !location?.trim()) {
     return <span className={`line-clamp-1 ${className}`}>{location || 'TBA'}</span>;
   }
@@ -57,7 +58,7 @@ function EventLocationLink({
         variant="outline"
         className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-8 px-2.5 text-xs font-medium text-foreground border-border/60 bg-background hover:bg-accent"
       >
-        <a href={href} target="_blank" rel="noopener noreferrer" title="Open in Maps">
+        <a href={href} target="_blank" rel="noopener noreferrer" title="Open in Maps" onClick={onOpenMaps(mapsOptions)}>
           <span className="truncate">{location}</span>
         </a>
       </Button>
@@ -68,7 +69,7 @@ function EventLocationLink({
         className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-8 w-8 shrink-0 border-border/60 bg-background hover:bg-accent p-0 [&_img]:!size-[18px]"
         aria-label="Open directions in Maps"
       >
-        <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center">
+        <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center" onClick={onOpenMaps(mapsOptions)}>
           <MapsPinIcon className="w-[18px] h-[18px]" />
         </a>
       </Button>

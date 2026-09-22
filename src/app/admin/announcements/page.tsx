@@ -86,6 +86,7 @@ const emptyForm = {
   recurrenceNote: '',
   customReminders: [] as { daysBefore: number, hoursBefore: number, minutesBefore: number }[],
   ...DEFAULT_HIGHLIGHT_FIELDS,
+  sendNotification: false,
 };
 
 export default function AnnouncementsPage() {
@@ -776,6 +777,13 @@ export default function AnnouncementsPage() {
                   highlightDurationHours={form.highlightDurationHours}
                   onShowChange={(show) => setForm({ ...form, showOnHighlight: show })}
                   onDurationChange={(hours) => setForm({ ...form, highlightDurationHours: hours })}
+                  sendNotification={form.sendNotification}
+                  onSendNotificationChange={
+                    editingId
+                      ? undefined
+                      : (send) => setForm({ ...form, sendNotification: send })
+                  }
+                  notificationHint="Members will get a push and in-app alert for this announcement. Leave unchecked to publish quietly."
                 />
               </div>
             )}

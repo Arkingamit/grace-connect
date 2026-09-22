@@ -12,6 +12,7 @@ import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { Camera } from '@capacitor/camera';
 import { NativeSettings, AndroidSettings, IOSSettings } from 'capacitor-native-settings';
+import { QrGalleryButton } from '@/components/ui/qr-gallery-button';
 
 declare global {
   interface Window {
@@ -131,7 +132,7 @@ function EpassScanInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSessionId, sessions]);
 
-  const processScan = async (qrCodeText: string) => {
+  const processScan = async (qrCodeText: string, resumeCamera = true) => {
     if (!selectedSessionId) return;
     await stopScanner();
 
@@ -158,7 +159,7 @@ function EpassScanInner() {
           setLastScanResult({ success: false, message: 'GPS required but not supported' });
           setTimeout(() => {
             setLastScanResult(null);
-            startScanner();
+            if (resumeCamera) startScanner();
           }, 3000);
           return;
         }
@@ -178,7 +179,7 @@ function EpassScanInner() {
           setLastScanResult({ success: false, message: 'Failed to get GPS location' });
           setTimeout(() => {
             setLastScanResult(null);
-            startScanner();
+            if (resumeCamera) startScanner();
           }, 3000);
           return;
         }
@@ -215,7 +216,7 @@ function EpassScanInner() {
 
     setTimeout(() => {
       setLastScanResult(null);
-      startScanner();
+      if (resumeCamera) startScanner();
     }, 3000);
   };
 
@@ -275,12 +276,19 @@ function EpassScanInner() {
             )}
 
             {!isScanning && sessions.length > 0 && (
-              <Button
-                className="w-full bg-[#8B2323] hover:bg-[#721515] h-12 text-base rounded-xl"
-                onClick={startScanner}
-              >
-                <QrCode className="w-5 h-5 mr-2" /> Start Scanner
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  className="w-full bg-[#8B2323] hover:bg-[#721515] h-12 text-base rounded-xl"
+                  onClick={startScanner}
+                >
+                  <QrCode className="w-5 h-5 mr-2" /> Start Scanner
+                </Button>
+                <QrGalleryButton
+                  variant="light"
+                  className="w-full h-12 rounded-xl"
+                  onDecoded={(text) => void processScan(text, false)}
+                />
+              </div>
             )}
           </CardContent>
         </Card>
@@ -330,6 +338,13 @@ function EpassScanInner() {
                 >
                   Stop
                 </Button>
+              </div>
+              <div className="absolute bottom-4 inset-x-4 z-20">
+                <QrGalleryButton
+                  className="w-full"
+                  beforePick={stopScanner}
+                  onDecoded={(text) => void processScan(text)}
+                />
               </div>
             </CardContent>
           </Card>

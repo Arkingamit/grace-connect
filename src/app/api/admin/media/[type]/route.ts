@@ -2,10 +2,9 @@ import { NextResponse } from 'next/server';
 import { requireAdmin, requireAdminWithScope, requireAuth, enforceCampusScope, enforceGroupScope } from '@/lib/api-auth';
 import connectToDatabase from '@/lib/db';
 import { Sermon, SermonSeries, WorshipVideo, GalleryAlbum, LiveStream } from '@/models/Media';
-import Notification from '@/models/Notification';
-import { sendPushToTargeted } from '@/lib/push-utils';
 import { serverCache, CACHE_TTL } from '@/lib/cache';
 import { fetchGooglePhotosCover } from '@/lib/google-photos';
+import { notifyLiveIfNeeded, notifyMembers, takeSendNotificationFlag } from '@/lib/notify-members';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +62,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
     }
 
     const body = await req.json();
+    const sendNotification = takeSendNotificationFlag(body);
     if (type === 'sermons' && !body.seriesId) body.seriesId = null;
 
     // Enforce scope for models that support it
@@ -87,34 +87,43 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
 
     const item = await Model.create(body);
 
-    if (type === 'sermons') {
-      await Notification.create({
-        title: `New Sermon: ${item.title}`,
-        message: `A new sermon by ${item.pastor || 'our pastor'} is available.`,
-        type: 'new_sermon',
-        sourceId: item._id.toString(),
-        targetCampuses: item.targetCampuses || ['all'],
-        targetGroups: item.targetGroups || [],
-      });
-      await sendPushToTargeted({
-        title: `New Sermon: ${item.title}`,
-        body: `A new sermon by ${item.pastor || 'our pastor'} is available.`,
-        type: 'new_sermon'
-      }, item.targetCampuses || ['all'], item.targetGroups || []);
-    } else if (type === 'worship-videos') {
-      await Notification.create({
-        title: `New Worship Video: ${item.title}`,
-        message: `A new worship video has been added.`,
-        type: 'new_worship_video',
-        sourceId: item._id.toString(),
-        targetCampuses: ['all'],
-        targetGroups: [],
-      });
-      await sendPushToTargeted({
-        title: `New Worship Video: ${item.title}`,
-        body: `A new worship video has been added.`,
-        type: 'new_worship_video'
-      }, ['all'], []);
+    if (sendNotification) {
+      if (type === 'sermons') {
+        await notifyMembers({
+          title: `New Sermon: ${item.title}`,
+          message: `A new sermon by ${item.pastor || 'our pastor'} is available.`,
+          type: 'new_sermon',
+          sourceId: item._id.toString(),
+          targetCampuses: item.targetCampuses || ['all'],
+          targetGroups: item.targetGroups || [],
+        });
+      } else if (type === 'worship-videos') {
+        await notifyMembers({
+          title: `New Worship Video: ${item.title}`,
+          message: 'A new worship video has been added.',
+          type: 'new_worship_video',
+          sourceId: item._id.toString(),
+          targetCampuses: ['all'],
+          targetGroups: [],
+        });
+      } else if (type === 'gallery') {
+        await notifyMembers({
+          title: `New Photos: ${item.title}`,
+          message: item.description || 'New photos have been added to the gallery.',
+          type: 'new_gallery',
+          sourceId: item._id.toString(),
+          targetCampuses: item.targetCampuses || ['all'],
+          targetGroups: item.targetGroups || [],
+        });
+      }
+    }
+
+    if (type === 'livestreams' && item.isLive && item.notifyWhenLive) {
+      const notifiedFor = await notifyLiveIfNeeded(item, false, true);
+      if (notifiedFor) {
+        item.lastLiveNotifiedVideoId = notifiedFor;
+        await item.save();
+      }
     }
 
     // Invalidate media cache for this type

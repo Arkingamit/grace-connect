@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import { useAdminData } from '@/lib/admin-data-context';
+import { openMaps } from '@/lib/maps';
 
 
 
@@ -25,12 +26,13 @@ export const CampusDetails = () => {
     displayCampuses = [fallbackCampus];
   }
 
-  const openDirections = (latitude?: number, longitude?: number) => {
-    if (latitude && longitude) {
-      // ✅ Use coordinates
-      const url = `https://www.google.com/maps?q=${latitude},${longitude}`;
-      window.open(url, '_blank');
-    }
+  const openDirections = (campus: { latitude?: number; longitude?: number; address?: string; city?: string; zipCode?: string; name?: string }) => {
+    const location = [campus.address, campus.city, campus.zipCode].filter(Boolean).join(', ') || campus.name;
+    void openMaps({
+      latitude: campus.latitude,
+      longitude: campus.longitude,
+      location,
+    });
   };
 
   return (
@@ -100,16 +102,16 @@ export const CampusDetails = () => {
                 </div>
 
                 {/* Get Directions Button */}
-                {campus.latitude && campus.longitude && (
+                {(campus.latitude && campus.longitude) || campus.address || campus.city ? (
                   <Button 
                     variant="outline" 
                     className="w-full"
-                    onClick={() => openDirections(campus.latitude, campus.longitude)}
+                    onClick={() => openDirections(campus)}
                   >
                     <MapPin className="h-4 w-4 mr-2" />
                     Get Directions
                   </Button>
-                )}
+                ) : null}
               </CardContent>
             </Card>
           ))}

@@ -22,7 +22,7 @@ import {
   type EventLifecycleStatus,
 } from '@/lib/event-status';
 import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
-import { getMapsUrl } from '@/lib/maps';
+import { getMapsUrl, onOpenMaps } from '@/lib/maps';
 
 const categoryColors: Record<string, string> = {
   Worship: 'bg-primary/10 text-primary',
@@ -146,12 +146,13 @@ type Props = {
 };
 
 function DayLocationButton({ event }: { event: Event }) {
-  const href = getMapsUrl({
+  const mapsOptions = {
     mapUrl: event.mapUrl,
     location: event.location,
     latitude: event.attendanceConfig?.latitude,
     longitude: event.attendanceConfig?.longitude,
-  });
+  };
+  const href = getMapsUrl(mapsOptions);
   if (!href || !event.location?.trim()) {
     return <span className="line-clamp-1 text-xs text-[#7A6150]">{event.location || 'TBA'}</span>;
   }
@@ -165,7 +166,7 @@ function DayLocationButton({ event }: { event: Event }) {
         variant="outline"
         className="flex-1 min-w-0 justify-start rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 px-2 text-[11px] font-medium text-[#1A202C] border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1]"
       >
-        <a href={href} target="_blank" rel="noopener noreferrer">
+        <a href={href} target="_blank" rel="noopener noreferrer" onClick={onOpenMaps(mapsOptions)}>
           <span className="truncate">{event.location}</span>
         </a>
       </Button>
@@ -176,7 +177,7 @@ function DayLocationButton({ event }: { event: Event }) {
         className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 h-7 w-7 shrink-0 border-[#E5D5C5]/60 bg-white hover:bg-[#F3EAE1] p-0 [&_img]:!size-4"
         aria-label="Open directions in Maps"
       >
-        <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center">
+        <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center" onClick={onOpenMaps(mapsOptions)}>
           <MapsPinIcon className="w-4 h-4" />
         </a>
       </Button>

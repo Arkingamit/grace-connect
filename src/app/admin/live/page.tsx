@@ -13,6 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Radio, AlertCircle, CheckCircle2, Save, PlayCircle, EyeOff } from 'lucide-react';
+import { SendNotificationOption } from '@/components/admin/send-notification-option';
 
 export default function AdminLiveStreamsPage() {
   const { liveStreams, updateLiveStream, currentUser, campuses } = useAdminData();
@@ -39,6 +40,7 @@ export default function AdminLiveStreamsPage() {
         recurrenceDay: stream.recurrenceDay || 'Sunday',
         recurrenceWeekOfMonth: stream.recurrenceWeekOfMonth || '1st',
         time: stream.time || '10:00',
+        notifyWhenLive: !!stream.notifyWhenLive,
       });
     } else {
       setFormData({
@@ -52,6 +54,7 @@ export default function AdminLiveStreamsPage() {
         recurrenceDay: 'Sunday',
         recurrenceWeekOfMonth: '1st',
         time: '10:00',
+        notifyWhenLive: false,
       });
     }
   }, [selectedCampus, liveStreams]);
@@ -145,6 +148,12 @@ export default function AdminLiveStreamsPage() {
                   </Badge>
                 )}
               </div>
+
+              <SendNotificationOption
+                checked={!!formData.notifyWhenLive}
+                onChange={(send) => setFormData({ ...formData, notifyWhenLive: send })}
+                description="When this campus goes live — manually or by auto-check — members get a push and in-app alert. Leave unchecked to go live quietly."
+              />
 
               <div className="space-y-4 p-5 bg-muted/30 rounded-xl border border-border/50">
                 <div className="flex items-center justify-between gap-4">

@@ -3,9 +3,8 @@ import connectToDatabase from '@/lib/db';
 import Announcement from '@/models/Announcement';
 import { calculateNextOccurrence } from '@/lib/recurrence';
 import { apiSuccess, apiError, withErrorHandler } from '@/lib/api-helpers';
-import Notification from '@/models/Notification';
-import { sendPushToTargeted } from '@/lib/push-utils';
 import { serverCache, CACHE_TTL } from '@/lib/cache';
+import { notifyMembers, takeSendNotificationFlag } from '@/lib/notify-members';
 
 export async function GET() {
   return withErrorHandler(async () => {
@@ -32,6 +31,7 @@ export async function POST(req: Request) {
 
     await connectToDatabase();
     const body = await req.json();
+    const sendNotification = takeSendNotificationFlag(body);
 
     // Enforce scope restrictions
     body.targetCampuses = enforceCampusScope(admin.role, admin.campusId, body.targetCampuses, admin.permissions, 'announcements');
@@ -49,20 +49,17 @@ export async function POST(req: Request) {
 
     const announcement = await Announcement.create(body);
 
-    await Notification.create({
-      title: `New Announcement: ${announcement.title}`,
-      message: announcement.content.substring(0, 100) + (announcement.content.length > 100 ? '...' : ''),
-      type: 'new_announcement',
-      sourceId: announcement._id.toString(),
-      targetCampuses: announcement.targetCampuses || ['all'],
-      targetGroups: announcement.targetGroups || [],
-    });
-
-    await sendPushToTargeted({
-      title: `New Announcement: ${announcement.title}`,
-      body: announcement.content.substring(0, 100) + (announcement.content.length > 100 ? '...' : ''),
-      type: 'new_announcement'
-    }, announcement.targetCampuses || ['all'], announcement.targetGroups || []);
+    if (sendNotification) {
+      const preview = announcement.content.substring(0, 100) + (announcement.content.length > 100 ? '...' : '');
+      await notifyMembers({
+        title: `New Announcement: ${announcement.title}`,
+        message: preview,
+        type: 'new_announcement',
+        sourceId: announcement._id.toString(),
+        targetCampuses: announcement.targetCampuses || ['all'],
+        targetGroups: announcement.targetGroups || [],
+      });
+    }
 
     // Invalidate all announcement caches (any role/campus combo)
     serverCache.invalidateByTag('announcements');

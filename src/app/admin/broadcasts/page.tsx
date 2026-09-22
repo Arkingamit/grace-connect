@@ -28,6 +28,7 @@ const emptyForm = {
   excludeGroups: [] as string[],
   materialLinks: [{ label: '', url: '' }],
   ...DEFAULT_HIGHLIGHT_FIELDS,
+  sendNotification: false,
 };
 
 export default function AdminBroadcastsPage() {
@@ -461,6 +462,13 @@ export default function AdminBroadcastsPage() {
                   highlightDurationHours={form.highlightDurationHours}
                   onShowChange={(show) => setForm({ ...form, showOnHighlight: show })}
                   onDurationChange={(hours) => setForm({ ...form, highlightDurationHours: hours })}
+                  sendNotification={form.sendNotification}
+                  onSendNotificationChange={
+                    editingId
+                      ? undefined
+                      : (send) => setForm({ ...form, sendNotification: send })
+                  }
+                  notificationHint="Members will get a push and in-app alert for this note. Leave unchecked to publish quietly."
                 />
               </div>
             )}

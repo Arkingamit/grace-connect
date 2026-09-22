@@ -2,8 +2,7 @@ import { requireAdminWithScope, enforceCampusScope, enforceGroupScope } from '@/
 import connectToDatabase from '@/lib/db';
 import Broadcast from '@/models/Broadcast';
 import { apiSuccess, apiError, withErrorHandler } from '@/lib/api-helpers';
-import Notification from '@/models/Notification';
-import { sendPushToTargeted } from '@/lib/push-utils';
+import { notifyMembers, wantsMemberNotification } from '@/lib/notify-members';
 
 export async function GET() {
   return withErrorHandler(async () => {
@@ -43,6 +42,7 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const { title, description, materialLinks } = body;
+    const sendNotification = wantsMemberNotification(body);
 
     if (!title) {
       return apiError('Title is required', 400);
@@ -64,21 +64,18 @@ export async function POST(req: Request) {
       createdByName: admin.name || '',
     });
 
-    const notePreview = (broadcast.description || broadcast.title || '').substring(0, 100);
-    await Notification.create({
-      title: `New Note: ${broadcast.title}`,
-      message: notePreview + ((broadcast.description || broadcast.title || '').length > 100 ? '...' : ''),
-      type: 'new_note',
-      sourceId: broadcast._id.toString(),
-      targetCampuses: broadcast.targetCampuses || ['all'],
-      targetGroups: broadcast.targetGroups || [],
-    });
-
-    await sendPushToTargeted({
-      title: `New Note: ${broadcast.title}`,
-      body: notePreview + ((broadcast.description || broadcast.title || '').length > 100 ? '...' : ''),
-      type: 'new_note'
-    }, broadcast.targetCampuses || ['all'], broadcast.targetGroups || []);
+    if (sendNotification) {
+      const fullNote = broadcast.description || broadcast.title || '';
+      const notePreview = fullNote.substring(0, 100) + (fullNote.length > 100 ? '...' : '');
+      await notifyMembers({
+        title: `New Note: ${broadcast.title}`,
+        message: notePreview,
+        type: 'new_note',
+        sourceId: broadcast._id.toString(),
+        targetCampuses: broadcast.targetCampuses || ['all'],
+        targetGroups: broadcast.targetGroups || [],
+      });
+    }
 
     return apiSuccess(broadcast, 201);
   });

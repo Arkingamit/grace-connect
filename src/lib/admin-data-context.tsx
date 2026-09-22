@@ -316,7 +316,7 @@ interface AdminDataContextType {
   updateFlipCardConfig: (config: FlipCardConfig) => void;
 
   // Prayer Requests
-  approvePrayerRequest: (id: string) => void;
+  approvePrayerRequest: (id: string, options?: { sendNotification?: boolean }) => void;
   deletePrayerRequest: (id: string) => void;
   getPendingPrayerRequests: (campusId?: string) => PrayerRequest[];
 
@@ -485,7 +485,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
 
   const setCurrentUser = useCallback((u: UserProfile) => setCurrentUserState(u), []);
 
-  const approvePrayerRequest = useCallback((id: string) => updatePrayerStatus(id, 'approved'), [updatePrayerStatus]);
+  const approvePrayerRequest = useCallback((id: string, options?: { sendNotification?: boolean }) => updatePrayerStatus(id, 'approved', options), [updatePrayerStatus]);
 
   const getPendingPrayerRequests = useCallback((campusId?: string) => {
     return prayerRequests.filter(p => p.status === 'pending' && (!campusId || campusId === 'all' || p.campusId === campusId));

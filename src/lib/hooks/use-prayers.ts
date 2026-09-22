@@ -5,10 +5,10 @@ import { mapId } from '@/lib/hooks/utils';
 export function usePrayers() {
   const [prayerRequests, setPrayerRequests] = useState<PrayerRequest[]>([]);
 
-  const updatePrayerStatus = useCallback(async (id: string, status: 'approved' | 'rejected') => {
+  const updatePrayerStatus = useCallback(async (id: string, status: 'approved' | 'rejected', options?: { sendNotification?: boolean }) => {
     const res = await fetch(`/api/admin/prayers/${id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, sendNotification: options?.sendNotification === true }),
     });
     if (res.ok) {
       const updated = await res.json();
