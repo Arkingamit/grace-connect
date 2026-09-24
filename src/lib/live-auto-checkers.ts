@@ -2,6 +2,18 @@ import type { LiveAutoChecker, LiveStream } from '@/lib/types';
 
 export type { LiveAutoChecker };
 
+type AutoCheckerSource = {
+  autoCheckers?: LiveAutoChecker[] | null;
+  isAutoEnabled?: boolean;
+  youtubeChannelId?: string;
+  recurrencePattern?: LiveStream['recurrencePattern'];
+  recurrenceDay?: string;
+  recurrenceWeekOfMonth?: string;
+  time?: string;
+  checkIntervalSeconds?: number;
+  checkWindowMinutes?: number;
+};
+
 function makeId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -26,7 +38,7 @@ export function newAutoChecker(partial: Partial<LiveAutoChecker> = {}): LiveAuto
 }
 
 /** Prefer the new list; fall back to the old single-checker fields. */
-export function getAutoCheckers(stream?: Partial<LiveStream> | null): LiveAutoChecker[] {
+export function getAutoCheckers(stream?: AutoCheckerSource | null): LiveAutoChecker[] {
   if (Array.isArray(stream?.autoCheckers) && stream.autoCheckers.length > 0) {
     return stream.autoCheckers.map((checker) => newAutoChecker(checker));
   }
