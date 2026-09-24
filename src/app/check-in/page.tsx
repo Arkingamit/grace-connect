@@ -100,7 +100,7 @@ export default function CheckInPage() {
       </div>
 
       <div className="container mx-auto px-4 sm:px-6">
-        <AuthGate title="Check-In" showBack={false}>
+        <AuthGate title="Check-In" showBack={false} variant="embed" className="mx-auto max-w-4xl">
           <div className="max-w-4xl mx-auto space-y-4 py-6 sm:py-8">
             {loading ? (
               <div className="flex justify-center py-16">

@@ -25,7 +25,7 @@ export default function AnnouncementsPage() {
         </div>
       </div>
       <div className="px-4 md:px-0">
-        <AuthGate title="Announcements" showBack={false}>
+        <AuthGate title="Announcements" showBack={false} variant="embed" className="mx-auto max-w-4xl">
           <AnnouncementsSection />
         </AuthGate>
       </div>

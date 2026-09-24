@@ -22,7 +22,7 @@ export default function BroadcastsPage() {
         </div>
       </div>
       <div className="container mx-auto px-4 sm:px-6">
-        <AuthGate title="Note Share" className="mt-2 md:mt-6" showBack={false}>
+        <AuthGate title="Note Share" className="mx-auto mt-2 max-w-4xl md:mt-6" showBack={false} variant="embed">
           <NoteShareSection variant="page" />
         </AuthGate>
       </div>

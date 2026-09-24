@@ -25,7 +25,7 @@ export default function PrayerWallPage() {
         </div>
       </div>
       <div className="px-4 md:px-0">
-        <AuthGate title="Prayer Wall" showBack={false}>
+        <AuthGate title="Prayer Wall" showBack={false} variant="embed" className="mx-auto max-w-4xl">
           <PrayerWall variant="page" />
         </AuthGate>
       </div>

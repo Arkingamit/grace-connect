@@ -21,7 +21,7 @@ export default function EventsPage() {
         </div>
       </div>
       <div className="px-4 md:px-0">
-        <AuthGate title="Events" showBack={false}>
+        <AuthGate title="Events" showBack={false} variant="embed" className="mx-auto max-w-4xl">
           <Suspense fallback={null}>
             <EventsSection variant="page" />
           </Suspense>
