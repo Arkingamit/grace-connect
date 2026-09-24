@@ -26,7 +26,8 @@ import { GoogleLogin } from '@react-oauth/google';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
-import { signInWithGoogleNative, googleNativeSignInError } from '@/lib/grace-google-auth';
+import { signInWithGoogleNative, googleNativeSignInError, isGoogleSignInCanceled } from '@/lib/grace-google-auth';
+import { SignInCanceledDialog } from '@/components/ui/sign-in-canceled-dialog';
 import { startAppleBrowserFlow, waitForAppleFlow } from '@/lib/apple-browser-flow';
 import { appleWebStartHref } from '@/lib/apple-web-config';
 import { PendingApprovalCard } from '@/components/ui/registration-pass-dialog';
@@ -83,6 +84,8 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
   const [isIOS, setIsIOS] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [appleWaiting, setAppleWaiting] = useState(false);
+  const [canceledOpen, setCanceledOpen] = useState(false);
+  const [canceledProvider, setCanceledProvider] = useState('Google');
 
   // Resolve pre-verified credentials: props take priority, then sessionStorage
   const [resolvedCredential, setResolvedCredential] = useState(preVerifiedCredential || '');
@@ -335,6 +338,11 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
       handleGoogleRegister({ credential: resultNative.idToken });
     } catch (err: any) {
       console.error(err);
+      if (isGoogleSignInCanceled(err)) {
+        setCanceledProvider('Google');
+        setCanceledOpen(true);
+        return;
+      }
       setError(googleNativeSignInError(err));
     }
   };
@@ -469,15 +477,21 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
     } catch (err: any) {
       console.error(err);
       const message = err?.message || err?.errorMessage || '';
-      setError(
-        /cancel/i.test(message)
-          ? 'Apple login was canceled.'
-          : message || 'Native Apple login failed. Please try again.'
-      );
+      if (/cancel/i.test(message)) {
+        setCanceledProvider('Apple');
+        setCanceledOpen(true);
+        return;
+      }
+      setError(message || 'Native Apple login failed. Please try again.');
     }
   };
 
-  const handleGoogleError = () => {
+  const handleGoogleError = (err?: { type?: string }) => {
+    if (!err || err.type === 'popup_closed') {
+      setCanceledProvider('Google');
+      setCanceledOpen(true);
+      return;
+    }
     setError('Google authentication failed. Please try again.');
   };
 
@@ -1112,6 +1126,11 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
         </> /* end of !submitted */
         )}
       </AuthCard>
+      <SignInCanceledDialog
+        open={canceledOpen}
+        onOpenChange={setCanceledOpen}
+        provider={canceledProvider}
+      />
     </AuthPageShell>
   );
 }

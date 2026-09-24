@@ -56,31 +56,30 @@ export async function signInWithGoogleNative(): Promise<GraceGoogleAuthResult> {
   };
 }
 
-/** Map native / Capacitor Google errors to a message members can act on. */
+export function isGoogleSignInCanceled(err: unknown): boolean {
+  const anyErr = err as { message?: string; errorMessage?: string; code?: string } | null;
+  const message = String(anyErr?.message || anyErr?.errorMessage || '');
+  const code = String(anyErr?.code || '');
+  return code === 'SIGN_IN_CANCELED' || /cancel/i.test(message);
+}
+
+/** Map native / Capacitor Google errors to a member-safe message. Never expose keys. */
 export function googleNativeSignInError(err: unknown): string {
   const anyErr = err as { message?: string; errorMessage?: string; code?: string } | null;
   const message = String(anyErr?.message || anyErr?.errorMessage || '');
   const code = String(anyErr?.code || '');
 
-  // The legacy Google Sign-In SDK in older app builds reports every configuration
-  // problem (unregistered signing key, wrong client ID) as "Something went wrong".
-  if (code === '10' || /developer_error|something went wrong/i.test(message)) {
-    return (
-      'Google sign-in is not available in this version of the app. Please install the latest ' +
-      'Grace Connect build, or continue with Apple.'
-    );
+  if (isGoogleSignInCanceled(err)) {
+    return 'Google sign-in was canceled.';
   }
 
-  if (/SHA-1|not in Firebase|not registered|error code: 10|12500/i.test(message)) {
-    return message;
+  if (code === '10' || /developer_error|something went wrong|SHA-1|not in Firebase|not registered|error code: 10|12500/i.test(message)) {
+    return 'Google sign-in is not available right now. Please try again, or continue with Apple.';
   }
 
-  if (/cancel/i.test(message)) {
-    return (
-      'Google login was canceled. If you did not cancel, add this APK’s SHA-1 in Firebase ' +
-      '(Project settings → Your apps → com.graceconnect.app), wait a few minutes, then retry.'
-    );
-  }
-
-  return message || 'Google login failed. Please try again.';
+  const cleaned = message
+    .replace(/([0-9A-Fa-f]{2}:){8,}[0-9A-Fa-f]{2}/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || 'Google login failed. Please try again.';
 }

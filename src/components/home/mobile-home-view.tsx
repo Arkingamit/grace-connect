@@ -1282,7 +1282,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
               )}
 
               {sessionMember?.status !== 'pending' && (
-              <div className="mt-8">
+              <div className="mt-8 -mx-4 px-4">
                 <AuthGate
                   title="Community Features"
                   description="These features are exclusive to Grace Community members. Please sign in or register to access this content."

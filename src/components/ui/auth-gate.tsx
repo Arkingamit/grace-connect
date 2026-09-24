@@ -77,23 +77,23 @@ export function AuthGate({
 
   const cardInner = (
     <>
-      <Link href="/" className={`flex justify-center ${isEmbed ? "mb-3" : "mb-6"}`}>
+      <Link href="/" className="mb-6 flex justify-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={graceLogo.src}
           alt="Grace Ahmedabad"
-          className={isEmbed ? "h-10 w-auto max-w-[180px] object-contain" : "h-20 w-auto max-w-[280px] object-contain"}
+          className="h-20 w-auto max-w-[280px] object-contain"
         />
       </Link>
 
-      <div className={`text-center ${isEmbed ? "mb-4" : "mb-6"}`}>
-        <h3 className={`font-bold tracking-tight text-[#1A202C] ${isEmbed ? "text-lg leading-snug" : "text-3xl"}`}>
+      <div className="mb-6 text-center">
+        <h3 className="text-3xl font-bold tracking-tight text-[#1A202C]">
           {heading}
         </h3>
-        <p className={`leading-relaxed text-[#7A6150] ${isEmbed ? "mt-1.5 text-xs" : "mt-2 text-sm"}`}>
+        <p className="mt-2 text-sm leading-relaxed text-[#7A6150]">
           {body}
         </p>
-        {!isRejected && !isEmbed && (
+        {!isRejected && (
           <ul className="mt-4 space-y-2 text-left text-sm text-[#7A6150]">
             {[
               "Announcements",
@@ -124,32 +124,28 @@ export function AuthGate({
         </Link>
       )}
 
-      {!isEmbed && (
-        <p className="mt-6 text-center text-xs leading-relaxed text-[#C4B0A0]">
-          By continuing you agree to Grace Community&apos;s{" "}
-          <Link href="/privacy-policy" className="font-medium text-[#8B2323] hover:underline">
-            Terms
-          </Link>{" "}
-          and{" "}
-          <Link href="/privacy-policy" className="font-medium text-[#8B2323] hover:underline">
-            Privacy Policy
-          </Link>
-          .{" "}
-          <Link href="/support" className="font-medium text-[#8B2323] hover:underline">
-            Support
-          </Link>
-          .
-        </p>
-      )}
+      <p className="mt-6 text-center text-xs leading-relaxed text-[#C4B0A0]">
+        By continuing you agree to Grace Community&apos;s{" "}
+        <Link href="/privacy-policy" className="font-medium text-[#8B2323] hover:underline">
+          Terms
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy-policy" className="font-medium text-[#8B2323] hover:underline">
+          Privacy Policy
+        </Link>
+        .{" "}
+        <Link href="/support" className="font-medium text-[#8B2323] hover:underline">
+          Support
+        </Link>
+        .
+      </p>
     </>
   );
 
   if (isEmbed) {
     return (
       <div className={`w-full ${className}`}>
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-[#F3EAE1]">
-          {cardInner}
-        </div>
+        <AuthCard>{cardInner}</AuthCard>
       </div>
     );
   }

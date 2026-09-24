@@ -85,22 +85,16 @@ public class GraceGoogleAuthPlugin extends Plugin {
                         new Handler(Looper.getMainLooper()).post(() -> trySignIn(call, true));
                         return;
                     }
-                    String sha1 = signingSha1();
                     if (e instanceof GetCredentialCancellationException) {
-                        call.reject(
-                            "Google Sign-In canceled. If you did not cancel, this APK SHA-1 is not in Firebase: "
-                                + sha1
-                                + ". Add it under Project settings → Your apps → com.graceconnect.app, wait a few minutes, then retry. "
-                                + (e.getMessage() != null ? e.getMessage() : ""),
-                            "SIGN_IN_CANCELED"
-                        );
+                        Log.w(TAG, "Google sign-in canceled by user. SHA-1=" + signingSha1());
+                        call.reject("Google sign-in was canceled.", "SIGN_IN_CANCELED");
                         return;
                     }
+                    Log.e(TAG, "Google sign-in failed. SHA-1=" + signingSha1(), e);
                     String detail = e.getClass().getSimpleName();
                     if (e.getMessage() != null && !e.getMessage().isEmpty()) {
                         detail += ": " + e.getMessage();
                     }
-                    detail += " (APK SHA-1: " + sha1 + ")";
                     call.reject(detail);
                 }
             }
