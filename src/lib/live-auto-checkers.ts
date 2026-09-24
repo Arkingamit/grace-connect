@@ -15,19 +15,19 @@ function makeId() {
 }
 
 export function newAutoChecker(partial: Partial<LiveAutoChecker> = {}): LiveAutoChecker {
+  const { recurrencePattern, ...rest } = partial;
   return {
     id: makeId(),
     name: '',
     enabled: true,
     youtubeChannelId: '',
-    recurrencePattern: 'weekly',
     recurrenceDay: 'Sunday',
     recurrenceWeekOfMonth: '1st',
     time: '10:00',
     checkIntervalSeconds: 30,
     checkWindowMinutes: 30,
-    ...partial,
-    recurrencePattern: asRecurrence(partial.recurrencePattern),
+    ...rest,
+    recurrencePattern: asRecurrence(recurrencePattern),
   };
 }
 
