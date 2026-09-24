@@ -17,12 +17,16 @@ const models: any = {
   livestreams: LiveStream,
 };
 
+const PUBLIC_MEDIA_TYPES = new Set(['worship-videos']);
+
 export async function GET(req: Request, { params }: { params: Promise<{ type: string }> }) {
-  const session = await requireAuth();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { type } = await params;
+  if (!PUBLIC_MEDIA_TYPES.has(type)) {
+    const session = await requireAuth();
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   try {
-    const { type } = await params;
 
     // Check in-memory cache first
     const cacheKey = `media:${type}`;

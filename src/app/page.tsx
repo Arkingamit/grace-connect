@@ -238,6 +238,8 @@ export default function HomePage() {
           title="Community Features" 
           description="These features are exclusive to Grace Community members. Please sign in or register to access this content."
           showBack={false}
+          variant="embed"
+          className="container mx-auto max-w-4xl px-6 py-12 sm:py-16"
         >
           <div className="flex flex-col">
             <section className="bg-transparent relative z-10 py-24 sm:py-32 border-b border-border/50">

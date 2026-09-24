@@ -5,9 +5,6 @@ import { WorshipVideo } from '@/models/Media';
 import { notifyMembers, takeSendNotificationFlag } from '@/lib/notify-members';
 
 export async function GET() {
-  const admin = await requireAdmin();
-  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
   try {
     await connectToDatabase();
     const items = await WorshipVideo.find({}).sort({ createdAt: -1 });
