@@ -362,6 +362,16 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
   const isAdminRoute = pathname?.startsWith('/admin');
 
   const refreshPublicData = useCallback(async () => {
+    const fetchJson = async (url: string) => {
+      const res = await fetch(url, { credentials: 'include', cache: 'no-store' }).catch(() => null);
+      return res;
+    };
+    const asList = async (res: Response | null) => {
+      if (!res?.ok) return res?.status === 401 ? [] : null;
+      const payload = await res.json().catch(() => null);
+      return Array.isArray(payload) ? payload : [];
+    };
+
     try {
       const [
         eventsRes,
@@ -375,20 +385,20 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
         settingsRes,
         broadcastsRes,
       ] = await Promise.all([
-        fetch('/api/admin/events').catch(() => null),
-        fetch('/api/admin/announcements').catch(() => null),
-        fetch('/api/campuses').catch(() => null),
-        fetch('/api/admin/media/gallery').catch(() => null),
-        fetch('/api/admin/media/sermons').catch(() => null),
-        fetch('/api/admin/media/sermon-series').catch(() => null),
-        fetch('/api/admin/media/worship-videos').catch(() => null),
-        fetch('/api/admin/media/livestreams').catch(() => null),
-        fetch('/api/system/settings').catch(() => null),
-        fetch('/api/broadcasts').catch(() => null),
+        fetchJson('/api/admin/events'),
+        fetchJson('/api/admin/announcements'),
+        fetchJson('/api/campuses'),
+        fetchJson('/api/admin/media/gallery'),
+        fetchJson('/api/admin/media/sermons'),
+        fetchJson('/api/admin/media/sermon-series'),
+        fetchJson('/api/admin/media/worship-videos'),
+        fetchJson('/api/admin/media/livestreams'),
+        fetchJson('/api/system/settings'),
+        fetchJson('/api/broadcasts'),
       ]);
 
-      if (eventsRes?.ok) {
-        const rawEvents = await eventsRes.json();
+      const rawEvents = await asList(eventsRes);
+      if (rawEvents) {
         setEvents(rawEvents.map((e: any) => ({
           ...mapId(e),
           date: e.date || e.startTime?.split('T')[0] || '',
@@ -396,15 +406,23 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
           endTime: e.endTime || e.endTime?.split('T')[1]?.substring(0, 5) || '',
         })));
       }
-      if (announcementsRes?.ok) setAnnouncements((await announcementsRes.json()).map(mapId));
-      if (campusesRes?.ok) setCampuses((await campusesRes.json()).map(mapId));
-      if (galleryRes?.ok) setGalleryAlbums((await galleryRes.json()).map(mapId));
-      if (sermonsRes?.ok) setSermons((await sermonsRes.json()).map(mapId));
-      if (sermonSeriesRes?.ok) setSermonSeries((await sermonSeriesRes.json()).map(mapId));
-      if (worshipVideosRes?.ok) setWorshipVideos((await worshipVideosRes.json()).map(mapId));
-      if (liveStreamsRes?.ok) setLiveStreams((await liveStreamsRes.json()).map(mapId));
+      const rawAnnouncements = await asList(announcementsRes);
+      if (rawAnnouncements) setAnnouncements(rawAnnouncements.map(mapId));
+      const rawCampuses = await asList(campusesRes);
+      if (rawCampuses) setCampuses(rawCampuses.map(mapId));
+      const rawGallery = await asList(galleryRes);
+      if (rawGallery) setGalleryAlbums(rawGallery.map(mapId));
+      const rawSermons = await asList(sermonsRes);
+      if (rawSermons) setSermons(rawSermons.map(mapId));
+      const rawSeries = await asList(sermonSeriesRes);
+      if (rawSeries) setSermonSeries(rawSeries.map(mapId));
+      const rawWorship = await asList(worshipVideosRes);
+      if (rawWorship) setWorshipVideos(rawWorship.map(mapId));
+      const rawLive = await asList(liveStreamsRes);
+      if (rawLive) setLiveStreams(rawLive.map(mapId));
       if (settingsRes?.ok) setSystemSettings(await settingsRes.json());
-      if (broadcastsRes?.ok) setBroadcasts((await broadcastsRes.json()).map(mapId));
+      const rawBroadcasts = await asList(broadcastsRes);
+      if (rawBroadcasts) setBroadcasts(rawBroadcasts.map(mapId));
     } catch (err) {
       console.error('Failed to fetch public data:', err);
     }
@@ -423,11 +441,25 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
   }, [refreshPublicData]);
 
   useEffect(() => {
-    const onMembershipUpdated = () => {
+    let retryTimer: number | undefined;
+    const onSessionDataRefresh = () => {
       void refreshPublicData();
     };
-    window.addEventListener('grace-membership-updated', onMembershipUpdated);
-    return () => window.removeEventListener('grace-membership-updated', onMembershipUpdated);
+    const onSessionChanged = () => {
+      void refreshPublicData();
+      window.clearTimeout(retryTimer);
+      // Native WebView can apply the session cookie a beat after login.
+      retryTimer = window.setTimeout(() => {
+        void refreshPublicData();
+      }, 400);
+    };
+    window.addEventListener('grace-membership-updated', onSessionDataRefresh);
+    window.addEventListener('grace-session-changed', onSessionChanged);
+    return () => {
+      window.clearTimeout(retryTimer);
+      window.removeEventListener('grace-membership-updated', onSessionDataRefresh);
+      window.removeEventListener('grace-session-changed', onSessionChanged);
+    };
   }, [refreshPublicData]);
 
   useEffect(() => {

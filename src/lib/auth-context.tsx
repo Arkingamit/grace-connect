@@ -57,6 +57,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const prevMemberStatusRef = useRef<string | null>(null);
   const prevLinkedStatusRef = useRef<Record<string, string>>({});
+  const sessionUserIdRef = useRef<string | null | undefined>(undefined);
+
+  const notifySessionChange = (nextUserId: string | null) => {
+    if (sessionUserIdRef.current === undefined) {
+      sessionUserIdRef.current = nextUserId;
+      return;
+    }
+    if (sessionUserIdRef.current === nextUserId) return;
+    sessionUserIdRef.current = nextUserId;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('grace-session-changed', {
+        detail: { userId: nextUserId },
+      }));
+    }
+  };
 
   const applySessionFromApi = useCallback((data: any) => {
     if (!data?.user) {
@@ -66,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSessionMember(null);
       setLinkedProfiles([]);
       setActiveProfileId(null);
+      notifySessionChange(null);
       return;
     }
 
@@ -119,6 +135,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }));
       }
     }
+
+    notifySessionChange(String(formattedMember.id));
   }, []);
 
   const fetchSession = useCallback(async (silent = false) => {
@@ -278,14 +296,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    setSession(null);
-    setSessionMember(null);
-    setLinkedProfiles([]);
-    setActiveProfileId(null);
+    applySessionFromApi(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('activeProfileId');
     }
-  }, []);
+  }, [applySessionFromApi]);
 
   const getMember = useCallback((id: string) => members.find(m => m.id === id || m._id === id), [members]);
 
