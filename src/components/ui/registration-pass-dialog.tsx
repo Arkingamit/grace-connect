@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Clock, QrCode } from "lucide-react";
+import { Clock } from "lucide-react";
 import { AnimatedTicket } from "@/components/ui/ticket-confirmation-card";
 import { Button } from "@/components/ui/button";
 import {
@@ -155,43 +155,17 @@ export function RegistrationPassDialog({
 
 export function ViewRegistrationPassButton({
   className,
-  variant = "outline",
 }: {
   className?: string;
   variant?: "outline" | "default";
 }) {
   const { session, getSessionMember, isLoading } = useAuth();
   const member = getSessionMember();
-  const [pass, setPass] = React.useState<RegistrationPass | null>(null);
-  const [open, setOpen] = React.useState(false);
-
-  React.useEffect(() => {
-    setPass(loadRegistrationPass());
-  }, [session?.memberId]);
 
   if (isLoading || !session) return null;
+  if (member?.status !== "pending") return null;
 
-  if (member?.status === "pending") {
-    return <PendingApprovalCard />;
-  }
-
-  if (member?.status === "rejected" || !pass) return null;
-  if (pass.userId && pass.userId !== session.memberId) return null;
-
-  return (
-    <>
-      <Button
-        type="button"
-        variant={variant}
-        className={cn("gap-2", className)}
-        onClick={() => setOpen(true)}
-      >
-        <QrCode className="h-4 w-4" />
-        View confirmation card
-      </Button>
-      <RegistrationPassDialog pass={pass} open={open} onOpenChange={setOpen} />
-    </>
-  );
+  return <PendingApprovalCard className={className} />;
 }
 
 export { ticketFromPass };

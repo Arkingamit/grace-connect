@@ -6,6 +6,7 @@ import { App } from '@capacitor/app';
 import { toast } from 'sonner';
 
 import { ChurchMember, AuthSession, MemberStatus } from '@/lib/types';
+import { clearRegistrationPass } from '@/lib/registration-pass';
 
 export type { ChurchMember, AuthSession, MemberStatus };
 
@@ -108,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if ((wasPending && nextStatus === 'approved') || linkedBecameApproved) {
+      clearRegistrationPass();
       toast.success('Your registration was approved', {
         description: 'Welcome to Grace Community — member sections are now unlocked.',
       });

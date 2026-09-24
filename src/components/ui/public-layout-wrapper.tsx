@@ -8,7 +8,6 @@ import { MobileBottomNav } from "@/components/ui/mobile-bottom-nav";
 import { OpenInAppBanner } from "@/components/ui/open-in-app-banner";
 
 import { GlobalAttendancePrompt } from "@/components/ui/global-attendance-prompt";
-import { PageStatusFrost } from "@/components/ui/page-frost";
 
 export function PublicLayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -28,7 +27,6 @@ export function PublicLayoutWrapper({ children }: { children: React.ReactNode })
     <div 
       className="flex min-h-screen flex-col bg-transparent overflow-x-hidden"
     >
-      <PageStatusFrost />
       {!isNative && (
         <Suspense fallback={null}>
           <OpenInAppBanner />

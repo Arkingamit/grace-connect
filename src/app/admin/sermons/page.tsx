@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import NextLink from 'next/link';
 import { useAdminData, type Sermon, type SermonSeries, hasGlobalScope, getAllowedCampuses, getAllowedGroups, getGroupsForCampus, isCoreTeamLeader, isFasLeader } from '@/lib/admin-data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { HighlightPublishOptions } from '@/components/admin/highlight-publish-options';
 import { DEFAULT_HIGHLIGHT_FIELDS, withHighlightExpiry } from '@/lib/highlight-utils';
 import { extractYoutubeVideoId, youtubeThumbnailUrl } from '@/lib/youtube';
@@ -112,6 +111,8 @@ export default function SermonManagementPage() {
   const [addingPastor, setAddingPastor] = useState(false);
   const [newPastorDraft, setNewPastorDraft] = useState('');
   const [pastorMenuOpen, setPastorMenuOpen] = useState(false);
+  const [dismissedPastors, setDismissedPastors] = useState<string[]>([]);
+  const pastorMenuRef = useRef<HTMLDivElement>(null);
   const youtubeFetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFetchedVideoId = useRef<string | null>(null);
   const isCampusLeader = currentUser?.role === 'campus_leader';
@@ -120,6 +121,17 @@ export default function SermonManagementPage() {
   const isFas = isFasLeader(currentUser?.role || 'member', currentUser?.campusId);
   const campusLocked = isCampusLeader || isFas;
   const canAllCampusesScope = hasGlobalScope(currentUser, 'sermons');
+
+  useEffect(() => {
+    if (!pastorMenuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!pastorMenuRef.current?.contains(event.target as Node)) {
+        setPastorMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [pastorMenuOpen]);
 
   const setCampusMode = (mode: 'all' | 'specific') => {
     if (campusLocked) return;
@@ -276,13 +288,19 @@ export default function SermonManagementPage() {
     setSeriesDialogOpen(false);
   };
 
+  const pastorsUsedInSermons = new Set(
+    sermons.flatMap((s) => splitPastorNames(s.pastor).map((name) => name.toLowerCase()))
+  );
+  const dismissedPastorKeys = new Set(dismissedPastors.map((name) => name.toLowerCase()));
   const pastorOptions = Array.from(new Set(
     [
       ...sermons.flatMap((s) => splitPastorNames(s.pastor)),
       ...campuses.flatMap((c) => splitPastorNames(c.pastor)),
       ...splitPastorNames(sermonForm.pastor),
     ]
-  )).sort((a, b) => a.localeCompare(b));
+  ))
+    .filter((name) => !dismissedPastorKeys.has(name.toLowerCase()))
+    .sort((a, b) => a.localeCompare(b));
 
   const selectedPastors = splitPastorNames(sermonForm.pastor);
 
@@ -291,6 +309,15 @@ export default function SermonManagementPage() {
     const next = exists
       ? selectedPastors.filter((pastor) => pastor.toLowerCase() !== name.toLowerCase())
       : [...selectedPastors, name];
+    setSermonForm({ ...sermonForm, pastor: joinPastorNames(next) });
+  };
+
+  const removeUnusedPastor = (name: string) => {
+    if (pastorsUsedInSermons.has(name.toLowerCase())) return;
+    setDismissedPastors((prev) => (
+      prev.some((pastor) => pastor.toLowerCase() === name.toLowerCase()) ? prev : [...prev, name]
+    ));
+    const next = selectedPastors.filter((pastor) => pastor.toLowerCase() !== name.toLowerCase());
     setSermonForm({ ...sermonForm, pastor: joinPastorNames(next) });
   };
 
@@ -619,7 +646,7 @@ export default function SermonManagementPage() {
           </DialogHeader>
 
           <form onSubmit={handleSermonSubmit} className="flex flex-col flex-1 overflow-hidden min-h-0">
-            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">
+            <div className={`flex-1 px-4 sm:px-6 py-5 ${pastorMenuOpen ? 'overflow-hidden' : 'overflow-y-auto'}`}>
               {sermonFormStep === 'basics' && (
                 <div className="space-y-5 max-w-xl mx-auto">
                   <div className="rounded-2xl border border-[#E5D5C5]/60 bg-white p-4 space-y-4 shadow-sm">
@@ -683,49 +710,71 @@ export default function SermonManagementPage() {
                       <div className="space-y-2">
                         <Label htmlFor="pastor" className="text-[#3A2D27] font-semibold">Pastor *</Label>
                         <p className="text-[10px] text-muted-foreground">Check every pastor who preached this sermon.</p>
-                        <Popover open={pastorMenuOpen} onOpenChange={setPastorMenuOpen}>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              id="pastor"
-                              className="flex h-11 w-full items-center justify-between rounded-xl border border-[#E5D5C5]/60 bg-[#FAF7F2] px-3 text-left text-sm shadow-none outline-none focus-visible:ring-2 focus-visible:ring-[#8B2323]"
-                            >
-                              <span className={selectedPastors.length ? "truncate text-[#1A202C]" : "text-muted-foreground"}>
-                                {selectedPastors.length ? selectedPastors.join(', ') : 'Select pastors'}
-                              </span>
-                              <ChevronsUpDown className="h-4 w-4 shrink-0 text-[#7A6150]" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            align="start"
-                            className="z-[80] w-[var(--radix-popover-trigger-width)] rounded-xl border-[#E5D5C5]/70 bg-white p-2"
+                        <div ref={pastorMenuRef} className="relative">
+                          <button
+                            type="button"
+                            id="pastor"
+                            className="flex h-11 w-full items-center justify-between rounded-xl border border-[#E5D5C5]/60 bg-[#FAF7F2] px-3 text-left text-sm shadow-none outline-none focus-visible:ring-2 focus-visible:ring-[#8B2323]"
+                            onClick={() => setPastorMenuOpen((open) => !open)}
                           >
-                            <div className="max-h-56 space-y-0.5 overflow-y-auto">
-                              {pastorOptions.map((name) => {
-                                const checked = selectedPastors.some((pastor) => pastor.toLowerCase() === name.toLowerCase());
-                                return (
-                                  <label
-                                    key={name}
-                                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-[#FAF7F2]"
-                                  >
-                                    <Checkbox
-                                      checked={checked}
-                                      onCheckedChange={() => togglePastor(name)}
-                                    />
-                                    <span>{name}</span>
-                                  </label>
-                                );
-                              })}
+                            <span className={selectedPastors.length ? "truncate text-[#1A202C]" : "text-muted-foreground"}>
+                              {selectedPastors.length ? selectedPastors.join(', ') : 'Select pastors'}
+                            </span>
+                            <ChevronsUpDown className="h-4 w-4 shrink-0 text-[#7A6150]" />
+                          </button>
+                          {pastorMenuOpen ? (
+                            <div className="relative z-20 mt-1 flex flex-col overflow-hidden rounded-xl border border-[#E5D5C5]/70 bg-white p-2 shadow-md">
+                              <div
+                                className="h-52 overflow-y-scroll overscroll-contain"
+                                style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+                                onWheel={(event) => event.stopPropagation()}
+                              >
+                                {pastorOptions.map((name) => {
+                                  const checked = selectedPastors.some((pastor) => pastor.toLowerCase() === name.toLowerCase());
+                                  const unused = !pastorsUsedInSermons.has(name.toLowerCase());
+                                  return (
+                                    <div
+                                      key={name}
+                                      className="flex items-center gap-1 rounded-lg hover:bg-[#FAF7F2]"
+                                    >
+                                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-2 py-1.5 text-sm">
+                                        <Checkbox
+                                          checked={checked}
+                                          onCheckedChange={() => togglePastor(name)}
+                                        />
+                                        <span className="truncate">{name}</span>
+                                      </label>
+                                      {unused ? (
+                                        <button
+                                          type="button"
+                                          aria-label={`Remove ${name}`}
+                                          className="mr-1 rounded-md p-1 text-[#7A6150] hover:bg-[#FBE8E8] hover:text-[#8B2323]"
+                                          onClick={(event) => {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            removeUnusedPastor(name);
+                                          }}
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                      ) : null}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              <button
+                                type="button"
+                                className="mt-1 w-full shrink-0 rounded-lg px-2 py-1.5 text-left text-sm font-semibold text-[#8B2323] hover:bg-[#FAF7F2]"
+                                onClick={() => {
+                                  setAddingPastor(true);
+                                  setPastorMenuOpen(false);
+                                }}
+                              >
+                                + Add new pastor
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-sm font-semibold text-[#8B2323] hover:bg-[#FAF7F2]"
-                              onClick={() => setAddingPastor(true)}
-                            >
-                              + Add new pastor
-                            </button>
-                          </PopoverContent>
-                        </Popover>
+                          ) : null}
+                        </div>
                         {addingPastor && (
                           <div className="flex gap-2">
                             <Input

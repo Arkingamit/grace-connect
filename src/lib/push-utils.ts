@@ -109,6 +109,12 @@ export async function sendPushToTargeted(
                 title: payload.title,
                 body: payload.body,
               },
+              android: {
+                notification: {
+                  icon: 'ic_stat_icon',
+                  color: '#810008',
+                },
+              },
               data: {
                 type: payload.type || 'system',
                 url: payload.url || '',
@@ -204,6 +210,12 @@ export async function sendPushToUsers(
               notification: {
                 title: payload.title,
                 body: payload.body,
+              },
+              android: {
+                notification: {
+                  icon: 'ic_stat_icon',
+                  color: '#810008',
+                },
               },
               data: {
                 type: payload.type || 'system',

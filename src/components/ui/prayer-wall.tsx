@@ -123,23 +123,21 @@ function PrayerWallWidgetLayout() {
   };
 
   const handlePray = async (id: string) => {
+    const userId = String(sessionMember?._id || sessionMember?.id || '');
     try {
       const res = await fetch(`/api/prayers/${id}/pray`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        setPrayers(prev => prev.map(p => p.id === id ? { 
-          ...p, 
-          prayedCount: data.prayedCount, 
-          prayedBy: [...(p.prayedBy || []), sessionMember?._id || sessionMember?.id || ''] 
+        setPrayers(prev => prev.map(p => p.id === id ? {
+          ...p,
+          prayedCount: data.prayedCount,
+          prayedBy: data.prayed
+            ? [...(p.prayedBy || []).filter((pid) => String(pid) !== userId), userId]
+            : (p.prayedBy || []).filter((pid) => String(pid) !== userId),
         } : p));
-        if (data.alreadyPrayed) {
-          toast.info('You already prayed for this');
-        } else {
-          toast.success('You prayed for this request');
-        }
       } else {
         const data = await res.json();
-        toast.error(data.error || 'You already prayed for this');
+        toast.error(data.error || 'Failed to update prayer');
       }
     } catch (error) {
       toast.error('Failed to record prayer');
@@ -294,7 +292,6 @@ function PrayerWallWidgetLayout() {
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={hasPrayed}
                         className={`gap-2 transition-colors ${
                           hasPrayed
                           ? 'bg-[#FBE8E8] text-[#8B2323] border-[#8B2323]/20'
@@ -483,27 +480,25 @@ function PrayerPageCard({ prayer, session }: { prayer: any, session: any }) {
   );
 
   const handlePray = async () => {
-    if (hasPrayed) return;
-    
-    setHasPrayed(true);
-    setPrayedCount((prev: number) => prev + 1);
+    const next = !hasPrayed;
+    setHasPrayed(next);
+    setPrayedCount((prev: number) => Math.max(0, prev + (next ? 1 : -1)));
 
     try {
       const res = await fetch(`/api/prayers/${prayer.id}/pray`, { method: 'POST' });
       
       if (!res.ok) {
-        setHasPrayed(false);
-        setPrayedCount((prev: number) => prev - 1);
+        setHasPrayed(!next);
+        setPrayedCount((prev: number) => Math.max(0, prev + (next ? -1 : 1)));
         return;
       }
 
       const data = await res.json();
-      if (data.alreadyPrayed) {
-        setPrayedCount(data.prayedCount);
-      }
+      setHasPrayed(Boolean(data.prayed));
+      setPrayedCount(data.prayedCount);
     } catch (err) {
-      setHasPrayed(false);
-      setPrayedCount((prev: number) => prev - 1);
+      setHasPrayed(!next);
+      setPrayedCount((prev: number) => Math.max(0, prev + (next ? -1 : 1)));
     }
   };
 
@@ -528,7 +523,6 @@ function PrayerPageCard({ prayer, session }: { prayer: any, session: any }) {
         
         <button 
           onClick={handlePray}
-          disabled={hasPrayed}
           className={`flex items-center gap-1.5 text-sm font-bold px-4 py-2 rounded-full transition-colors ${
             hasPrayed 
             ? 'bg-[#FBE8E8] text-[#8B2323]' 

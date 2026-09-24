@@ -18,15 +18,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Prayer request not found' }, { status: 404 });
     }
 
-    if (prayer.prayedBy.includes(identifier)) {
-      return NextResponse.json({ success: true, alreadyPrayed: true, prayedCount: prayer.prayedCount });
+    const alreadyPrayed = prayer.prayedBy.some((id: string) => String(id) === String(identifier));
+
+    if (alreadyPrayed) {
+      prayer.prayedBy = prayer.prayedBy.filter((id: string) => String(id) !== String(identifier));
+      prayer.prayedCount = Math.max(0, prayer.prayedBy.length);
+      await prayer.save();
+      return NextResponse.json({ success: true, prayed: false, prayedCount: prayer.prayedCount });
     }
 
-    prayer.prayedCount += 1;
     prayer.prayedBy.push(identifier);
+    prayer.prayedCount = prayer.prayedBy.length;
     await prayer.save();
 
-    return NextResponse.json({ success: true, prayedCount: prayer.prayedCount });
+    return NextResponse.json({ success: true, prayed: true, prayedCount: prayer.prayedCount });
   } catch (error) {
     console.error('Error recording prayer:', error);
     return NextResponse.json({ error: 'Failed to record prayer' }, { status: 500 });

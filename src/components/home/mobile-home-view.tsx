@@ -1598,30 +1598,25 @@ function PrayerCard({ prayer, session }: { prayer: any, session: any }) {
   );
 
   const handlePray = async () => {
-    if (hasPrayed) return;
-
-    // Optimistic UI update
-    setHasPrayed(true);
-    setPrayedCount(prev => prev + 1);
+    const next = !hasPrayed;
+    setHasPrayed(next);
+    setPrayedCount(prev => Math.max(0, prev + (next ? 1 : -1)));
 
     try {
       const res = await fetch(`/api/prayers/${prayer.id}/pray`, { method: 'POST' });
 
       if (!res.ok) {
-        // Revert on failure
-        setHasPrayed(false);
-        setPrayedCount(prev => prev - 1);
+        setHasPrayed(!next);
+        setPrayedCount(prev => Math.max(0, prev + (next ? -1 : 1)));
         return;
       }
 
       const data = await res.json();
-      if (data.alreadyPrayed) {
-        // It was already prayed, so revert the optimistic count but keep hasPrayed true
-        setPrayedCount(data.prayedCount);
-      }
+      setHasPrayed(Boolean(data.prayed));
+      setPrayedCount(data.prayedCount);
     } catch (err) {
-      setHasPrayed(false);
-      setPrayedCount(prev => prev - 1);
+      setHasPrayed(!next);
+      setPrayedCount(prev => Math.max(0, prev + (next ? -1 : 1)));
     }
   };
 
@@ -1643,7 +1638,6 @@ function PrayerCard({ prayer, session }: { prayer: any, session: any }) {
 
         <button
           onClick={handlePray}
-          disabled={hasPrayed}
           className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${hasPrayed
             ? 'bg-[#FBE8E8] text-[#8B2323]'
             : 'bg-[#F3EAE1] text-[#7A6150] hover:bg-[#E5D5C5]'

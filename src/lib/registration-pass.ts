@@ -26,6 +26,15 @@ export function saveRegistrationPass(pass: RegistrationPass) {
   }
 }
 
+export function clearRegistrationPass() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(REGISTRATION_PASS_KEY);
+  } catch {
+    // private mode
+  }
+}
+
 export function loadRegistrationPass(): RegistrationPass | null {
   if (typeof window === 'undefined') return null;
   try {
