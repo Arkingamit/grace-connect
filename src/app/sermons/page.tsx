@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAdminData } from '@/lib/admin-data-context';
-import { sermonWatchHref } from '@/lib/sermon-utils';
+import { sermonHasPastor, sermonWatchHref, uniquePastorNames } from '@/lib/sermon-utils';
 import { useNavigationHistory } from '@/components/ui/navigation-history-provider';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -102,7 +102,7 @@ export default function SermonsPage() {
     fetchStats();
   }, [visibleSermons.length]);
 
-  const pastors = ['All', ...Array.from(new Set(visibleSermons.map(s => s.pastor).filter(Boolean)))];
+  const pastors = ['All', ...uniquePastorNames(visibleSermons.map((s) => s.pastor))];
 
   const filteredSeries = sermonSeries.filter(series => {
     const seriesSermons = visibleSermons.filter(s => s.seriesId === series.id);
@@ -110,7 +110,7 @@ export default function SermonsPage() {
                          series.description.toLowerCase().includes(search.toLowerCase()) ||
                          seriesSermons.some(s => s.pastor?.toLowerCase().includes(search.toLowerCase()));
     
-    const matchesPastor = activePastor === 'All' || seriesSermons.some(s => s.pastor === activePastor);
+    const matchesPastor = activePastor === 'All' || seriesSermons.some(s => sermonHasPastor(s.pastor, activePastor));
     
     return matchesSearch && matchesPastor && seriesSermons.length > 0;
   });
@@ -118,7 +118,7 @@ export default function SermonsPage() {
   const filteredSermons = visibleSermons.filter(sermon => {
     const matchesSearch = sermon.title.toLowerCase().includes(search.toLowerCase()) || 
                          sermon.description?.toLowerCase().includes(search.toLowerCase());
-    const matchesPastor = activePastor === 'All' || sermon.pastor === activePastor;
+    const matchesPastor = sermonHasPastor(sermon.pastor, activePastor);
     return matchesSearch && matchesPastor;
   });
 
