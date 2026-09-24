@@ -425,19 +425,29 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
         data-keep-keyboard
         style={dialogPosition.style}
         className={cn(
-          "max-w-xl w-[calc(100%-1.5rem)] min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-6",
+          "min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain",
+          "max-w-xl w-[calc(100%-1.25rem)] p-4 gap-3 sm:p-6 sm:gap-4",
+          "max-sm:w-[calc(100%-1rem)] max-sm:max-w-none max-sm:rounded-2xl",
           dialogPosition.lifted
             ? "max-sm:top-auto max-sm:translate-y-0 max-sm:max-h-none"
-            : "max-h-[min(90dvh,90%)]",
+            : "max-sm:top-1/2 max-sm:-translate-y-1/2 max-h-[min(90dvh,90%)] max-sm:max-h-[min(92dvh,calc(100dvh-1rem))]",
         )}
       >
-        <DialogHeader className="min-w-0 text-left">
-          <DialogTitle className="pr-8 break-words text-left leading-snug">RSVP: {event.title}</DialogTitle>
+        <DialogHeader className="min-w-0 space-y-0 text-left">
+          <DialogTitle className="pr-8 text-base sm:text-lg break-words text-left leading-snug">
+            RSVP: {event.title}
+          </DialogTitle>
         </DialogHeader>
-        <div className="mb-4 flex min-w-0 flex-col gap-2 rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <div className="flex items-center gap-1 shrink-0"><Calendar className="w-3.5 h-3.5" /> {formatDDMMYYYY(event.date)}</div>
-            <div className="flex items-center gap-1 shrink-0"><Clock className="w-3.5 h-3.5" /> {event.time}</div>
+        <div className="flex min-w-0 flex-col gap-2 rounded-xl bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 shrink-0" />
+              <span className="break-words">{formatDDMMYYYY(event.date)}</span>
+            </div>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span className="break-words">{event.time}</span>
+            </div>
           </div>
           <div className="min-w-0 w-full">
             <EventLocationLink
@@ -450,7 +460,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
         </div>
 
         {existingReg && !isEditing ? (
-          <div className="min-w-0 space-y-6 py-2">
+          <div className="min-w-0 space-y-4 sm:space-y-6">
             <div className="bg-success/10 text-success p-4 rounded-xl flex items-start gap-3 border border-success/20 min-w-0">
               <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
               <div className="min-w-0">
@@ -478,7 +488,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
             </div>
 
             {event.formFields && event.formFields.length > 0 && (
-              <div className="min-w-0 space-y-4 mt-6">
+              <div className="min-w-0 space-y-3 sm:space-y-4">
                 <h4 className="font-semibold text-sm border-b pb-2">Your Responses</h4>
                 <div className="space-y-3 min-w-0">
                   {event.formFields.map((field) => {
@@ -516,21 +526,31 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="min-w-0 space-y-6 py-2">
+          <form onSubmit={handleSubmit} className="min-w-0 space-y-4 sm:space-y-6">
             {/* Basic Info Removed - System uses currentUser data */}
             {/* Dynamic Forms */}
             {event.formFields && event.formFields.length > 0 && (
-              <div className="min-w-0 space-y-6">
-                <h4 className="font-semibold text-sm border-b pb-2">Event Questions</h4>
+              <div className="min-w-0 space-y-4 sm:space-y-5">
+                <h4 className="font-semibold text-sm border-b border-border/50 pb-2">Event Questions</h4>
                 {event.formFields.map((field) => {
                   const isError = !!fieldErrors[field.id];
                   return (
-                    <div key={field.id} id={`field-container-${field.id}`} className={`min-w-0 p-4 rounded-xl border ${isError ? 'border-destructive bg-destructive/5' : 'border-border/40 bg-muted/20'} space-y-3`}>
+                    <div
+                      key={field.id}
+                      id={`field-container-${field.id}`}
+                      className={cn(
+                        "min-w-0 space-y-1.5 sm:space-y-3",
+                        "sm:rounded-xl sm:border sm:p-4",
+                        isError
+                          ? "max-sm:rounded-lg max-sm:border max-sm:border-destructive max-sm:bg-destructive/5 max-sm:p-3 sm:border-destructive sm:bg-destructive/5"
+                          : "sm:border-border/40 sm:bg-muted/20",
+                      )}
+                    >
                       <div className="min-w-0">
-                        <Label className="text-sm font-medium break-words">
+                        <Label className="text-sm font-medium leading-snug break-words [overflow-wrap:anywhere]">
                           {field.label} {field.required && <span className="text-destructive">*</span>}
                         </Label>
-                        {field.description && <p className="text-xs text-muted-foreground mt-0.5 break-words">{field.description}</p>}
+                        {field.description && <p className="text-xs text-muted-foreground mt-0.5 break-words [overflow-wrap:anywhere]">{field.description}</p>}
                       </div>
 
                       {field.type === 'text' && (
@@ -539,7 +559,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                           maxLength={EVENT_FIELD_LIMITS.text}
                           onChange={e => handleInputChange(field.id, e.target.value, field.type)}
                           placeholder="Your answer"
-                          className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                          className={cn('w-full min-w-0', isError && 'border-destructive focus-visible:ring-destructive')}
                         />
                       )}
 
@@ -550,7 +570,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                           onChange={e => handleInputChange(field.id, e.target.value, field.type)}
                           placeholder="Your answer"
                           rows={3}
-                          className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                          className={cn('w-full min-w-0', isError && 'border-destructive focus-visible:ring-destructive')}
                         />
                       )}
 
@@ -559,7 +579,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                           type="date"
                           value={(responses[field.id] as string) || ''}
                           onChange={e => handleInputChange(field.id, e.target.value)}
-                          className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                          className={cn('w-full min-w-0', isError && 'border-destructive focus-visible:ring-destructive')}
                         />
                       )}
 
@@ -568,7 +588,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                           type="time"
                           value={(responses[field.id] as string) || ''}
                           onChange={e => handleInputChange(field.id, e.target.value)}
-                          className={isError ? 'border-destructive focus-visible:ring-destructive w-[150px]' : 'w-[150px]'}
+                          className={cn('w-full min-w-0 sm:w-[150px]', isError && 'border-destructive focus-visible:ring-destructive')}
                         />
                       )}
 
@@ -578,7 +598,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                           value={(responses[field.id] as string) || ''}
                           maxLength={EVENT_FIELD_LIMITS.number}
                           onChange={e => handleInputChange(field.id, e.target.value, field.type)}
-                          className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                          className={cn('w-full min-w-0', isError && 'border-destructive focus-visible:ring-destructive')}
                           placeholder="0"
                         />
                       )}
@@ -589,7 +609,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                           value={(responses[field.id] as string) || ''}
                           maxLength={EVENT_FIELD_LIMITS.email}
                           onChange={e => handleInputChange(field.id, e.target.value, field.type)}
-                          className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                          className={cn('w-full min-w-0', isError && 'border-destructive focus-visible:ring-destructive')}
                           placeholder="email@example.com"
                         />
                       )}
@@ -600,7 +620,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                           value={(responses[field.id] as string) || ''}
                           maxLength={EVENT_FIELD_LIMITS.phone}
                           onChange={e => handleInputChange(field.id, e.target.value, field.type)}
-                          className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                          className={cn('w-full min-w-0', isError && 'border-destructive focus-visible:ring-destructive')}
                           placeholder="+1 (555) 000-0000"
                         />
                       )}
@@ -610,7 +630,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                           value={(responses[field.id] as string) || ''}
                           onValueChange={v => handleInputChange(field.id, v)}
                         >
-                          <SelectTrigger className={isError ? 'border-destructive focus:ring-destructive' : ''}>
+                          <SelectTrigger className={cn('w-full min-w-0', isError && 'border-destructive focus:ring-destructive')}>
                             <SelectValue placeholder="Select an option" />
                           </SelectTrigger>
                           <SelectContent>
@@ -714,7 +734,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
               </div>
             )}
 
-            <Button type="submit" className="w-full bg-primary" disabled={submitting}>
+            <Button type="submit" className="h-11 w-full bg-primary sm:h-10" disabled={submitting}>
               {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               {submitting 
                 ? (existingReg ? 'Updating...' : 'Registering...') 
