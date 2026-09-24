@@ -123,6 +123,20 @@ const GalleryAlbumSchema = new Schema<IGalleryAlbum>({
 export const GalleryAlbum: Model<IGalleryAlbum> = mongoose.models.GalleryAlbum || mongoose.model<IGalleryAlbum>('GalleryAlbum', GalleryAlbumSchema);
 
 // ── Live Stream ────────────────────────────────────────────────
+export interface ILiveAutoChecker {
+  id: string;
+  name?: string;
+  enabled: boolean;
+  youtubeChannelId: string;
+  recurrencePattern: string;
+  recurrenceDay: string;
+  recurrenceWeekOfMonth: string;
+  time: string;
+  checkIntervalSeconds?: number;
+  checkWindowMinutes?: number;
+  lastAutoChecked?: Date;
+}
+
 export interface ILiveStream extends Document {
   campusId: string;
   videoId: string;
@@ -135,10 +149,29 @@ export interface ILiveStream extends Document {
   recurrenceDay: string;
   recurrenceWeekOfMonth: string;
   time: string;
+  checkIntervalSeconds?: number;
+  checkWindowMinutes?: number;
+  autoCheckers?: ILiveAutoChecker[];
+  liveSource?: 'manual' | 'auto';
+  liveSourceCheckerId?: string;
   lastAutoChecked: Date;
   notifyWhenLive?: boolean;
   lastLiveNotifiedVideoId?: string;
 }
+
+const LiveAutoCheckerSchema = new Schema<ILiveAutoChecker>({
+  id: { type: String, required: true },
+  name: { type: String, default: '' },
+  enabled: { type: Boolean, default: true },
+  youtubeChannelId: { type: String, default: '' },
+  recurrencePattern: { type: String, default: 'weekly' },
+  recurrenceDay: { type: String, default: 'Sunday' },
+  recurrenceWeekOfMonth: { type: String, default: '1st' },
+  time: { type: String, default: '10:00' },
+  checkIntervalSeconds: { type: Number, default: 30 },
+  checkWindowMinutes: { type: Number, default: 30 },
+  lastAutoChecked: { type: Date },
+}, { _id: false });
 
 const LiveStreamSchema = new Schema<ILiveStream>({
   campusId: { type: String, required: true, unique: true },
@@ -152,6 +185,11 @@ const LiveStreamSchema = new Schema<ILiveStream>({
   recurrenceDay: { type: String, default: 'Sunday' },
   recurrenceWeekOfMonth: { type: String, default: '1st' },
   time: { type: String, default: '10:00' },
+  checkIntervalSeconds: { type: Number, default: 30 },
+  checkWindowMinutes: { type: Number, default: 30 },
+  autoCheckers: { type: [LiveAutoCheckerSchema], default: [] },
+  liveSource: { type: String, default: 'manual' },
+  liveSourceCheckerId: { type: String, default: '' },
   lastAutoChecked: { type: Date },
   notifyWhenLive: { type: Boolean, default: false },
   lastLiveNotifiedVideoId: { type: String, default: '' },

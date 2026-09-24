@@ -7,7 +7,7 @@ import { BookOpen, Calendar, Clock, Heart, MapPin, Sparkles, Users, ArrowRight, 
 import { useAdminData, type FlipCardItem } from '@/lib/admin-data-context';
 import { useAuth } from '@/lib/auth-context';
 import { GUEST_HIGHLIGHT_CARD } from '@/lib/hooks/use-system';
-import { contentToHighlightItems, mergeHighlightItems, isManualHighlightVisible } from '@/lib/highlight-utils';
+import { contentToHighlightItems, mergeHighlightItems, isGuestSermonHighlight, isManualHighlightVisible } from '@/lib/highlight-utils';
 import Link from 'next/link';
 import { sermonWatchHref } from '@/lib/sermon-utils';
 
@@ -137,11 +137,12 @@ export const HeroSection = () => {
     notes: broadcasts || [],
   });
   const campusId = sessionMember?.campusId || 'main';
+  const allHighlightItems = mergeHighlightItems(flipCardConfig.items || [], publishedHighlights);
   const flipItems = session && flipCardConfig.isActive
-    ? mergeHighlightItems(flipCardConfig.items || [], publishedHighlights).filter((item) =>
+    ? allHighlightItems.filter((item) =>
         isManualHighlightVisible(item, campusId, userGroups as string[], session.role),
       )
-    : [GUEST_HIGHLIGHT_CARD];
+    : [GUEST_HIGHLIGHT_CARD, ...allHighlightItems.filter(isGuestSermonHighlight)];
   useEffect(() => {
     if (flipItems.length <= 1) return;
     const interval = setInterval(() => {

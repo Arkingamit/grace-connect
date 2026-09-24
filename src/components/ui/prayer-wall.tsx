@@ -10,6 +10,7 @@ import { Heart, MessageCircle, Plus, Shield, Clock, Users, Loader2, Building2, U
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth-context';
 import { useAdminData } from "@/lib/admin-data-context";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDDMMYYYY } from '@/lib/date-utils';
 
@@ -318,12 +319,14 @@ function PrayerWallWidgetLayout() {
 // --- PAGE LAYOUT (Original Page UI) ---
 function PrayerWallPageLayout() {
   const { session } = useAuth();
+  const { campuses } = useAdminData();
   
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [publicPrayers, setPublicPrayers] = useState<any[]>([]);
+  const [campusFilter, setCampusFilter] = useState('all');
 
   useEffect(() => {
     fetch('/api/prayers')
@@ -369,15 +372,13 @@ function PrayerWallPageLayout() {
     }
   };
 
-  return (
-    <div className="py-8 md:py-12">
-      <div className="text-center mb-10">
-        <h1 className="text-4xl md:text-5xl font-serif font-bold text-[#1A202C] mb-4">Prayer Wall</h1>
-        <p className="text-[#7A6150] max-w-2xl mx-auto text-lg">
-          Bear one another's burdens, and so fulfill the law of Christ. Share your prayer requests, and let our community pray with you.
-        </p>
-      </div>
+  const visiblePrayers = publicPrayers
+    .filter((p: any) => p.status === "approved" || p.status === undefined)
+    .filter((p: any) => campusFilter === "all" || String(p.campusId || "") === campusFilter)
+    .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
+  return (
+    <div className="py-4 md:py-6">
       <div className="grid md:grid-cols-5 gap-8">
         {/* Submit Prayer Form */}
         <div className="md:col-span-2">
@@ -449,23 +450,38 @@ function PrayerWallPageLayout() {
 
         {/* Community Prayers Feed */}
         <div className="md:col-span-3 space-y-4">
-          <h2 className="text-2xl font-serif font-bold text-[#1A202C] mb-6 border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">
-            Community Prayers
-          </h2>
-          
-          {publicPrayers
-            .filter((p: any) => p.status === "approved" || p.status === undefined)
-            .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-            .map((prayer: any) => (
-              <PrayerPageCard key={prayer.id} prayer={prayer} session={session} />
-            ))
-          }
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">
+              Community Prayers
+            </h2>
+            <Select value={campusFilter} onValueChange={setCampusFilter}>
+              <SelectTrigger className="h-10 w-full rounded-xl border-[#E5D5C5]/60 bg-[#FAF7F2] text-sm text-[#1A202C] sm:w-48">
+                <SelectValue placeholder="Filter by Campus" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Campuses</SelectItem>
+                {campuses.map((campus) => (
+                  <SelectItem key={campus.id} value={campus.id}>
+                    {campus.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          {publicPrayers.length === 0 && (
+          {visiblePrayers.length === 0 ? (
             <div className="text-center py-12 bg-white/40 rounded-3xl border border-[#F3EAE1] border-dashed">
               <Heart className="w-12 h-12 text-[#E5D5C5] mx-auto mb-3" />
-              <p className="text-[#7A6150]">No prayer requests at the moment.</p>
+              <p className="text-[#7A6150]">
+                {campusFilter === "all"
+                  ? "No prayer requests at the moment."
+                  : "No prayer requests for this campus."}
+              </p>
             </div>
+          ) : (
+            visiblePrayers.map((prayer: any) => (
+              <PrayerPageCard key={prayer.id} prayer={prayer} session={session} />
+            ))
           )}
         </div>
       </div>

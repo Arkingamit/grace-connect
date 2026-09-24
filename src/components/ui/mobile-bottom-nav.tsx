@@ -43,11 +43,32 @@ function isOnTab(pathname: string, item: NavItem) {
     : pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
+const OVERLAY_SCROLL_SELECTOR = [
+  '[data-no-tab-swipe]',
+  '[data-radix-popper-content-wrapper]',
+  '[data-radix-select-content]',
+  '[data-radix-select-viewport]',
+  '[data-radix-dropdown-menu-content]',
+  '[data-radix-dropdown-menu-sub-content]',
+  '[data-radix-popover-content]',
+  '[data-radix-scroll-area-viewport]',
+  '[cmdk-list]',
+  '[role="listbox"]',
+  '[role="menu"]',
+  '[role="combobox"]',
+  '[role="dialog"]',
+  '[role="alertdialog"]',
+].join(', ');
+
+function isOverlayScrollTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest(OVERLAY_SCROLL_SELECTOR));
+}
+
 function isIgnoredSwipeTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false;
   if (
     target.closest(
-      'nav[aria-label="Primary"], .swiper, .swiper-slide, [data-no-tab-swipe], .highlights-stack-card, input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"], [role="slider"], [data-radix-scroll-area-viewport]',
+      `nav[aria-label="Primary"], .swiper, .swiper-slide, [data-no-tab-swipe], .highlights-stack-card, input, textarea, select, [contenteditable="true"], [role="slider"], ${OVERLAY_SCROLL_SELECTOR}`,
     )
   ) {
     return true;
@@ -55,8 +76,11 @@ function isIgnoredSwipeTarget(target: EventTarget | null) {
 
   let node: HTMLElement | null = target as HTMLElement;
   while (node && node !== document.body) {
-    const { overflowX } = window.getComputedStyle(node);
+    const { overflowX, overflowY } = window.getComputedStyle(node);
     if ((overflowX === "auto" || overflowX === "scroll") && node.scrollWidth > node.clientWidth + 8) {
+      return true;
+    }
+    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight + 8) {
       return true;
     }
     node = node.parentElement;
@@ -263,6 +287,7 @@ export function MobileBottomNav() {
     let ticking = false;
 
     const onScroll = (event: Event) => {
+      if (isOverlayScrollTarget(event.target)) return;
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {

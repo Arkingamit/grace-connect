@@ -265,6 +265,20 @@ export interface PrayerRequest {
   createdAt: string;
 }
 
+export interface LiveAutoChecker {
+  id: string;
+  name?: string;
+  enabled: boolean;
+  youtubeChannelId: string;
+  recurrencePattern?: 'weekly' | 'custom' | 'custom_monthly';
+  recurrenceDay?: string;
+  recurrenceWeekOfMonth?: string;
+  time?: string;
+  checkIntervalSeconds?: number;
+  checkWindowMinutes?: number;
+  lastAutoChecked?: string;
+}
+
 export interface LiveStream {
   id?: string;
   _id?: string;
@@ -279,6 +293,11 @@ export interface LiveStream {
   recurrenceDay?: string;
   recurrenceWeekOfMonth?: string;
   time?: string;
+  checkIntervalSeconds?: number;
+  checkWindowMinutes?: number;
+  autoCheckers?: LiveAutoChecker[];
+  liveSource?: 'manual' | 'auto';
+  liveSourceCheckerId?: string;
   notifyWhenLive?: boolean;
   lastLiveNotifiedVideoId?: string;
 }

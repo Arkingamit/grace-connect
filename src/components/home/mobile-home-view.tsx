@@ -16,7 +16,7 @@ import {
 import { useAdminData, type FlipCardItem } from '@/lib/admin-data-context';
 import { useAuth } from '@/lib/auth-context';
 import { GUEST_HIGHLIGHT_CARD } from '@/lib/hooks/use-system';
-import { contentToHighlightItems, mergeHighlightItems, isManualHighlightVisible } from '@/lib/highlight-utils';
+import { contentToHighlightItems, mergeHighlightItems, isGuestSermonHighlight, isManualHighlightVisible } from '@/lib/highlight-utils';
 import { sermonWatchHref } from '@/lib/sermon-utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,10 +27,6 @@ import { LiveStreamSection } from '@/components/ui/live-stream';
 import { CampusDetails } from '@/components/ui/campus-details';
 import { AnnouncementsSection } from '@/components/ui/announcements-section';
 import { NoteShareSection } from '@/components/ui/note-share-section';
-import { toast } from 'sonner';
-import { Capacitor } from '@capacitor/core';
-import { Geolocation } from '@capacitor/geolocation';
-import { NativeSettings, AndroidSettings, IOSSettings } from 'capacitor-native-settings';
 import { AuthGate } from '@/components/ui/auth-gate';
 import { ProfileSwitcher } from '@/components/ui/profile-switcher';
 import { ViewRegistrationPassButton, PendingMemberEpass } from '@/components/ui/registration-pass-dialog';
@@ -788,72 +784,12 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
 
           {/* 3. Quick Actions */}
           <div className="grid grid-cols-4 gap-2 px-1">
-            <button onClick={async () => {
-              if (Capacitor.isNativePlatform()) {
-                try {
-                  await Geolocation.requestPermissions();
-                } catch (e) {
-                  console.warn("Native location permission request failed", e);
-                }
-              }
-              if (!navigator.geolocation) {
-                toast.error('Location is not available on this device.');
-                return;
-              }
-              const btn = document.getElementById('checkin-icon');
-              if (btn) btn.classList.add('animate-pulse');
-              navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                  try {
-                    const sessRes = await fetch('/api/attendance/active');
-                    if (!sessRes.ok) { if (btn) btn.classList.remove('animate-pulse'); toast.error('No active sessions right now.'); return; }
-                    const sessions = await sessRes.json();
-                    if (!Array.isArray(sessions) || sessions.length === 0) { if (btn) btn.classList.remove('animate-pulse'); toast.error('No active sessions right now.'); return; }
-                    const session = sessions[0];
-                    const res = await fetch('/api/attendance/check-in', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ id: session._id, type: session.type || 'session', latitude: position.coords.latitude, longitude: position.coords.longitude })
-                    });
-                    const data = await res.json();
-                    if (btn) btn.classList.remove('animate-pulse');
-                    if (res.ok) {
-                      toast.success('Checked in successfully!');
-                    } else {
-                      toast.error(data.message || data.error || 'Check-in failed');
-                    }
-                  } catch { if (btn) btn.classList.remove('animate-pulse'); toast.error('Connection error. Try again.'); }
-                },
-                (error) => {
-                  if (btn) btn.classList.remove('animate-pulse');
-                  const denied = error.code === 1;
-                  toast.error(
-                    denied
-                      ? 'Location is off. Enable GPS in Settings to check in.'
-                      : "Couldn't get your location. Try again.",
-                    denied && Capacitor.isNativePlatform()
-                      ? {
-                          action: {
-                            label: 'Settings',
-                            onClick: () => {
-                              void NativeSettings.open({
-                                optionAndroid: AndroidSettings.ApplicationDetails,
-                                optionIOS: IOSSettings.App,
-                              });
-                            },
-                          },
-                        }
-                      : undefined,
-                  );
-                },
-                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-              );
-            }} className="flex flex-col items-center gap-2 group">
-              <div id="checkin-icon" className="w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
+            <Link href="/check-in" className="flex flex-col items-center gap-2">
+              <div className="w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
                 <MapPin className="w-6 h-6" />
               </div>
               <span className="text-[10px] font-bold text-[#7A6150]">Check-In</span>
-            </button>
+            </Link>
             <Link href="/prayer-wall" className="flex flex-col items-center gap-2">
               <div className="w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
                 <Heart className="w-6 h-6" />
@@ -903,6 +839,14 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                 id: GUEST_HIGHLIGHT_CARD.id,
                 data: GUEST_HIGHLIGHT_CARD,
                 tag: 'Featured'
+              });
+              flipItems.filter(isGuestSermonHighlight).forEach((item, idx) => {
+                allCards.push({
+                  type: 'admin',
+                  id: item.id || `guest-sermon-${idx}`,
+                  data: item,
+                  tag: 'Sermon',
+                });
               });
             }
 

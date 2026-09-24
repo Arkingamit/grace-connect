@@ -25,6 +25,7 @@ import {
   LiveStream,
   UserProfile,
 } from '@/lib/types';
+import { isPublicSelectedSermon } from '@/lib/highlight-utils';
 
 export type {
   UserRole,
@@ -135,6 +136,11 @@ export function canEditScopedMembers(role: UserRole): boolean {
 /** Campuses + system settings: Admin / IT Team */
 export function canManageCampusesAndGroups(role: UserRole): boolean {
   return role === 'super_admin' || role === 'admin';
+}
+
+/** Live auto-check frequency (interval + window): IT Team only */
+export function canManageLiveFrequency(role: UserRole): boolean {
+  return role === 'super_admin';
 }
 
 /** Create/manage groups + appoint FASL / Core leaders: Campus Leader and above */
@@ -576,7 +582,12 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
   const getVisibleAnnouncements = useCallback((cId: string, grps: string[], r?: string) => announcements.filter(a => checkVisibility(a, cId, grps, r)), [announcements]);
   const getVisibleEvents = useCallback((cId: string, grps: string[], r?: string) => events.filter(e => checkVisibility(e, cId, grps, r)), [events]);
   const getVisibleGalleryAlbums = useCallback((cId: string, grps: string[], r?: string) => galleryAlbums.filter(a => checkVisibility(a, cId, grps, r)), [galleryAlbums]);
-  const getVisibleSermons = useCallback((cId: string, grps: string[], r?: string) => sermons.filter(s => checkVisibility(s, cId, grps, r)), [sermons]);
+  const getVisibleSermons = useCallback((cId: string, grps: string[], r?: string) => sermons.filter(s => {
+    if (checkVisibility(s, cId, grps, r)) return true;
+    // Featured / Highlights sermons stay public for guests
+    if (!r || r === 'guest') return isPublicSelectedSermon(s);
+    return false;
+  }), [sermons]);
   const getVisibleBroadcasts = useCallback((cId: string, grps: string[], r?: string) => broadcasts.filter(b => checkVisibility(b, cId, grps, r)), [broadcasts]);
 
   return (

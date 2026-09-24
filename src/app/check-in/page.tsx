@@ -1,17 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ChevronLeft, MapPin, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import { QrCode } from 'lucide-react';
-import { SessionQRScanner } from '@/components/ui/session-qr-scanner';
-import { Capacitor } from '@capacitor/core';
-import { Geolocation } from '@capacitor/geolocation';
+import React, { useState, useEffect } from "react";
+import { ChevronLeft, MapPin, CheckCircle2, XCircle, Loader2, QrCode } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { SessionQRScanner } from "@/components/ui/session-qr-scanner";
+import { AuthGate } from "@/components/ui/auth-gate";
+import { useNavigationHistory } from "@/components/ui/navigation-history-provider";
+import { Capacitor } from "@capacitor/core";
+import { Geolocation } from "@capacitor/geolocation";
 
 export default function CheckInPage() {
+  const { goBack } = useNavigationHistory();
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
@@ -19,9 +20,9 @@ export default function CheckInPage() {
   const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
-    fetch('/api/attendance/active')
-      .then(res => res.json())
-      .then(data => {
+    fetch("/api/attendance/active")
+      .then((res) => res.json())
+      .then((data) => {
         if (Array.isArray(data)) setSessions(data);
         setLoading(false);
       })
@@ -47,29 +48,29 @@ export default function CheckInPage() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
-          const res = await fetch('/api/attendance/check-in', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const res = await fetch("/api/attendance/check-in", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               id: session._id,
-              type: session.type || 'session',
+              type: session.type || "session",
               latitude: position.coords.latitude,
-              longitude: position.coords.longitude
-            })
+              longitude: position.coords.longitude,
+            }),
           });
-          
+
           const data = await res.json();
-          
+
           if (res.ok) {
-            setStatus(prev => ({ ...prev, [session._id]: { success: true, message: 'Successfully checked in!' } }));
+            setStatus((prev) => ({ ...prev, [session._id]: { success: true, message: "Successfully checked in!" } }));
             toast.success("Checked in successfully!");
           } else {
-            setStatus(prev => ({ ...prev, [session._id]: { success: false, message: data.message || data.error } }));
+            setStatus((prev) => ({ ...prev, [session._id]: { success: false, message: data.message || data.error } }));
             toast.error(data.message || data.error);
           }
         } catch (e) {
           toast.error("Failed to connect to server");
-          setStatus(prev => ({ ...prev, [session._id]: { success: false, message: 'Connection failed' } }));
+          setStatus((prev) => ({ ...prev, [session._id]: { success: false, message: "Connection failed" } }));
         }
         setCheckingIn(null);
       },
@@ -79,82 +80,113 @@ export default function CheckInPage() {
         if (error.code === 1) msg = "Location permission denied. Please enable GPS.";
         toast.error(msg);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
   };
 
   return (
-    <div className="min-h-screen bg-transparent pb-24">
-      <div className="sticky top-0 z-50 bg-[#FAF7F2]/80 backdrop-blur-md border-b border-[#E5D5C5]/40 shadow-sm pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#7A6150] shadow-sm shrink-0 hover:bg-[#F3EAE1] transition-colors">
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <h1 className="text-xl font-bold font-serif text-[#1A202C]">Check-In</h1>
+    <div className="min-h-screen bg-transparent pb-24 md:pb-12 text-[#3A2D27]">
+      <div className="container mx-auto px-4 sm:px-6 page-back-offset pb-2">
+        <div className="page-back-bar mb-2">
+          <Button
+            onClick={() => goBack("/")}
+            variant="ghost"
+            className="pl-3 pr-5 h-10 gap-2 bg-[#EDE0E0]/40 backdrop-blur-xl hover:bg-[#EDE0E0]/60 border border-white/50 rounded-full text-gray-900 hover:text-gray-900 transition-all shadow-sm"
+          >
+            <ChevronLeft className="w-5 h-5" strokeWidth={2} />
+            <span className="text-base font-normal">Check-In</span>
+          </Button>
         </div>
       </div>
 
-      <div className="p-4 mt-4 space-y-4">
-        {loading ? (
-          <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-[#8B2323]" /></div>
-        ) : sessions.length === 0 ? (
-          <Card className="p-8 text-center border-0 shadow-sm bg-white/80 backdrop-blur-sm">
-            <MapPin className="w-12 h-12 text-[#E5D5C5] mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-[#1A202C] mb-2">No Active Sessions</h3>
-            <p className="text-sm text-[#7A6150]">There are no attendance sessions currently active for your campus.</p>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            <Button 
-              className="w-full h-12 bg-white text-[#8B2323] hover:bg-[#F3EAE1] shadow-sm border border-[#E5D5C5] rounded-xl font-bold text-base"
-              onClick={() => setShowScanner(true)}
-            >
-              <QrCode className="w-5 h-5 mr-2" />
-              Scan QR Code to Check-In
-            </Button>
-            
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-[#E5D5C5]" /></div>
-              <div className="relative flex justify-center text-xs uppercase"><span className="bg-[#FAF7F2] px-2 text-[#7A6150]">Or use GPS</span></div>
-            </div>
+      <div className="container mx-auto px-4 sm:px-6">
+        <AuthGate title="Check-In" showBack={false}>
+          <div className="max-w-4xl mx-auto space-y-4 py-6 sm:py-8">
+            {loading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-[#8B2323]" />
+              </div>
+            ) : sessions.length === 0 ? (
+              <div className="rounded-2xl border border-[#E5D5C5]/60 bg-white/70 px-6 py-12 text-center shadow-sm">
+                <MapPin className="mx-auto mb-4 h-12 w-12 text-[#E5D5C5]" />
+                <h3 className="mb-2 text-lg font-bold text-[#1A202C]">No Active Sessions</h3>
+                <p className="text-sm text-[#7A6150]">
+                  There are no attendance sessions currently active for your campus.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <Button
+                  className="h-12 w-full rounded-xl border border-[#E5D5C5]/60 bg-white text-base font-bold text-[#8B2323] shadow-sm hover:bg-[#FAF7F2]"
+                  onClick={() => setShowScanner(true)}
+                >
+                  <QrCode className="mr-2 h-5 w-5" />
+                  Scan QR Code to Check-In
+                </Button>
 
-            {sessions.map(s => {
-              const sessionStatus = status[s._id];
-              return (
-                <Card key={s._id} className="p-5 border-0 shadow-sm bg-white/90 backdrop-blur-sm rounded-2xl flex flex-col gap-4">
-                  <div>
-                    <h3 className="font-bold text-lg text-[#1A202C]">{s.title}</h3>
-                    <p className="text-sm text-[#7A6150]">{s.startTime} - {s.endTime}</p>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-[#E5D5C5]/70" />
                   </div>
-                  
-                  {sessionStatus ? (
-                    <div className={`p-4 rounded-xl flex items-start gap-3 ${sessionStatus.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
-                      {sessionStatus.success ? <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" /> : <XCircle className="w-5 h-5 shrink-0 mt-0.5" />}
-                      <p className="text-sm font-medium leading-tight">{sessionStatus.message}</p>
-                    </div>
-                  ) : (
-                    <Button 
-                      className="w-full bg-[#8B2323] hover:bg-[#721515] h-12 text-base font-bold rounded-xl"
-                      onClick={() => handleCheckIn(s)}
-                      disabled={checkingIn === s._id}
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-[#FAF7F2] px-2 text-[#7A6150]">Or use GPS</span>
+                  </div>
+                </div>
+
+                {sessions.map((s) => {
+                  const sessionStatus = status[s._id];
+                  return (
+                    <Card
+                      key={s._id}
+                      className="flex flex-col gap-4 rounded-2xl border border-[#E5D5C5]/60 bg-white/90 p-5 shadow-sm"
                     >
-                      {checkingIn === s._id ? (
-                        <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Verifying Location...</>
+                      <div>
+                        <h3 className="font-serif text-lg font-bold text-[#1A202C]">{s.title}</h3>
+                        <p className="text-sm text-[#7A6150]">
+                          {s.startTime} - {s.endTime}
+                        </p>
+                      </div>
+
+                      {sessionStatus ? (
+                        <div
+                          className={`flex items-start gap-3 rounded-xl p-4 ${
+                            sessionStatus.success ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+                          }`}
+                        >
+                          {sessionStatus.success ? (
+                            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+                          ) : (
+                            <XCircle className="mt-0.5 h-5 w-5 shrink-0" />
+                          )}
+                          <p className="text-sm font-medium leading-tight">{sessionStatus.message}</p>
+                        </div>
                       ) : (
-                        <><MapPin className="w-5 h-5 mr-2" /> Mark Attendance</>
+                        <Button
+                          className="h-12 w-full rounded-xl bg-[#8B2323] text-base font-bold text-white hover:bg-[#721515]"
+                          onClick={() => handleCheckIn(s)}
+                          disabled={checkingIn === s._id}
+                        >
+                          {checkingIn === s._id ? (
+                            <>
+                              <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Verifying Location...
+                            </>
+                          ) : (
+                            <>
+                              <MapPin className="mr-2 h-5 w-5" /> Mark Attendance
+                            </>
+                          )}
+                        </Button>
                       )}
-                    </Button>
-                  )}
-                </Card>
-              );
-            })}
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+        </AuthGate>
       </div>
 
-      {showScanner && (
-        <SessionQRScanner onClose={() => setShowScanner(false)} />
-      )}
+      {showScanner && <SessionQRScanner onClose={() => setShowScanner(false)} />}
     </div>
   );
 }

@@ -177,12 +177,19 @@ export function mergeHighlightItems(
   return merged;
 }
 
-/**
- * Manual highlight time window:
- * - highlightExpiresAt in the future → active
- * - no highlightExpiresAt → forever / legacy → active
- * - expired → inactive
- */
+/** Sermons opted into Highlights — shown to guests as well as members. */
+export function isGuestSermonHighlight(item: FlipCardItem): boolean {
+  return item.type === 'sermon' && isManualHighlightActive(item);
+}
+
+export function isPublicSelectedSermon(sermon: {
+  isFeatured?: boolean;
+  showOnHighlight?: boolean;
+  highlightExpiresAt?: string | Date | null;
+}): boolean {
+  return Boolean(sermon?.isFeatured) || isHighlightActive(sermon);
+}
+
 export function isManualHighlightActive(item: FlipCardItem): boolean {
   if (item.highlightExpiresAt) {
     return new Date(item.highlightExpiresAt).getTime() > Date.now();

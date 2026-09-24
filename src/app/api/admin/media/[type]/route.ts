@@ -5,6 +5,7 @@ import { Sermon, SermonSeries, WorshipVideo, GalleryAlbum, LiveStream } from '@/
 import { serverCache, CACHE_TTL } from '@/lib/cache';
 import { fetchGooglePhotosCover } from '@/lib/google-photos';
 import { notifyLiveIfNeeded, notifyMembers, takeSendNotificationFlag } from '@/lib/notify-members';
+import { lockLiveFrequency } from '@/lib/live-auto-checkers';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +73,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
     } else if (type === 'livestreams') {
       if (admin.role === 'campus_leader' || admin.role === 'group_leader') {
         body.campusId = admin.campusId;
+      }
+      if (admin.role !== 'super_admin') {
+        lockLiveFrequency(body);
       }
     }
 

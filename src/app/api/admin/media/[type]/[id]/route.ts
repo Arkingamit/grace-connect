@@ -5,6 +5,7 @@ import { Sermon, SermonSeries, WorshipVideo, GalleryAlbum, LiveStream } from '@/
 import { serverCache } from '@/lib/cache';
 import { fetchGooglePhotosCover } from '@/lib/google-photos';
 import { notifyLiveIfNeeded, takeSendNotificationFlag } from '@/lib/notify-members';
+import { lockLiveFrequency } from '@/lib/live-auto-checkers';
 
 const models: any = {
   sermons: Sermon,
@@ -53,6 +54,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ type: st
     } else if (type === 'livestreams') {
       if (admin.role === 'campus_leader' || admin.role === 'group_leader') {
         body.campusId = admin.campusId;
+      }
+      if (admin.role !== 'super_admin') {
+        lockLiveFrequency(body, existingItem);
       }
     }
 
