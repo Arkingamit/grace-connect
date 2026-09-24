@@ -22,7 +22,7 @@ export function AuthPageShell({ children }: { children: React.ReactNode }) {
 
 export function AuthCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-[1.75rem] border-2 border-[#8B2323]/35 bg-white/95 p-5 shadow-[0_24px_60px_-12px_rgba(26,32,44,0.22),0_8px_20px_-8px_rgba(139,35,35,0.12)] ring-1 ring-black/[0.03] backdrop-blur-xl sm:rounded-[2rem] sm:p-8">
+    <div className="rounded-[1.75rem] border-0 bg-white/95 p-5 shadow-[0_24px_60px_-12px_rgba(26,32,44,0.22),0_8px_20px_-8px_rgba(139,35,35,0.12)] backdrop-blur-xl sm:rounded-[2rem] sm:p-8">
       {children}
     </div>
   );
