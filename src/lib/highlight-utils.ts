@@ -190,6 +190,16 @@ export function isPublicSelectedSermon(sermon: {
   return Boolean(sermon?.isFeatured) || isHighlightActive(sermon);
 }
 
+/** Sermons guests can watch: explicit public flag, featured, or active highlight. */
+export function isPublicSermon(sermon: {
+  visibleToGuests?: boolean;
+  isFeatured?: boolean;
+  showOnHighlight?: boolean;
+  highlightExpiresAt?: string | Date | null;
+}): boolean {
+  return Boolean(sermon?.visibleToGuests) || isPublicSelectedSermon(sermon);
+}
+
 export function isManualHighlightActive(item: FlipCardItem): boolean {
   if (item.highlightExpiresAt) {
     return new Date(item.highlightExpiresAt).getTime() > Date.now();

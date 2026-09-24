@@ -6,6 +6,8 @@ import { serverCache, CACHE_TTL } from '@/lib/cache';
 import { fetchGooglePhotosCover } from '@/lib/google-photos';
 import { notifyLiveIfNeeded, notifyMembers, takeSendNotificationFlag } from '@/lib/notify-members';
 import { lockLiveFrequency } from '@/lib/live-auto-checkers';
+import { isPublicSermon } from '@/lib/highlight-utils';
+import { applySeriesGuestVisibility, inheritSeriesGuestVisibility } from '@/lib/sermon-visibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,13 +19,13 @@ const models: any = {
   livestreams: LiveStream,
 };
 
-const PUBLIC_MEDIA_TYPES = new Set(['worship-videos']);
+const PUBLIC_MEDIA_TYPES = new Set(['worship-videos', 'sermons', 'sermon-series']);
 
 export async function GET(req: Request, { params }: { params: Promise<{ type: string }> }) {
   const { type } = await params;
-  if (!PUBLIC_MEDIA_TYPES.has(type)) {
-    const session = await requireAuth();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const session = await requireAuth();
+  if (!PUBLIC_MEDIA_TYPES.has(type) && !session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -31,21 +33,28 @@ export async function GET(req: Request, { params }: { params: Promise<{ type: st
     // Check in-memory cache first
     const cacheKey = `media:${type}`;
     const cached = serverCache.get(cacheKey);
-    if (cached) return NextResponse.json(cached);
+    let items = cached;
 
-    await connectToDatabase();
-    const Model = models[type];
+    if (!items) {
+      await connectToDatabase();
+      const Model = models[type];
 
-    if (!Model) {
-      return NextResponse.json({ error: 'Invalid media type' }, { status: 400 });
+      if (!Model) {
+        return NextResponse.json({ error: 'Invalid media type' }, { status: 400 });
+      }
+
+      // .lean() returns plain JS objects — 30-50% faster than full Mongoose documents
+      items = await Model.find({}).sort({ sortOrder: 1, createdAt: -1 }).lean();
+
+      // Use shorter TTL for livestreams since they're real-time
+      const ttl = type === 'livestreams' ? CACHE_TTL.LIVESTREAMS : CACHE_TTL.SERMONS;
+      serverCache.set(cacheKey, items, ttl, ['media']);
     }
 
-    // .lean() returns plain JS objects — 30-50% faster than full Mongoose documents
-    const items = await Model.find({}).sort({ sortOrder: 1, createdAt: -1 }).lean();
-
-    // Use shorter TTL for livestreams since they're real-time
-    const ttl = type === 'livestreams' ? CACHE_TTL.LIVESTREAMS : CACHE_TTL.SERMONS;
-    serverCache.set(cacheKey, items, ttl, ['media']);
+    // Guests only receive sermons marked public (or featured / highlight).
+    if (type === 'sermons' && !session) {
+      items = (Array.isArray(items) ? items : []).filter((s: any) => isPublicSermon(s));
+    }
 
     return NextResponse.json(items);
   } catch (error) {
@@ -69,6 +78,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
     const body = await req.json();
     const sendNotification = takeSendNotificationFlag(body);
     if (type === 'sermons' && !body.seriesId) body.seriesId = null;
+    if (type === 'sermons') await inheritSeriesGuestVisibility(body);
 
     // Enforce scope for models that support it
     if (type === 'gallery' || type === 'sermons') {
@@ -94,6 +104,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
     }
 
     const item = await Model.create(body);
+
+    if (type === 'sermon-series' && item) {
+      await applySeriesGuestVisibility(item._id.toString(), !!item.visibleToGuests);
+    }
 
     if (sendNotification) {
       if (type === 'sermons') {

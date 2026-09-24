@@ -181,6 +181,8 @@ export interface Sermon {
   targetGroups?: string[];
   excludeCampuses?: string[];
   excludeGroups?: string[];
+  /** When true, guests and unregistered visitors can watch this sermon. */
+  visibleToGuests?: boolean;
   showOnHighlight?: boolean;
   highlightDurationHours?: number;
   highlightExpiresAt?: string | null;
@@ -209,6 +211,8 @@ export interface SermonSeries {
   title: string;
   description: string;
   category: string;
+  /** When true, guests can see this series and its sermons. */
+  visibleToGuests?: boolean;
 }
 
 export interface FlipCardItem {

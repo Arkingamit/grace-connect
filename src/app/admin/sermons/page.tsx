@@ -91,6 +91,7 @@ export default function SermonManagementPage() {
     targetGroups: ['all'] as string[],
     excludeCampuses: [] as string[],
     excludeGroups: [] as string[],
+    visibleToGuests: false,
     ...DEFAULT_HIGHLIGHT_FIELDS,
     sendNotification: false,
   });
@@ -102,6 +103,7 @@ export default function SermonManagementPage() {
     title: '',
     description: '',
     category: 'Sunday Services',
+    visibleToGuests: false,
   });
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'sermon' | 'series', id: string } | null>(null);
@@ -259,11 +261,13 @@ export default function SermonManagementPage() {
       return;
     }
 
+    const series = sermonSeries.find((s) => s.id === sermonForm.seriesId);
     const sermonData = {
       ...sermonForm,
       pastor: pastorName,
       videoId,
       seriesId: sermonForm.seriesId || null,
+      visibleToGuests: !!(sermonForm.visibleToGuests || series?.visibleToGuests),
     };
 
     // Remove youtubeUrl as it's not in the model
@@ -360,6 +364,7 @@ export default function SermonManagementPage() {
       targetGroups: isGroupLeader ? [...currentUser.groups] : ['all'],
       excludeCampuses: [],
       excludeGroups: [],
+      visibleToGuests: false,
       ...DEFAULT_HIGHLIGHT_FIELDS,
       sendNotification: false,
     });
@@ -391,6 +396,7 @@ export default function SermonManagementPage() {
       targetGroups: nextGroups,
       excludeCampuses: campusLocked ? [] : (sermon.excludeCampuses || []),
       excludeGroups: sermon.excludeGroups || [],
+      visibleToGuests: !!sermon.visibleToGuests,
       showOnHighlight: !!sermon.showOnHighlight,
       highlightDurationHours: sermon.highlightDurationHours || 24,
       highlightExpiresAt: sermon.highlightExpiresAt || null,
@@ -406,13 +412,18 @@ export default function SermonManagementPage() {
 
   const openAddSeries = () => {
     setEditingSeriesId(null);
-    setSeriesForm({ title: '', description: '', category: 'Sunday Services' });
+    setSeriesForm({ title: '', description: '', category: 'Sunday Services', visibleToGuests: false });
     setSeriesDialogOpen(true);
   };
 
   const openEditSeries = (series: SermonSeries) => {
     setEditingSeriesId(series.id);
-    setSeriesForm(series);
+    setSeriesForm({
+      title: series.title,
+      description: series.description,
+      category: series.category || 'Sunday Services',
+      visibleToGuests: !!series.visibleToGuests,
+    });
     setSeriesDialogOpen(true);
   };
 
@@ -523,11 +534,18 @@ export default function SermonManagementPage() {
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
-                  {sermon.isFeatured && (
-                    <Badge className="absolute top-2 left-2 bg-amber-500 hover:bg-amber-600 border-0">
-                      Featured
-                    </Badge>
-                  )}
+                  <div className="absolute top-2 left-2 z-10 flex flex-col items-start gap-1">
+                    {sermon.isFeatured && (
+                      <Badge className="bg-amber-500 hover:bg-amber-600 border-0">
+                        Featured
+                      </Badge>
+                    )}
+                    {sermon.visibleToGuests && (
+                      <Badge className="bg-[#8B2323] hover:bg-[#721515] border-0">
+                        Everyone
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <CardContent className="p-4 space-y-3">
                   <div>
@@ -579,7 +597,12 @@ export default function SermonManagementPage() {
                       </Button>
                     </div>
                   </div>
-                  <CardTitle className="text-lg">{series.title}</CardTitle>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <CardTitle className="text-lg">{series.title}</CardTitle>
+                    {series.visibleToGuests && (
+                      <Badge className="bg-[#8B2323] hover:bg-[#721515] border-0 text-[10px]">Everyone</Badge>
+                    )}
+                  </div>
                   <CardDescription className="line-clamp-2">{series.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-0">
@@ -802,7 +825,15 @@ export default function SermonManagementPage() {
                         <Label htmlFor="series" className="text-[#3A2D27] font-semibold">Series / Playlist</Label>
                         <Select
                           value={sermonForm.seriesId || "none"}
-                          onValueChange={(value) => setSermonForm({ ...sermonForm, seriesId: value === "none" ? "" : value })}
+                          onValueChange={(value) => {
+                            const seriesId = value === "none" ? "" : value;
+                            const series = sermonSeries.find((s) => s.id === seriesId);
+                            setSermonForm({
+                              ...sermonForm,
+                              seriesId,
+                              visibleToGuests: series?.visibleToGuests ? true : sermonForm.visibleToGuests,
+                            });
+                          }}
                         >
                           <SelectTrigger
                             id="series"
@@ -974,6 +1005,30 @@ export default function SermonManagementPage() {
                       <Megaphone className="w-4 h-4 text-[#8B2323]" /> Audience Targeting
                     </h4>
                     <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Who can watch</Label>
+                      <div className="flex flex-wrap items-center gap-4">
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                          <Checkbox
+                            checked={!sermonForm.visibleToGuests}
+                            onCheckedChange={() => setSermonForm((f) => ({ ...f, visibleToGuests: false }))}
+                          />
+                          Registered members only
+                        </label>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                          <Checkbox
+                            checked={!!sermonForm.visibleToGuests}
+                            onCheckedChange={() => setSermonForm((f) => ({ ...f, visibleToGuests: true }))}
+                          />
+                          Everyone (registered or not)
+                        </label>
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        {sermonForm.visibleToGuests
+                          ? 'This sermon appears on the Sermons page even if someone is not signed in.'
+                          : 'Only signed-in, approved members who match the campus and group targeting below can watch this sermon.'}
+                      </p>
+                    </div>
+                    <div className="space-y-2 pt-2 border-t border-[#E5D5C5]/50">
                       <Label className="text-xs text-muted-foreground">Broadcast to Campuses</Label>
                       {isCampusLeader && (
                         <p className="text-[10px] text-amber-500">Campus Pastor: restricted to {campuses.find(c => c.id === currentUser.campusId)?.name}</p>
@@ -1180,6 +1235,30 @@ export default function SermonManagementPage() {
                   value={seriesForm.description}
                   onChange={(e) => setSeriesForm({ ...seriesForm, description: e.target.value })}
                 />
+              </div>
+              <div className="space-y-2 pt-2 border-t border-[#E5D5C5]/50">
+                <Label className="text-xs text-muted-foreground">Who can watch</Label>
+                <div className="flex flex-wrap items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={!seriesForm.visibleToGuests}
+                      onCheckedChange={() => setSeriesForm((f) => ({ ...f, visibleToGuests: false }))}
+                    />
+                    Registered members only
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={!!seriesForm.visibleToGuests}
+                      onCheckedChange={() => setSeriesForm((f) => ({ ...f, visibleToGuests: true }))}
+                    />
+                    Everyone (registered or not)
+                  </label>
+                </div>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  {seriesForm.visibleToGuests
+                    ? 'This series and all of its sermons will appear on the Sermons page even if someone is not signed in.'
+                    : 'Only signed-in, approved members can see this series and its sermons.'}
+                </p>
               </div>
             </div>
             <div className="mt-5 flex flex-col gap-2">

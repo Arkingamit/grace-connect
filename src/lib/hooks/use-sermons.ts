@@ -25,6 +25,14 @@ export function useSermons() {
     if (res.ok) {
       const updated = await res.json();
       setSermonSeries(prev => prev.map(series => series.id === id ? mapId(updated) : series));
+      if (typeof s.visibleToGuests === 'boolean') {
+        setSermons((prev) => prev.map((sermon) => {
+          const seriesId = String(sermon.seriesId || '');
+          return seriesId === id || seriesId === String(updated._id || '')
+            ? { ...sermon, visibleToGuests: !!s.visibleToGuests }
+            : sermon;
+        }));
+      }
     }
   }, []);
 

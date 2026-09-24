@@ -6,6 +6,7 @@ import { serverCache } from '@/lib/cache';
 import { fetchGooglePhotosCover } from '@/lib/google-photos';
 import { notifyLiveIfNeeded, takeSendNotificationFlag } from '@/lib/notify-members';
 import { lockLiveFrequency } from '@/lib/live-auto-checkers';
+import { applySeriesGuestVisibility, inheritSeriesGuestVisibility } from '@/lib/sermon-visibility';
 
 const models: any = {
   sermons: Sermon,
@@ -31,6 +32,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ type: st
     const body = await req.json();
     takeSendNotificationFlag(body);
     if (type === 'sermons' && !body.seriesId) body.seriesId = null;
+    if (type === 'sermons') await inheritSeriesGuestVisibility(body);
 
     // Verify existing item scope
     const existingItem = await Model.findById(id);
@@ -72,6 +74,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ type: st
 
     const wasLive = type === 'livestreams' ? !!existingItem.isLive : false;
     const item = await Model.findByIdAndUpdate(id, body, { new: true });
+
+    if (type === 'sermon-series' && item) {
+      await applySeriesGuestVisibility(id, !!item.visibleToGuests);
+    }
 
     if (type === 'livestreams' && item) {
       const notifiedFor = await notifyLiveIfNeeded(

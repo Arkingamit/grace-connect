@@ -25,7 +25,7 @@ import {
   LiveStream,
   UserProfile,
 } from '@/lib/types';
-import { isPublicSelectedSermon } from '@/lib/highlight-utils';
+import { isPublicSermon } from '@/lib/highlight-utils';
 
 export type {
   UserRole,
@@ -584,8 +584,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
   const getVisibleGalleryAlbums = useCallback((cId: string, grps: string[], r?: string) => galleryAlbums.filter(a => checkVisibility(a, cId, grps, r)), [galleryAlbums]);
   const getVisibleSermons = useCallback((cId: string, grps: string[], r?: string) => sermons.filter(s => {
     if (checkVisibility(s, cId, grps, r)) return true;
-    // Featured / Highlights sermons stay public for guests
-    if (!r || r === 'guest') return isPublicSelectedSermon(s);
+    if (!r || r === 'guest') return isPublicSermon(s);
     return false;
   }), [sermons]);
   const getVisibleBroadcasts = useCallback((cId: string, grps: string[], r?: string) => broadcasts.filter(b => checkVisibility(b, cId, grps, r)), [broadcasts]);

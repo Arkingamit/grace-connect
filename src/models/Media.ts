@@ -4,11 +4,13 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 export interface ISermonSeries extends Document {
   title: string;
   description: string;
+  visibleToGuests?: boolean;
 }
 
 const SermonSeriesSchema = new Schema<ISermonSeries>({
   title: { type: String, required: true },
   description: { type: String, default: '' },
+  visibleToGuests: { type: Boolean, default: false },
 }, { timestamps: true });
 
 export const SermonSeries: Model<ISermonSeries> = mongoose.models.SermonSeries || mongoose.model<ISermonSeries>('SermonSeries', SermonSeriesSchema);
@@ -31,6 +33,7 @@ export interface ISermon extends Document {
   targetGroups: string[];
   excludeCampuses?: string[];
   excludeGroups?: string[];
+  visibleToGuests?: boolean;
   showOnHighlight?: boolean;
   highlightDurationHours?: number;
   highlightExpiresAt?: string | null;
@@ -57,6 +60,7 @@ const SermonSchema = new Schema<ISermon>({
   targetGroups: [{ type: String }],
   excludeCampuses: [{ type: String }],
   excludeGroups: [{ type: String }],
+  visibleToGuests: { type: Boolean, default: false },
   showOnHighlight: { type: Boolean, default: false },
   highlightDurationHours: { type: Number, default: 24 },
   highlightExpiresAt: { type: String, default: null },
