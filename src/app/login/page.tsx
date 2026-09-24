@@ -191,20 +191,24 @@ export default function LoginPage() {
     [handleVerifyResult, verifyOrLogin]
   );
 
-  const handleGoogleError = (err?: { type?: string }) => {
-    if (!err || err.type === "popup_closed") {
-      setCanceledProvider("Google");
-      setCanceledOpen(true);
-      return;
-    }
-    setError("Google authentication failed. Please try again.");
-  };
-
   const startWebGoogleLogin = useGoogleLogin({
     onSuccess: (tokenResponse) => {
       void handleGoogleAccessToken(tokenResponse.access_token);
     },
-    onError: handleGoogleError,
+    onError: (errorResponse) => {
+      if (!errorResponse?.error || /popup_closed|access_denied|cancel/i.test(errorResponse.error)) {
+        setCanceledProvider("Google");
+        setCanceledOpen(true);
+        return;
+      }
+      setError("Google authentication failed. Please try again.");
+    },
+    onNonOAuthError: (error) => {
+      if (error.type === "popup_closed") {
+        setCanceledProvider("Google");
+        setCanceledOpen(true);
+      }
+    },
     scope: "openid email profile",
     prompt: "select_account",
   });

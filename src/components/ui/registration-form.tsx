@@ -486,13 +486,9 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
     }
   };
 
-  const handleGoogleError = (err?: { type?: string }) => {
-    if (!err || err.type === 'popup_closed') {
-      setCanceledProvider('Google');
-      setCanceledOpen(true);
-      return;
-    }
-    setError('Google authentication failed. Please try again.');
+  const handleGoogleError = () => {
+    setCanceledProvider('Google');
+    setCanceledOpen(true);
   };
 
   // ── Block access if no campus is locked (QR flow) ──
