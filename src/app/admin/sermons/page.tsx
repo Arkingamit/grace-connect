@@ -16,8 +16,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { HighlightPublishOptions } from '@/components/admin/highlight-publish-options';
 import { DEFAULT_HIGHLIGHT_FIELDS, withHighlightExpiry } from '@/lib/highlight-utils';
 import { extractYoutubeVideoId, youtubeThumbnailUrl } from '@/lib/youtube';
@@ -37,6 +38,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  ChevronsUpDown,
   GripVertical,
   Link,
   FileText,
@@ -48,7 +50,16 @@ import {
   Loader2,
 } from 'lucide-react';
 
-const NEW_PASTOR_VALUE = '__new_pastor__';
+function splitPastorNames(value: string): string[] {
+  return String(value || '')
+    .split(/[,;&/]+/)
+    .map((name) => name.trim())
+    .filter(Boolean);
+}
+
+function joinPastorNames(names: string[]): string {
+  return Array.from(new Set(names.map((name) => name.trim()).filter(Boolean))).join(', ');
+}
 
 export default function SermonManagementPage() {
   const { 
@@ -99,6 +110,8 @@ export default function SermonManagementPage() {
   const [groupMode, setGroupMode] = useState<'all'|'specific'>('all');
   const [fetchingYoutube, setFetchingYoutube] = useState(false);
   const [addingPastor, setAddingPastor] = useState(false);
+  const [newPastorDraft, setNewPastorDraft] = useState('');
+  const [pastorMenuOpen, setPastorMenuOpen] = useState(false);
   const youtubeFetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFetchedVideoId = useRef<string | null>(null);
   const isCampusLeader = currentUser?.role === 'campus_leader';
@@ -186,18 +199,22 @@ export default function SermonManagementPage() {
       const pastorFromYoutube = typeof meta.artist === "string" && /pastor/i.test(meta.artist)
         ? meta.artist
         : null;
-      if (pastorFromYoutube) {
-        setAddingPastor(!pastorOptions.includes(pastorFromYoutube));
-      }
-      setSermonForm((prev) => ({
-        ...prev,
-        title: meta.title || prev.title,
-        duration: meta.durationLabel || prev.duration,
-        date: meta.dateLabel || prev.date,
-        description: meta.description || prev.description,
-        pastor: pastorFromYoutube || prev.pastor,
-        videoId,
-      }));
+      setSermonForm((prev) => {
+        const incoming = pastorFromYoutube ? splitPastorNames(pastorFromYoutube) : [];
+        const current = splitPastorNames(prev.pastor);
+        const merged = incoming.reduce((list, name) => (
+          list.some((existing) => existing.toLowerCase() === name.toLowerCase()) ? list : [...list, name]
+        ), current);
+        return {
+          ...prev,
+          title: meta.title || prev.title,
+          duration: meta.durationLabel || prev.duration,
+          date: meta.dateLabel || prev.date,
+          description: meta.description || prev.description,
+          pastor: joinPastorNames(merged),
+          videoId,
+        };
+      });
     } catch (err) {
       console.error("Failed to auto-fetch sermon details from YouTube:", err);
     } finally {
@@ -261,13 +278,32 @@ export default function SermonManagementPage() {
 
   const pastorOptions = Array.from(new Set(
     [
-      ...sermons.map(s => s.pastor),
-      ...campuses.map(c => c.pastor),
-      ...(!addingPastor && sermonForm.pastor ? [sermonForm.pastor] : []),
+      ...sermons.flatMap((s) => splitPastorNames(s.pastor)),
+      ...campuses.flatMap((c) => splitPastorNames(c.pastor)),
+      ...splitPastorNames(sermonForm.pastor),
     ]
-      .map(name => (name || '').trim())
-      .filter(Boolean)
   )).sort((a, b) => a.localeCompare(b));
+
+  const selectedPastors = splitPastorNames(sermonForm.pastor);
+
+  const togglePastor = (name: string) => {
+    const exists = selectedPastors.some((pastor) => pastor.toLowerCase() === name.toLowerCase());
+    const next = exists
+      ? selectedPastors.filter((pastor) => pastor.toLowerCase() !== name.toLowerCase())
+      : [...selectedPastors, name];
+    setSermonForm({ ...sermonForm, pastor: joinPastorNames(next) });
+  };
+
+  const commitNewPastor = () => {
+    const name = newPastorDraft.trim();
+    if (!name) return;
+    const next = selectedPastors.some((pastor) => pastor.toLowerCase() === name.toLowerCase())
+      ? selectedPastors
+      : [...selectedPastors, name];
+    setSermonForm({ ...sermonForm, pastor: joinPastorNames(next) });
+    setNewPastorDraft('');
+    setAddingPastor(false);
+  };
 
   const defaultPastor = () => {
     if (pastorOptions.includes('Pastor Geo')) return 'Pastor Geo';
@@ -279,7 +315,9 @@ export default function SermonManagementPage() {
     setSermonFormStep('basics');
     lastFetchedVideoId.current = null;
     const pastor = defaultPastor();
-    setAddingPastor(!pastor);
+    setAddingPastor(false);
+    setNewPastorDraft('');
+    setPastorMenuOpen(false);
     setSermonForm({
       title: '',
       pastor,
@@ -333,7 +371,9 @@ export default function SermonManagementPage() {
     });
     setCampusModeState((sermon.targetCampuses || []).includes('all') ? 'all' : 'specific');
     setGroupMode(isFas ? 'specific' : ((sermon.targetGroups || []).includes('all') ? 'all' : 'specific'));
-    setAddingPastor(!(sermon.pastor || '').trim());
+    setAddingPastor(false);
+    setNewPastorDraft('');
+    setPastorMenuOpen(false);
     setSermonDialogOpen(true);
   };
 
@@ -642,45 +682,69 @@ export default function SermonManagementPage() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="pastor" className="text-[#3A2D27] font-semibold">Pastor *</Label>
-                        <Select
-                          value={addingPastor ? NEW_PASTOR_VALUE : (sermonForm.pastor || undefined)}
-                          onValueChange={(value) => {
-                            if (value === NEW_PASTOR_VALUE) {
-                              setAddingPastor(true);
-                              setSermonForm({ ...sermonForm, pastor: '' });
-                            } else {
-                              setAddingPastor(false);
-                              setSermonForm({ ...sermonForm, pastor: value });
-                            }
-                          }}
-                        >
-                          <SelectTrigger
-                            id="pastor"
-                            className="h-11 w-full rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 px-3 text-sm shadow-none focus:ring-[#8B2323]"
+                        <p className="text-[10px] text-muted-foreground">Check every pastor who preached this sermon.</p>
+                        <Popover open={pastorMenuOpen} onOpenChange={setPastorMenuOpen}>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              id="pastor"
+                              className="flex h-11 w-full items-center justify-between rounded-xl border border-[#E5D5C5]/60 bg-[#FAF7F2] px-3 text-left text-sm shadow-none outline-none focus-visible:ring-2 focus-visible:ring-[#8B2323]"
+                            >
+                              <span className={selectedPastors.length ? "truncate text-[#1A202C]" : "text-muted-foreground"}>
+                                {selectedPastors.length ? selectedPastors.join(', ') : 'Select pastors'}
+                              </span>
+                              <ChevronsUpDown className="h-4 w-4 shrink-0 text-[#7A6150]" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            align="start"
+                            className="z-[80] w-[var(--radix-popover-trigger-width)] rounded-xl border-[#E5D5C5]/70 bg-white p-2"
                           >
-                            <SelectValue placeholder="Select a pastor" />
-                          </SelectTrigger>
-                          <SelectContent className="z-[80] rounded-xl border-[#E5D5C5]/70 bg-white">
-                            {pastorOptions.map((name) => (
-                              <SelectItem key={name} value={name} className="rounded-lg pl-8">
-                                {name}
-                              </SelectItem>
-                            ))}
-                            <SelectSeparator className="bg-[#E5D5C5]/70" />
-                            <SelectItem value={NEW_PASTOR_VALUE} className="rounded-lg pl-8 font-semibold text-[#8B2323]">
+                            <div className="max-h-56 space-y-0.5 overflow-y-auto">
+                              {pastorOptions.map((name) => {
+                                const checked = selectedPastors.some((pastor) => pastor.toLowerCase() === name.toLowerCase());
+                                return (
+                                  <label
+                                    key={name}
+                                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-[#FAF7F2]"
+                                  >
+                                    <Checkbox
+                                      checked={checked}
+                                      onCheckedChange={() => togglePastor(name)}
+                                    />
+                                    <span>{name}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                            <button
+                              type="button"
+                              className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-sm font-semibold text-[#8B2323] hover:bg-[#FAF7F2]"
+                              onClick={() => setAddingPastor(true)}
+                            >
                               + Add new pastor
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                            </button>
+                          </PopoverContent>
+                        </Popover>
                         {addingPastor && (
-                          <Input
-                            autoFocus
-                            className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60"
-                            placeholder="Enter new pastor name"
-                            value={sermonForm.pastor}
-                            onChange={(e) => setSermonForm({ ...sermonForm, pastor: e.target.value })}
-                            required
-                          />
+                          <div className="flex gap-2">
+                            <Input
+                              autoFocus
+                              className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60"
+                              placeholder="Enter new pastor name"
+                              value={newPastorDraft}
+                              onChange={(e) => setNewPastorDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  commitNewPastor();
+                                }
+                              }}
+                            />
+                            <Button type="button" className="h-11 rounded-xl" onClick={commitNewPastor}>
+                              Add
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </div>
