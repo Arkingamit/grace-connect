@@ -35,14 +35,19 @@ final class MaintenanceNavigationProxy: NSObject, WKNavigationDelegate {
     ) {
         if navigationResponse.isForMainFrame,
            let http = navigationResponse.response as? HTTPURLResponse,
-           http.statusCode >= 500,
            let url = http.url,
            !url.absoluteString.contains("maintenance.html") {
-            lastFailedURL = url.absoluteString
-            lastReason = networkSatisfied ? "maintenance" : "offline"
-            decisionHandler(.cancel)
-            loadMaintenance(in: webView)
-            return
+            if (400..<500).contains(http.statusCode) {
+                decisionHandler(.allow)
+                return
+            }
+            if http.statusCode >= 500 {
+                lastFailedURL = url.absoluteString
+                lastReason = networkSatisfied ? "maintenance" : "offline"
+                decisionHandler(.cancel)
+                loadMaintenance(in: webView)
+                return
+            }
         }
         decisionHandler(.allow)
     }
@@ -81,6 +86,7 @@ final class MaintenanceNavigationProxy: NSObject, WKNavigationDelegate {
         let nsError = error as NSError
         if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled { return false }
         if nsError.domain == "WebKitErrorDomain" && nsError.code == 102 { return false }
+        if isClientHttpError(nsError) { return false }
         if webView.url?.absoluteString.contains("maintenance.html") == true { return true }
 
         lastFailedURL = (nsError.userInfo[NSURLErrorFailingURLStringErrorKey] as? String)
@@ -88,6 +94,21 @@ final class MaintenanceNavigationProxy: NSObject, WKNavigationDelegate {
         lastReason = isOfflineError(nsError) || !networkSatisfied ? "offline" : "maintenance"
         loadMaintenance(in: webView)
         return true
+    }
+
+    private func isClientHttpError(_ error: NSError) -> Bool {
+        let missingPageCodes: Set<Int> = [
+            NSURLErrorFileDoesNotExist,
+            NSURLErrorFileIsDirectory,
+            NSURLErrorBadURL
+        ]
+        if error.domain == NSURLErrorDomain && missingPageCodes.contains(error.code) {
+            return true
+        }
+        if let status = error.userInfo["NSHTTPURLResponseStatusCode"] as? Int {
+            return (400..<500).contains(status)
+        }
+        return false
     }
 
     private func isOfflineError(_ error: NSError) -> Bool {

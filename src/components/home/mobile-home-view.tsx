@@ -33,6 +33,8 @@ import { ViewRegistrationPassButton, PendingMemberEpass } from '@/components/ui/
 import { getMapsUrl, onOpenMaps } from '@/lib/maps';
 import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
 import { formatDDMMYYYY } from '@/lib/date-utils';
+import { EventRSVPModal } from '@/components/ui/events-section';
+import type { Event } from '@/lib/admin-data-context';
 const christianIcons = [
   // Cross
   <svg key="cross" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-primary animate-pulse"><path d="M12 3v18M8 8h8" /></svg>,
@@ -463,6 +465,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
   }, [isApprovedMember]);
 
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
+  const [rsvpEvent, setRsvpEvent] = useState<Event | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const [headerVisible, setHeaderVisible] = useState(true);
   const lastScrollY = useRef(0);
@@ -1058,9 +1061,16 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                   <span className="text-[10px] uppercase tracking-wider font-bold text-[#8B2323]/90">
                                     Open Registration
                                   </span>
-                                  <Link href={`/events/${event.id}`} className="h-7 flex items-center justify-center text-[11px] rounded-xl px-2.5 bg-[#8B2323] hover:bg-[#721515] text-white font-medium" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    className="h-7 flex items-center justify-center text-[11px] rounded-xl px-2.5 bg-[#8B2323] hover:bg-[#721515] text-white font-medium"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setRsvpEvent(event);
+                                    }}
+                                  >
                                     RSVP <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                                  </Link>
+                                  </button>
                                 </ExpandableCardFooter>
                               </ExpandableContent>
                             </ExpandableCard>
@@ -1401,9 +1411,16 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                         <span className="text-[10px] font-medium text-[#16a34a]">
                                           Open Registration
                                         </span>
-                                        <Link href={`/events/${event.id}`} className="h-8 flex items-center justify-center text-xs rounded-xl px-4 bg-[#8B2323] hover:bg-[#721515] text-white font-medium" onClick={(e) => e.stopPropagation()}>
+                                        <button
+                                          type="button"
+                                          className="h-8 flex items-center justify-center text-xs rounded-xl px-4 bg-[#8B2323] hover:bg-[#721515] text-white font-medium"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setRsvpEvent(event);
+                                          }}
+                                        >
                                           RSVP <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                                        </Link>
+                                        </button>
                                       </ExpandableCardFooter>
                                     </ExpandableContent>
                                   </ExpandableCard>
@@ -1531,6 +1548,9 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
             </>
           )}</div>
       </div>
+      {rsvpEvent && (
+        <EventRSVPModal event={rsvpEvent} onClose={() => setRsvpEvent(null)} />
+      )}
     </React.Fragment>
   );
 }

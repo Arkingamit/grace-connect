@@ -9,6 +9,7 @@ import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeWebViewClient;
@@ -17,8 +18,9 @@ import com.getcapacitor.BridgeWebViewClient;
  * Shows the bundled maintenance page instead of nginx "502 Bad Gateway" (or the
  * WebView's own "page not available") when the live site cannot be reached.
  *
- * Only main-frame network failures and 5xx responses are intercepted, so normal
- * Next.js 404 / 401 pages keep rendering as-is.
+ * Only main-frame network failures and 5xx responses are intercepted.
+ * 404 / 401 / 403 must render the real page — Capacitor's errorPath would
+ * otherwise replace them with maintenance.html.
  */
 public class MaintenanceWebViewClient extends BridgeWebViewClient {
 
@@ -78,8 +80,22 @@ public class MaintenanceWebViewClient extends BridgeWebViewClient {
         view.post(() -> view.loadUrl(maintenanceUrl(reason)));
     }
 
+    private boolean isClientHttpStatus(int status) {
+        return status >= 400 && status < 500;
+    }
+
+    private boolean isMissingPageError(WebResourceError error) {
+        if (error == null) return false;
+        int code = error.getErrorCode();
+        return code == WebViewClient.ERROR_FILE_NOT_FOUND
+            || code == WebViewClient.ERROR_BAD_URL;
+    }
+
     @Override
     public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+        if (request.isForMainFrame() && isMissingPageError(error)) {
+            return;
+        }
         super.onReceivedError(view, request, error);
         if (request.isForMainFrame()) {
             showMaintenance(view, request, isOfflineError() ? "offline" : "maintenance");
@@ -88,8 +104,12 @@ public class MaintenanceWebViewClient extends BridgeWebViewClient {
 
     @Override
     public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+        int status = errorResponse != null ? errorResponse.getStatusCode() : 0;
+        if (request.isForMainFrame() && isClientHttpStatus(status)) {
+            return;
+        }
         super.onReceivedHttpError(view, request, errorResponse);
-        if (request.isForMainFrame() && errorResponse != null && errorResponse.getStatusCode() >= 500) {
+        if (request.isForMainFrame() && status >= 500) {
             showMaintenance(view, request, isNetworkAvailable() ? "maintenance" : "offline");
         }
     }

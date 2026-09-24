@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAdminData, type Event } from '@/lib/admin-data-context';
 import { useAuth } from '@/lib/auth-context';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -937,9 +938,15 @@ function EventsWidgetLayout() {
   );
 };
 
+function matchEventId(event: Event, id: string) {
+  return event.id === id || event._id === id || String(event._id) === id;
+}
+
 function EventsPageLayout() {
   const { events, eventRegistrations, currentUser, getVisibleEvents } = useAdminData();
   const { getSessionMember, getEffectiveGroups } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [albumEvent, setAlbumEvent] = useState<Event | null>(null);
   const [rsvpEvent, setRsvpEvent] = useState<Event | null>(null);
 
@@ -968,6 +975,21 @@ function EventsPageLayout() {
 
     return getVisibleEvents(sessionMember.campusId || 'all', userGroups, sessionMember.role);
   }, [getSessionMember, getEffectiveGroups, getVisibleEvents]);
+
+  useEffect(() => {
+    const rsvpId = searchParams.get('rsvp');
+    if (!rsvpId) return;
+    const match = events.find((event) => matchEventId(event, rsvpId))
+      || visibleEvents.find((event) => matchEventId(event, rsvpId));
+    if (match) setRsvpEvent(match);
+  }, [searchParams, events, visibleEvents]);
+
+  const closeRsvp = () => {
+    setRsvpEvent(null);
+    if (searchParams.get('rsvp')) {
+      router.replace('/events');
+    }
+  };
 
   return (
     <div className="w-full pb-12">
@@ -999,7 +1021,7 @@ function EventsPageLayout() {
       )}
 
       {rsvpEvent && (
-        <EventRSVPModal event={rsvpEvent} onClose={() => setRsvpEvent(null)} />
+        <EventRSVPModal event={rsvpEvent} onClose={closeRsvp} />
       )}
     </div>
   );

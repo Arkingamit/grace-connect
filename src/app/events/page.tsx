@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { EventsSection } from "@/components/ui/events-section";
@@ -22,7 +22,9 @@ export default function EventsPage() {
       </div>
       <div className="px-4 md:px-0">
         <AuthGate title="Events" showBack={false}>
-          <EventsSection variant="page" />
+          <Suspense fallback={null}>
+            <EventsSection variant="page" />
+          </Suspense>
         </AuthGate>
       </div>
     </div>
