@@ -1,18 +1,11 @@
-import type { LiveAutoChecker, LiveStream } from '@/lib/types';
+import type { LiveAutoChecker } from '@/lib/types';
 
 export type { LiveAutoChecker };
 
-type AutoCheckerSource = {
-  autoCheckers?: LiveAutoChecker[] | null;
-  isAutoEnabled?: boolean;
-  youtubeChannelId?: string;
-  recurrencePattern?: LiveStream['recurrencePattern'];
-  recurrenceDay?: string;
-  recurrenceWeekOfMonth?: string;
-  time?: string;
-  checkIntervalSeconds?: number;
-  checkWindowMinutes?: number;
-};
+function asRecurrence(value?: string): LiveAutoChecker['recurrencePattern'] {
+  if (value === 'custom_monthly' || value === 'custom' || value === 'weekly') return value;
+  return 'weekly';
+}
 
 function makeId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -34,13 +27,14 @@ export function newAutoChecker(partial: Partial<LiveAutoChecker> = {}): LiveAuto
     checkIntervalSeconds: 30,
     checkWindowMinutes: 30,
     ...partial,
+    recurrencePattern: asRecurrence(partial.recurrencePattern),
   };
 }
 
 /** Prefer the new list; fall back to the old single-checker fields. */
-export function getAutoCheckers(stream?: AutoCheckerSource | null): LiveAutoChecker[] {
+export function getAutoCheckers(stream?: any): LiveAutoChecker[] {
   if (Array.isArray(stream?.autoCheckers) && stream.autoCheckers.length > 0) {
-    return stream.autoCheckers.map((checker) => newAutoChecker(checker));
+    return stream.autoCheckers.map((checker: Partial<LiveAutoChecker>) => newAutoChecker(checker));
   }
 
   if (stream?.isAutoEnabled || stream?.youtubeChannelId) {
