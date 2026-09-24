@@ -4,6 +4,7 @@ import PrayerRequest from '@/models/PrayerRequest';
 import User from '@/models/User';
 import { verifySession } from '@/lib/auth-utils';
 import { prayerRequestSchema } from '@/lib/validations';
+import { FIELD_LIMITS, PRAYER_FIELD_LIMITS } from '@/lib/field-limits';
 
 export async function GET(req: Request) {
   try {
@@ -83,12 +84,12 @@ export async function POST(req: Request) {
     }
 
     const prayer = await PrayerRequest.create({
-      title: data.title,
-      content: data.content,
+      title: data.title.slice(0, PRAYER_FIELD_LIMITS.title),
+      content: data.content.slice(0, PRAYER_FIELD_LIMITS.content),
       isAnonymous: !!data.isAnonymous,
       privacy: data.privacy || 'public',
       category: data.category || 'General',
-      authorName,
+      authorName: String(authorName).slice(0, FIELD_LIMITS.name),
       authorId,
       campusId,
       status: 'pending',

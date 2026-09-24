@@ -343,14 +343,15 @@ export function useKeyboardAwareDialogPosition(enabled: boolean): {
     if (!lifted) return undefined;
     const pad = 12;
     const top = viewportBox.top + pad;
-    const maxHeight = Math.max(180, viewportBox.height - pad * 2);
+    const overlay = keyboardPadBeyondViewport(viewportBox, keyboardInset);
+    const maxHeight = Math.max(180, viewportBox.height - pad * 2 - overlay);
     return {
       top: `${top}px`,
       transform: "translateX(-50%)",
       maxHeight: `${maxHeight}px`,
       overflowY: "auto" as const,
     };
-  }, [lifted, viewportBox.top, viewportBox.height]);
+  }, [lifted, viewportBox, keyboardInset]);
 
   return { style, lifted };
 }

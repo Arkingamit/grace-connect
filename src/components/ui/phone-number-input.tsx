@@ -9,6 +9,7 @@ import {
   formatPhoneNumber,
   selectPhoneFromContacts,
 } from "@/lib/phone";
+import { FIELD_LIMITS } from "@/lib/field-limits";
 
 type PhoneNumberInputProps = {
   id: string;
@@ -51,6 +52,7 @@ export function PhoneNumberInput({
         enterKeyHint="next"
         required={required}
         value={value}
+        maxLength={FIELD_LIMITS.phone}
         placeholder={placeholder}
         onChange={(e) => onChange(formatPhoneNumber(e.target.value))}
         onBlur={(e) => onChange(formatPhoneNumber(e.target.value))}

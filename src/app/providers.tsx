@@ -16,6 +16,7 @@ import { NavigationHistoryProvider } from "@/components/ui/navigation-history-pr
 import { NativePermissionGate } from "@/components/ui/native-permission-gate";
 import { NativeDeepLink } from "@/components/ui/native-deep-link";
 import { ConnectivityGate } from "@/components/ui/connectivity-gate";
+import { FormRateLimitGuard } from "@/components/ui/form-rate-limit-guard";
 
 // QueryClient created OUTSIDE the component to prevent recreation on re-render
 const queryClient = new QueryClient({
@@ -51,6 +52,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
+                <FormRateLimitGuard />
                 <NotificationProvider>
                   <ConnectivityGate />
                   <NativePermissionGate />

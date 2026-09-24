@@ -29,6 +29,11 @@ import {
   type EventRegistrationPass,
 } from '@/lib/event-registration-pass';
 import { formatDDMMYYYY } from '@/lib/date-utils';
+import { EVENT_FIELD_LIMITS, FIELD_LIMITS, clampEventResponses, eventAnswerLimit } from '@/lib/field-limits';
+import { useKeyboardAwareDialogPosition } from '@/hooks/useKeyboardInset';
+import { cn } from '@/lib/utils';
+import { Capacitor } from '@capacitor/core';
+import { Keyboard } from '@capacitor/keyboard';
 
 function EventLocationLink({
   location,
@@ -225,24 +230,48 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [viewingPass, setViewingPass] = useState(false);
   const [eventPass, setEventPass] = useState<EventRegistrationPass | null>(null);
+  const dialogPosition = useKeyboardAwareDialogPosition(true);
 
   useEffect(() => {
     setEventPass(loadEventRegistrationPass(event.id));
   }, [event.id]);
 
-  // Keep focused RSVP fields visible above the Android soft keyboard.
+  // Keep the focused RSVP field above the iOS/Android keyboard.
   useEffect(() => {
-    const onFocusIn = (e: FocusEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      const tag = target.tagName;
-      if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") return;
+    const isField = (el: Element | null): el is HTMLElement => {
+      if (!el) return false;
+      const tag = (el as HTMLElement).tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+    };
+
+    const scrollFieldIntoView = (target: HTMLElement) => {
       window.setTimeout(() => {
         target.scrollIntoView({ block: "center", behavior: "smooth" });
-      }, 280);
+      }, Capacitor.getPlatform() === "ios" ? 360 : 280);
     };
+
+    const onFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!isField(target)) return;
+      scrollFieldIntoView(target);
+    };
+
     document.addEventListener("focusin", onFocusIn);
-    return () => document.removeEventListener("focusin", onFocusIn);
+
+    const removals: Array<() => void> = [];
+    if (Capacitor.isNativePlatform()) {
+      Keyboard.addListener("keyboardDidShow", () => {
+        const active = document.activeElement;
+        if (isField(active)) scrollFieldIntoView(active);
+      }).then((handle) => {
+        removals.push(() => handle.remove());
+      });
+    }
+
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      removals.forEach((remove) => remove());
+    };
   }, []);
 
   const extraFieldsFromResponses = (resps: Record<string, string | string[]>) =>
@@ -284,10 +313,14 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
     });
   };
 
-  const handleInputChange = (fieldId: string, value: string | string[]) => {
+  const handleInputChange = (fieldId: string, value: string | string[], type?: string) => {
     setErrorMsg('');
     setFieldErrors(prev => ({ ...prev, [fieldId]: '' }));
-    setResponses(prev => ({ ...prev, [fieldId]: value }));
+    const max = eventAnswerLimit(type);
+    const next = Array.isArray(value)
+      ? value.map((item) => String(item).slice(0, max))
+      : String(value).slice(0, max);
+    setResponses(prev => ({ ...prev, [fieldId]: next }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -324,18 +357,19 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
     setSubmitting(true);
     setTimeout(async () => {
       try {
+        const limitedResponses = clampEventResponses(responses, event.formFields);
         if (existingReg) {
           await updateEventRegistration(existingReg.id, {
-            userName: name,
-            userEmail: email,
-            responses,
+            userName: name.slice(0, FIELD_LIMITS.name),
+            userEmail: email.slice(0, FIELD_LIMITS.email),
+            responses: limitedResponses,
           });
         } else {
           await addEventRegistration({
             eventId: event.id,
-            userName: name,
-            userEmail: email,
-            responses,
+            userName: name.slice(0, FIELD_LIMITS.name),
+            userEmail: email.slice(0, FIELD_LIMITS.email),
+            responses: limitedResponses,
           });
         }
         buildAndSavePass(responses);
@@ -387,14 +421,25 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
   return (
     <>
     <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl max-h-[min(90dvh,90%)] overflow-y-auto overscroll-contain">
-        <DialogHeader>
-          <DialogTitle>RSVP: {event.title}</DialogTitle>
+      <DialogContent
+        data-keep-keyboard
+        style={dialogPosition.style}
+        className={cn(
+          "max-w-xl w-[calc(100%-1.5rem)] min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-6",
+          dialogPosition.lifted
+            ? "max-sm:top-auto max-sm:translate-y-0 max-sm:max-h-none"
+            : "max-h-[min(90dvh,90%)]",
+        )}
+      >
+        <DialogHeader className="min-w-0 text-left">
+          <DialogTitle className="pr-8 break-words text-left leading-snug">RSVP: {event.title}</DialogTitle>
         </DialogHeader>
-        <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4 bg-muted/30 p-3 rounded-lg">
-          <div className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {formatDDMMYYYY(event.date)}</div>
-          <div className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {event.time}</div>
-          <div className="flex items-center gap-1 min-w-0 flex-1">
+        <div className="mb-4 flex min-w-0 flex-col gap-2 rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div className="flex items-center gap-1 shrink-0"><Calendar className="w-3.5 h-3.5" /> {formatDDMMYYYY(event.date)}</div>
+            <div className="flex items-center gap-1 shrink-0"><Clock className="w-3.5 h-3.5" /> {event.time}</div>
+          </div>
+          <div className="min-w-0 w-full">
             <EventLocationLink
               location={event.location}
               mapUrl={event.mapUrl}
@@ -405,44 +450,44 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
         </div>
 
         {existingReg && !isEditing ? (
-          <div className="space-y-6 py-2">
-            <div className="bg-success/10 text-success p-4 rounded-xl flex items-start gap-3 border border-success/20">
+          <div className="min-w-0 space-y-6 py-2">
+            <div className="bg-success/10 text-success p-4 rounded-xl flex items-start gap-3 border border-success/20 min-w-0">
               <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold text-sm">You have already filled the form for this event</p>
+              <div className="min-w-0">
+                <p className="font-semibold text-sm break-words">You have already filled the form for this event</p>
                 {event.allowResponseEdits !== false ? (
-                  <p className="text-xs mt-1">If you want to edit your responses, click the button below.</p>
+                  <p className="text-xs mt-1 break-words">If you want to edit your responses, click the button below.</p>
                 ) : (
-                  <p className="text-xs mt-1">Your responses have been recorded and editing is closed.</p>
+                  <p className="text-xs mt-1 break-words">Your responses have been recorded and editing is closed.</p>
                 )}
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="min-w-0 space-y-4">
               <h4 className="font-semibold text-sm border-b pb-2">Your Information</h4>
-              <div className="grid sm:grid-cols-2 gap-4 text-sm">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm min-w-0">
+                <div className="min-w-0">
                   <p className="text-muted-foreground text-xs mb-1">Name</p>
-                  <p className="font-medium">{existingReg.userName}</p>
+                  <p className="font-medium break-words [overflow-wrap:anywhere]">{existingReg.userName}</p>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-muted-foreground text-xs mb-1">Email</p>
-                  <p className="font-medium">{existingReg.userEmail}</p>
+                  <p className="font-medium break-words [overflow-wrap:anywhere]">{existingReg.userEmail}</p>
                 </div>
               </div>
             </div>
 
             {event.formFields && event.formFields.length > 0 && (
-              <div className="space-y-4 mt-6">
+              <div className="min-w-0 space-y-4 mt-6">
                 <h4 className="font-semibold text-sm border-b pb-2">Your Responses</h4>
-                <div className="space-y-3">
+                <div className="space-y-3 min-w-0">
                   {event.formFields.map((field) => {
                     const answer = existingReg.responses?.[field.id];
                     const displayValue = Array.isArray(answer) ? answer.join(', ') : (answer || 'No response');
                     return (
-                      <div key={field.id} className="text-sm p-3 bg-muted/20 rounded-lg border border-border/40">
-                        <p className="text-muted-foreground text-xs mb-1">{field.label}</p>
-                        <p className="font-medium">{displayValue}</p>
+                      <div key={field.id} className="min-w-0 text-sm p-3 bg-muted/20 rounded-lg border border-border/40">
+                        <p className="text-muted-foreground text-xs mb-1 break-words">{field.label}</p>
+                        <p className="font-medium break-words [overflow-wrap:anywhere]">{displayValue}</p>
                       </div>
                     );
                   })}
@@ -471,27 +516,28 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6 py-2">
+          <form onSubmit={handleSubmit} className="min-w-0 space-y-6 py-2">
             {/* Basic Info Removed - System uses currentUser data */}
             {/* Dynamic Forms */}
             {event.formFields && event.formFields.length > 0 && (
-              <div className="space-y-6">
+              <div className="min-w-0 space-y-6">
                 <h4 className="font-semibold text-sm border-b pb-2">Event Questions</h4>
                 {event.formFields.map((field) => {
                   const isError = !!fieldErrors[field.id];
                   return (
-                    <div key={field.id} id={`field-container-${field.id}`} className={`p-4 rounded-xl border ${isError ? 'border-destructive bg-destructive/5' : 'border-border/40 bg-muted/20'} space-y-3`}>
-                      <div>
-                        <Label className="text-sm font-medium">
+                    <div key={field.id} id={`field-container-${field.id}`} className={`min-w-0 p-4 rounded-xl border ${isError ? 'border-destructive bg-destructive/5' : 'border-border/40 bg-muted/20'} space-y-3`}>
+                      <div className="min-w-0">
+                        <Label className="text-sm font-medium break-words">
                           {field.label} {field.required && <span className="text-destructive">*</span>}
                         </Label>
-                        {field.description && <p className="text-xs text-muted-foreground mt-0.5">{field.description}</p>}
+                        {field.description && <p className="text-xs text-muted-foreground mt-0.5 break-words">{field.description}</p>}
                       </div>
 
                       {field.type === 'text' && (
                         <Input
                           value={(responses[field.id] as string) || ''}
-                          onChange={e => handleInputChange(field.id, e.target.value)}
+                          maxLength={EVENT_FIELD_LIMITS.text}
+                          onChange={e => handleInputChange(field.id, e.target.value, field.type)}
                           placeholder="Your answer"
                           className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
                         />
@@ -500,7 +546,8 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                       {field.type === 'textarea' && (
                         <Textarea
                           value={(responses[field.id] as string) || ''}
-                          onChange={e => handleInputChange(field.id, e.target.value)}
+                          maxLength={EVENT_FIELD_LIMITS.textarea}
+                          onChange={e => handleInputChange(field.id, e.target.value, field.type)}
                           placeholder="Your answer"
                           rows={3}
                           className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
@@ -529,7 +576,8 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                         <Input
                           type="number"
                           value={(responses[field.id] as string) || ''}
-                          onChange={e => handleInputChange(field.id, e.target.value)}
+                          maxLength={EVENT_FIELD_LIMITS.number}
+                          onChange={e => handleInputChange(field.id, e.target.value, field.type)}
                           className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
                           placeholder="0"
                         />
@@ -539,7 +587,8 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                         <Input
                           type="email"
                           value={(responses[field.id] as string) || ''}
-                          onChange={e => handleInputChange(field.id, e.target.value)}
+                          maxLength={EVENT_FIELD_LIMITS.email}
+                          onChange={e => handleInputChange(field.id, e.target.value, field.type)}
                           className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
                           placeholder="email@example.com"
                         />
@@ -549,7 +598,8 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                         <Input
                           type="tel"
                           value={(responses[field.id] as string) || ''}
-                          onChange={e => handleInputChange(field.id, e.target.value)}
+                          maxLength={EVENT_FIELD_LIMITS.phone}
+                          onChange={e => handleInputChange(field.id, e.target.value, field.type)}
                           className={isError ? 'border-destructive focus-visible:ring-destructive' : ''}
                           placeholder="+1 (555) 000-0000"
                         />
@@ -578,15 +628,16 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                           className="space-y-1 mt-2 pl-1"
                         >
                           {(field.options || []).map(opt => (
-                            <div key={opt.id} className="flex items-center space-x-2">
+                            <div key={opt.id} className="flex min-w-0 flex-wrap items-center gap-2">
                               <RadioGroupItem value={opt.label} id={`${field.id}-${opt.id}`} />
-                              <Label htmlFor={`${field.id}-${opt.id}`} className="font-normal cursor-pointer text-foreground">{opt.label}</Label>
+                              <Label htmlFor={`${field.id}-${opt.id}`} className="min-w-0 break-words font-normal cursor-pointer text-foreground">{opt.label}</Label>
                               {opt.label === 'Other' && (responses[field.id] === 'Other' || (responses[field.id] as string)?.startsWith('Other: ')) && (
                                 <Input 
-                                  className="h-7 text-sm ml-2" 
-                                  placeholder="Please specify..." 
+                                  className="h-7 w-full min-w-0 text-sm sm:ml-2 sm:w-auto sm:flex-1" 
+                                  placeholder="Please specify..."
+                                  maxLength={EVENT_FIELD_LIMITS.other}
                                   value={(responses[field.id] as string).replace('Other: ', '') === 'Other' ? '' : (responses[field.id] as string).replace('Other: ', '')}
-                                  onChange={(e) => handleInputChange(field.id, `Other: ${e.target.value}`)}
+                                  onChange={(e) => handleInputChange(field.id, `Other: ${e.target.value}`, 'other')}
                                   autoFocus
                                 />
                               )}
@@ -600,13 +651,13 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                           {(field.options || []).map(opt => {
                             const isChecked = ((responses[field.id] as string[]) || []).includes(opt.label);
                             return (
-                              <div key={opt.id} className="flex items-center space-x-2">
+                              <div key={opt.id} className="flex min-w-0 items-start space-x-2">
                                 <Checkbox
                                   id={`${field.id}-${opt.id}`}
                                   checked={isChecked}
                                   onCheckedChange={(c) => handleCheckboxChange(field.id, opt.label, !!c)}
                                 />
-                                <Label htmlFor={`${field.id}-${opt.id}`} className="font-normal cursor-pointer text-foreground">{opt.label}</Label>
+                                <Label htmlFor={`${field.id}-${opt.id}`} className="min-w-0 break-words font-normal cursor-pointer text-foreground">{opt.label}</Label>
                               </div>
                             );
                           })}
@@ -618,7 +669,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                           <RadioGroup
                             value={(responses[field.id] as string) || ''}
                             onValueChange={v => handleInputChange(field.id, v)}
-                            className="flex items-start justify-between w-full"
+                            className="flex w-full min-w-0 items-start justify-between overflow-x-auto"
                           >
                             {Array.from({ length: (field.scaleMax || 5) - (field.scaleMin || 1) + 1 }).map((_, i) => {
                               const numVal = (field.scaleMin || 1) + i;

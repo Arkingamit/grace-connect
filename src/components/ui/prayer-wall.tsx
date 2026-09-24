@@ -13,6 +13,7 @@ import { useAdminData } from "@/lib/admin-data-context";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDDMMYYYY } from '@/lib/date-utils';
+import { PRAYER_FIELD_LIMITS } from '@/lib/field-limits';
 
 interface PrayerRequest {
   id: string;
@@ -98,7 +99,11 @@ function PrayerWallWidgetLayout() {
     }
     setSubmitting(true);
     try {
-      const payload = { ...newRequest };
+      const payload = {
+        ...newRequest,
+        title: newRequest.title.slice(0, PRAYER_FIELD_LIMITS.title),
+        content: newRequest.content.slice(0, PRAYER_FIELD_LIMITS.content),
+      };
       if (sessionMember) {
         payload.campusId = sessionMember.campusId;
       }
@@ -179,7 +184,8 @@ function PrayerWallWidgetLayout() {
                     <Input
                       placeholder="Prayer request title"
                       value={newRequest.title}
-                      onChange={(e) => setNewRequest(prev => ({ ...prev, title: e.target.value }))}
+                      maxLength={PRAYER_FIELD_LIMITS.title}
+                      onChange={(e) => setNewRequest(prev => ({ ...prev, title: e.target.value.slice(0, PRAYER_FIELD_LIMITS.title) }))}
                       required
                       minLength={3}
                     />
@@ -189,7 +195,8 @@ function PrayerWallWidgetLayout() {
                       placeholder="Share your prayer request..."
                       rows={4}
                       value={newRequest.content}
-                      onChange={(e) => setNewRequest(prev => ({ ...prev, content: e.target.value }))}
+                      maxLength={PRAYER_FIELD_LIMITS.content}
+                      onChange={(e) => setNewRequest(prev => ({ ...prev, content: e.target.value.slice(0, PRAYER_FIELD_LIMITS.content) }))}
                       required
                       minLength={10}
                     />
@@ -347,8 +354,8 @@ function PrayerWallPageLayout() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title,
-          content,
+          title: title.slice(0, PRAYER_FIELD_LIMITS.title),
+          content: content.slice(0, PRAYER_FIELD_LIMITS.content),
           authorId: session?.memberId,
           authorName: session?.name,
         }),
@@ -417,7 +424,8 @@ function PrayerWallPageLayout() {
                         className="w-full bg-[#FAF7F2] border border-[#E5D5C5] rounded-2xl p-4 text-[#3A2D27] placeholder:text-[#a59d94] focus:outline-none focus:ring-2 focus:ring-[#8B2323]/20 mb-4"
                         placeholder="Prayer request title"
                         value={title}
-                        onChange={(e) => setTitle(e.target.value)}
+                        maxLength={PRAYER_FIELD_LIMITS.title}
+                        onChange={(e) => setTitle(e.target.value.slice(0, PRAYER_FIELD_LIMITS.title))}
                         required
                       />
                       <textarea 
@@ -425,7 +433,8 @@ function PrayerWallPageLayout() {
                         rows={5}
                         placeholder="How can we pray for you?"
                         value={content}
-                        onChange={(e) => setContent(e.target.value)}
+                        maxLength={PRAYER_FIELD_LIMITS.content}
+                        onChange={(e) => setContent(e.target.value.slice(0, PRAYER_FIELD_LIMITS.content))}
                         required
                       />
                     </div>

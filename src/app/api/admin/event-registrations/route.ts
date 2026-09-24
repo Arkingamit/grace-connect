@@ -3,6 +3,8 @@ import { requireAdminWithScope, requireAuth } from '@/lib/api-auth';
 import connectToDatabase from '@/lib/db';
 import EventRegistration from '@/models/EventRegistration';
 import User from '@/models/User';
+import EventModel from '@/models/Event';
+import { FIELD_LIMITS, clampEventResponses } from '@/lib/field-limits';
 
 export async function GET() {
   const admin = await requireAdminWithScope();
@@ -52,6 +54,12 @@ export async function POST(req: Request) {
   try {
     await connectToDatabase();
     const body = await req.json();
+    const event = body.eventId
+      ? await EventModel.findById(body.eventId).select('formFields').lean()
+      : null;
+    body.userName = String(body.userName || '').slice(0, FIELD_LIMITS.name);
+    body.userEmail = String(body.userEmail || '').slice(0, FIELD_LIMITS.email);
+    body.responses = clampEventResponses(body.responses, (event as any)?.formFields);
 
     // Prevent duplicate registrations
     const existing = await EventRegistration.findOne({ eventId: body.eventId, userEmail: body.userEmail });

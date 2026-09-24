@@ -1,3 +1,5 @@
+import { FIELD_LIMITS } from '@/lib/field-limits';
+
 /** Format and detect mobile numbers for registration Autofill. */
 
 const INDIA_MOBILE = /^[6-9]\d{9}$/;
@@ -28,8 +30,8 @@ export function formatPhoneNumber(raw: string): string {
     return `+91 ${n.slice(0, 5)} ${n.slice(5)}`;
   }
 
-  if (trimmed.startsWith("+")) return `+${digits}`;
-  return raw;
+  if (trimmed.startsWith("+")) return `+${digits}`.slice(0, FIELD_LIMITS.phone);
+  return raw.slice(0, FIELD_LIMITS.phone);
 }
 
 export function pickPhoneFromContactEntry(value: unknown): string {

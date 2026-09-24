@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isFutureBirthday } from '@/lib/date-utils';
+import { FIELD_LIMITS, PRAYER_FIELD_LIMITS } from '@/lib/field-limits';
 
 const birthdaySchema = z
   .string()
@@ -17,20 +18,34 @@ export const registerSchema = z.object({
   credential: z.string().optional(),
   appleState: z.string().optional(),
   provider: z.enum(['google', 'apple']).default('google'),
-  firstName: z.string().min(2, 'First name is required'),
-  middleName: z.string().optional(),
-  lastName: z.string().min(2, 'Last name is required'),
+  firstName: z.string().min(2, 'First name is required').max(FIELD_LIMITS.name, `First name must be ${FIELD_LIMITS.name} characters or fewer`),
+  middleName: z.string().max(FIELD_LIMITS.name, `Middle name must be ${FIELD_LIMITS.name} characters or fewer`).optional(),
+  lastName: z.string().min(2, 'Last name is required').max(FIELD_LIMITS.name, `Last name must be ${FIELD_LIMITS.name} characters or fewer`),
   gender: z.enum(['male', 'female']),
   birthday: birthdaySchema,
   maritalStatus: z.enum(['single', 'married']).optional(),
   marriageDate: z.string().optional(),
   campusId: z.string().min(1, 'Campus is required'),
-  phone: z.string().optional(),
-  whatsapp: z.string().optional(),
+  phone: z.string().max(FIELD_LIMITS.phone, `Phone number must be ${FIELD_LIMITS.phone} characters or fewer`).optional(),
+  whatsapp: z.string().max(FIELD_LIMITS.phone, `WhatsApp number must be ${FIELD_LIMITS.phone} characters or fewer`).optional(),
   familyMemberId: z.string().optional(),
 }).refine((data) => Boolean(data.credential || data.appleState), {
   message: 'Authentication credential is required',
   path: ['credential'],
+});
+
+export const linkedProfileSchema = z.object({
+  firstName: z.string().min(1, 'First name is required').max(FIELD_LIMITS.name, `First name must be ${FIELD_LIMITS.name} characters or fewer`),
+  middleName: z.string().max(FIELD_LIMITS.name, `Middle name must be ${FIELD_LIMITS.name} characters or fewer`).optional(),
+  lastName: z.string().min(1, 'Last name is required').max(FIELD_LIMITS.name, `Last name must be ${FIELD_LIMITS.name} characters or fewer`),
+  gender: z.enum(['male', 'female']),
+  birthday: z.string().optional().refine((val) => !val || !isFutureBirthday(val), 'Birthday cannot be in the future'),
+  maritalStatus: z.enum(['single', 'married']).optional(),
+  marriageDate: z.string().optional(),
+  campusId: z.string().min(1, 'Campus is required'),
+  phone: z.string().max(FIELD_LIMITS.phone, `Phone number must be ${FIELD_LIMITS.phone} characters or fewer`).optional(),
+  whatsapp: z.string().max(FIELD_LIMITS.phone, `WhatsApp number must be ${FIELD_LIMITS.phone} characters or fewer`).optional(),
+  parentRelation: z.string().max(FIELD_LIMITS.relation, `Relation must be ${FIELD_LIMITS.relation} characters or fewer`).optional(),
 });
 
 // Event Schema
@@ -95,11 +110,11 @@ export const userSchema = z.object({
 
 // Prayer Request Schema
 export const prayerRequestSchema = z.object({
-  title: z.string().min(3, 'Title must be at least 3 characters'),
-  content: z.string().min(10, 'Prayer request must be at least 10 characters'),
-  authorName: z.string().optional(),
+  title: z.string().min(3, 'Title must be at least 3 characters').max(PRAYER_FIELD_LIMITS.title, `Title must be ${PRAYER_FIELD_LIMITS.title} characters or fewer`),
+  content: z.string().min(10, 'Prayer request must be at least 10 characters').max(PRAYER_FIELD_LIMITS.content, `Prayer request must be ${PRAYER_FIELD_LIMITS.content} characters or fewer`),
+  authorName: z.string().max(FIELD_LIMITS.name, `Name must be ${FIELD_LIMITS.name} characters or fewer`).optional(),
   campusId: z.string().optional(), // Added for guest selection, overridden by session for members
   isAnonymous: z.boolean().optional(),
   privacy: z.enum(['public', 'members', 'staff']).optional(),
-  category: z.string().optional(),
+  category: z.string().max(40).optional(),
 });

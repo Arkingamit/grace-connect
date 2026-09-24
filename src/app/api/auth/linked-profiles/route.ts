@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
 import { verifySession } from '@/lib/auth-utils';
-import { isFutureBirthday } from '@/lib/date-utils';
+import { linkedProfileSchema } from '@/lib/validations';
 
 // GET: Fetch all linked profiles for the current user
 export async function GET() {
@@ -44,15 +44,11 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { firstName, middleName, lastName, gender, birthday, maritalStatus, marriageDate, campusId, phone, whatsapp } = body;
-
-    if (!firstName || !lastName || !gender || !campusId) {
-      return NextResponse.json({ error: 'First name, last name, gender, and campus are required' }, { status: 400 });
+    const parsed = linkedProfileSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
     }
-
-    if (birthday && isFutureBirthday(birthday)) {
-      return NextResponse.json({ error: 'Birthday cannot be in the future' }, { status: 400 });
-    }
+    const { firstName, middleName, lastName, gender, birthday, maritalStatus, marriageDate, campusId, phone, whatsapp } = parsed.data;
 
     // Generate a unique placeholder email for the linked profile
     // Linked profiles don't have real emails — this is just for the unique constraint
@@ -76,7 +72,7 @@ export async function POST(req: Request) {
       groups: [],
       isLinkedProfile: true,
       parentAccountId: userId,
-      parentRelation: body.parentRelation || '',
+      parentRelation: parsed.data.parentRelation || '',
     });
 
     const profileObj = newProfile.toObject();

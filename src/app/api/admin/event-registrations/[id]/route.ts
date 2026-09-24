@@ -3,6 +3,8 @@ import { requireAuth } from '@/lib/api-auth';
 import connectToDatabase from '@/lib/db';
 import EventRegistration from '@/models/EventRegistration';
 import User from '@/models/User';
+import EventModel from '@/models/Event';
+import { FIELD_LIMITS, clampEventResponses } from '@/lib/field-limits';
 
 export async function PUT(
   req: Request,
@@ -30,10 +32,18 @@ export async function PUT(
     }
 
     const body = await req.json();
+    const event = existing.eventId
+      ? await EventModel.findById(existing.eventId).select('formFields').lean()
+      : null;
 
     // Whitelist allowed update fields to prevent tampering with status, eventId, etc.
     const allowedFields: Record<string, any> = {};
     if (body.formData !== undefined) allowedFields.formData = body.formData;
+    if (body.responses !== undefined) {
+      allowedFields.responses = clampEventResponses(body.responses, (event as any)?.formFields);
+    }
+    if (body.userName !== undefined) allowedFields.userName = String(body.userName).slice(0, FIELD_LIMITS.name);
+    if (body.userEmail !== undefined) allowedFields.userEmail = String(body.userEmail).slice(0, FIELD_LIMITS.email);
     if (body.status !== undefined && isAdmin) allowedFields.status = body.status; // Only admins can update status
     if (body.notes !== undefined && isAdmin) allowedFields.notes = body.notes;
 

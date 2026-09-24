@@ -17,6 +17,7 @@ import { DateInput } from '@/components/ui/date-input';
 import { PhoneNumberInput } from '@/components/ui/phone-number-input';
 import { useKeyboardAwareDialogPosition } from '@/hooks/useKeyboardInset';
 import { cn } from '@/lib/utils';
+import { FIELD_LIMITS } from '@/lib/field-limits';
 
 interface AddFamilyMemberDialogProps {
   open: boolean;
@@ -242,6 +243,7 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
                   <Input
                     required
                     value={firstName}
+                    maxLength={FIELD_LIMITS.name}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="e.g. Noah"
                     className="rounded-xl"
@@ -251,6 +253,7 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
                   <Label>Middle Name</Label>
                   <Input
                     value={middleName}
+                    maxLength={FIELD_LIMITS.name}
                     onChange={(e) => setMiddleName(e.target.value)}
                     placeholder="Optional"
                     className="rounded-xl"
@@ -261,9 +264,10 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
                 <Label>Last Name *</Label>
                 <Input
                   required
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="e.g. Smith"
+                    value={lastName}
+                    maxLength={FIELD_LIMITS.name}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="e.g. Smith"
                   className="rounded-xl"
                 />
               </div>
@@ -342,6 +346,7 @@ export function AddFamilyMemberDialog({ open, onOpenChange }: AddFamilyMemberDia
                   <Label>Specify Relation *</Label>
                   <Input
                     value={otherRelation}
+                    maxLength={FIELD_LIMITS.relation}
                     onChange={(e) => setOtherRelation(e.target.value)}
                     className="rounded-xl"
                     placeholder="e.g. Uncle, Cousin"

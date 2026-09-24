@@ -22,6 +22,7 @@ import { fileToDataUrl, setStoredAvatar } from '@/lib/avatar-storage';
 import { getMaxBirthdayDate, isFutureBirthday } from '@/lib/date-utils';
 import { DateInput } from '@/components/ui/date-input';
 import { PhoneNumberInput } from '@/components/ui/phone-number-input';
+import { FIELD_LIMITS } from '@/lib/field-limits';
 import { GoogleLogin } from '@react-oauth/google';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
@@ -652,6 +653,7 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
                       name="given-name"
                       autoComplete="given-name"
                       value={form.firstName}
+                      maxLength={FIELD_LIMITS.name}
                       onChange={e => updateField('firstName', e.target.value)}
                       placeholder="John"
                     />
@@ -663,6 +665,7 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
                       name="additional-name"
                       autoComplete="additional-name"
                       value={form.middleName}
+                      maxLength={FIELD_LIMITS.name}
                       onChange={e => updateField('middleName', e.target.value)}
                       placeholder="Michael"
                     />
@@ -675,6 +678,7 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
                     name="family-name"
                     autoComplete="family-name"
                     value={form.lastName}
+                    maxLength={FIELD_LIMITS.name}
                     onChange={e => updateField('lastName', e.target.value)}
                     placeholder="Smith"
                   />
@@ -825,6 +829,7 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input
                               value={familySearch}
+                              maxLength={FIELD_LIMITS.search}
                               onChange={e => setFamilySearch(e.target.value)}
                               placeholder="Search by name or email..."
                               className="pl-9"
