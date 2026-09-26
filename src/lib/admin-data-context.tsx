@@ -312,8 +312,8 @@ interface AdminDataContextType {
   deleteSermonSeries: (id: string) => void;
 
   // Campuses & Groups CRUD
-  addCampus: (campus: Omit<Campus, 'id'>) => void;
-  updateCampus: (id: string, updates: Partial<Campus>) => void;
+  addCampus: (campus: Omit<Campus, 'id'>) => Promise<{ success: boolean; error?: string }>;
+  updateCampus: (id: string, updates: Partial<Campus>) => Promise<{ success: boolean; error?: string }>;
   deleteCampus: (id: string) => void;
   addGroup: (name: string, scope?: string, leaderId?: string, coreGroupId?: string) => Promise<{ success: boolean; error?: string; group?: any; leader?: any } | void>;
   updateGroup: (id: string, updates: { name?: string; scope?: string }) => Promise<{ success: boolean; error?: string; group?: any }>;

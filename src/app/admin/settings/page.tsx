@@ -263,7 +263,7 @@ export default function SettingsPage() {
     const result = editingCampusId
       ? await updateCampus(editingCampusId, campusForm as Campus)
       : await addCampus(campusForm as Campus);
-    if (result && 'success' in result && !result.success) {
+    if (!result.success) {
       toast.error(result.error || 'Failed to save campus');
       return;
     }
