@@ -466,11 +466,12 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
     if (!isAdminRoute) return;
     const fetchAdminData = async () => {
       try {
-        const [usersRes, eventRegistrationsRes, groupsRes, prayersRes] = await Promise.all([
+        const [usersRes, eventRegistrationsRes, groupsRes, prayersRes, campusesRes] = await Promise.all([
           fetch('/api/admin/users').catch(() => null),
           fetch('/api/admin/event-registrations').catch(() => null),
           fetch('/api/admin/groups').catch(() => null),
           fetch('/api/admin/prayers').catch(() => null),
+          fetch('/api/admin/campuses').catch(() => null),
         ]);
 
         if (usersRes?.ok) {
@@ -499,6 +500,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
             createdBy: u.createdBy ? String(u.createdBy) : undefined,
           })));
         }
+        if (campusesRes?.ok) setCampuses(rawToMapped(await campusesRes.json()));
         if (eventRegistrationsRes?.ok) setEventRegistrations(rawToMapped(await eventRegistrationsRes.json()));
         if (prayersRes?.ok) setPrayerRequests(rawToMapped(await prayersRes.json()));
         if (groupsRes?.ok) {

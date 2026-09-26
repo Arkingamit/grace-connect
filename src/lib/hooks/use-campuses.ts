@@ -7,26 +7,47 @@ export function useCampuses() {
   const [groups, setGroups] = useState<string[]>([]);
   const [groupScopes, setGroupScopes] = useState<Group[]>([]);
 
+  const campusPayload = (c: Partial<Campus>) => ({
+    name: c.name,
+    pastor: c.pastor,
+    address: c.address,
+    city: c.city,
+    zipCode: c.zipCode,
+    phone: c.phone,
+    email: c.email,
+    serviceTimes: c.serviceTimes,
+    latitude: Number.isFinite(c.latitude as number) ? c.latitude : undefined,
+    longitude: Number.isFinite(c.longitude as number) ? c.longitude : undefined,
+  });
+
   const addCampus = useCallback(async (c: Omit<Campus, 'id'>) => {
     const res = await fetch('/api/admin/campuses', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(c),
+      body: JSON.stringify(campusPayload(c)),
     });
-    if (res.ok) {
-      const created = await res.json();
-      setCampuses(prev => [...prev, mapId(created)]);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { success: false as const, error: data.error || 'Failed to create campus' };
     }
+    const created = await res.json();
+    setCampuses(prev => [...prev, mapId(created)]);
+    return { success: true as const };
   }, []);
 
   const updateCampus = useCallback(async (id: string, c: Partial<Campus>) => {
     const res = await fetch(`/api/admin/campuses/${id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(c),
+      body: JSON.stringify(campusPayload(c)),
     });
-    if (res.ok) {
-      const updated = await res.json();
-      setCampuses(prev => prev.map(campus => campus.id === id ? mapId(updated) : campus));
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { success: false as const, error: data.error || 'Failed to update campus' };
     }
+    const updated = await res.json();
+    setCampuses(prev => prev.map(campus =>
+      campus.id === id || campus._id === id ? mapId(updated) : campus
+    ));
+    return { success: true as const };
   }, []);
 
   const deleteCampus = useCallback(async (id: string) => {

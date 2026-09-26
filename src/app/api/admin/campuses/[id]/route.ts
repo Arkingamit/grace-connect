@@ -15,7 +15,28 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     await connectToDatabase();
     const { id } = await params;
     const body = await req.json();
-    const campus = await Campus.findByIdAndUpdate(id, body, { new: true });
+    const updates: Record<string, unknown> = {};
+    const fields = [
+      'name',
+      'pastor',
+      'address',
+      'city',
+      'zipCode',
+      'phone',
+      'email',
+      'serviceTimes',
+      'latitude',
+      'longitude',
+    ] as const;
+    for (const field of fields) {
+      if (body[field] !== undefined) {
+        if ((field === 'latitude' || field === 'longitude') && (body[field] === '' || Number.isNaN(Number(body[field])))) {
+          continue;
+        }
+        updates[field] = field === 'latitude' || field === 'longitude' ? Number(body[field]) : body[field];
+      }
+    }
+    const campus = await Campus.findByIdAndUpdate(id, { $set: updates }, { new: true, runValidators: true });
     
     if (!campus) {
       return NextResponse.json({ error: 'Campus not found' }, { status: 404 });

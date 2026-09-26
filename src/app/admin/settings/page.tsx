@@ -258,13 +258,16 @@ export default function SettingsPage() {
     setCampusDialogOpen(true);
   };
 
-  const handleCampusSubmit = () => {
+  const handleCampusSubmit = async () => {
     if (!campusForm.name) return;
-    if (editingCampusId) {
-      updateCampus(editingCampusId, campusForm as Campus);
-    } else {
-      addCampus(campusForm as Campus);
+    const result = editingCampusId
+      ? await updateCampus(editingCampusId, campusForm as Campus)
+      : await addCampus(campusForm as Campus);
+    if (result && 'success' in result && !result.success) {
+      toast.error(result.error || 'Failed to save campus');
+      return;
     }
+    toast.success(editingCampusId ? 'Campus updated' : 'Campus created');
     setCampusDialogOpen(false);
     setCampusForm({ name: '', pastor: '', address: '', city: '', zipCode: '', phone: '', email: '', latitude: undefined, longitude: undefined, serviceTimes: [{ day: 'Sunday', times: [''] }] });
     setEditingCampusId(null);
