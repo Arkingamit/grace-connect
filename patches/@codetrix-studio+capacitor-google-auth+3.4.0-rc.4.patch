@@ -1,0 +1,501 @@
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/._.swiftpm b/node_modules/@codetrix-studio/capacitor-google-auth/._.swiftpm
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/._.swiftpm differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/._CodetrixStudioCapacitorGoogleAuth.podspec b/node_modules/@codetrix-studio/capacitor-google-auth/._CodetrixStudioCapacitorGoogleAuth.podspec
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/._CodetrixStudioCapacitorGoogleAuth.podspec differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/._LICENSE b/node_modules/@codetrix-studio/capacitor-google-auth/._LICENSE
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/._LICENSE differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/._Package.swift b/node_modules/@codetrix-studio/capacitor-google-auth/._Package.swift
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/._Package.swift differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/._README.md b/node_modules/@codetrix-studio/capacitor-google-auth/._README.md
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/._README.md differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/._android b/node_modules/@codetrix-studio/capacitor-google-auth/._android
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/._android differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/._dist b/node_modules/@codetrix-studio/capacitor-google-auth/._dist
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/._dist differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/._ios b/node_modules/@codetrix-studio/capacitor-google-auth/._ios
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/._ios differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/._package.json b/node_modules/@codetrix-studio/capacitor-google-auth/._package.json
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/._package.json differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/.swiftpm/._xcode b/node_modules/@codetrix-studio/capacitor-google-auth/.swiftpm/._xcode
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/.swiftpm/._xcode differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/.swiftpm/xcode/xcuserdata/blessonvarghesemm.xcuserdatad/xcschemes/xcschememanagement.plist b/node_modules/@codetrix-studio/capacitor-google-auth/.swiftpm/xcode/xcuserdata/blessonvarghesemm.xcuserdatad/xcschemes/xcschememanagement.plist
+new file mode 100755
+index 0000000..800f510
+--- /dev/null
++++ b/node_modules/@codetrix-studio/capacitor-google-auth/.swiftpm/xcode/xcuserdata/blessonvarghesemm.xcuserdatad/xcschemes/xcschememanagement.plist
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
++<plist version="1.0">
++<dict>
++	<key>SchemeUserState</key>
++	<dict>
++		<key>CodetrixStudioCapacitorGoogleAuth.xcscheme_^#shared#^_</key>
++		<dict>
++			<key>orderHint</key>
++			<integer>8</integer>
++		</dict>
++	</dict>
++</dict>
++</plist>
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/CodetrixStudioCapacitorGoogleAuth.podspec b/node_modules/@codetrix-studio/capacitor-google-auth/CodetrixStudioCapacitorGoogleAuth.podspec
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/LICENSE b/node_modules/@codetrix-studio/capacitor-google-auth/LICENSE
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/Package.swift b/node_modules/@codetrix-studio/capacitor-google-auth/Package.swift
+new file mode 100755
+index 0000000..d418eb8
+--- /dev/null
++++ b/node_modules/@codetrix-studio/capacitor-google-auth/Package.swift
+@@ -0,0 +1,31 @@
++// swift-tools-version: 5.9
++import PackageDescription
++
++let package = Package(
++    name: "CodetrixStudioCapacitorGoogleAuth",
++    platforms: [.iOS(.v15)],
++    products: [
++        .library(
++            name: "CodetrixStudioCapacitorGoogleAuth",
++            targets: ["GoogleAuthPlugin"]
++        )
++    ],
++    dependencies: [
++        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0"),
++        .package(url: "https://github.com/google/GoogleSignIn-iOS.git", from: "7.0.0")
++    ],
++    targets: [
++        .target(
++            name: "GoogleAuthPlugin",
++            dependencies: [
++                .product(name: "Capacitor", package: "capacitor-swift-pm"),
++                .product(name: "Cordova", package: "capacitor-swift-pm"),
++                .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS")
++            ],
++            path: "ios/Plugin",
++            // SwiftPM rejects mixed-language targets, so the Objective-C
++            // registration macro is replaced by CAPBridgedPlugin in Swift.
++            exclude: ["Info.plist", "Plugin.h", "Plugin.m"]
++        )
++    ]
++)
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/README.md b/node_modules/@codetrix-studio/capacitor-google-auth/README.md
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/._build.gradle b/node_modules/@codetrix-studio/capacitor-google-auth/android/._build.gradle
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/._build.gradle differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/._gradle b/node_modules/@codetrix-studio/capacitor-google-auth/android/._gradle
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/._gradle differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/._gradle.properties b/node_modules/@codetrix-studio/capacitor-google-auth/android/._gradle.properties
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/._gradle.properties differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/._gradlew b/node_modules/@codetrix-studio/capacitor-google-auth/android/._gradlew
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/._gradlew differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/._gradlew.bat b/node_modules/@codetrix-studio/capacitor-google-auth/android/._gradlew.bat
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/._gradlew.bat differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/._proguard-rules.pro b/node_modules/@codetrix-studio/capacitor-google-auth/android/._proguard-rules.pro
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/._proguard-rules.pro differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/._settings.gradle b/node_modules/@codetrix-studio/capacitor-google-auth/android/._settings.gradle
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/._settings.gradle differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/._src b/node_modules/@codetrix-studio/capacitor-google-auth/android/._src
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/._src differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/build.gradle b/node_modules/@codetrix-studio/capacitor-google-auth/android/build.gradle
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle.properties b/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle.properties
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle/._wrapper b/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle/._wrapper
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle/._wrapper differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle/wrapper/._gradle-wrapper.jar b/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle/wrapper/._gradle-wrapper.jar
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle/wrapper/._gradle-wrapper.jar differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle/wrapper/._gradle-wrapper.properties b/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle/wrapper/._gradle-wrapper.properties
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle/wrapper/._gradle-wrapper.properties differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle/wrapper/gradle-wrapper.jar b/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle/wrapper/gradle-wrapper.jar
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle/wrapper/gradle-wrapper.properties b/node_modules/@codetrix-studio/capacitor-google-auth/android/gradle/wrapper/gradle-wrapper.properties
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/gradlew.bat b/node_modules/@codetrix-studio/capacitor-google-auth/android/gradlew.bat
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/proguard-rules.pro b/node_modules/@codetrix-studio/capacitor-google-auth/android/proguard-rules.pro
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/settings.gradle b/node_modules/@codetrix-studio/capacitor-google-auth/android/settings.gradle
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/._main b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/._main
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/._main differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/._AndroidManifest.xml b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/._AndroidManifest.xml
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/._AndroidManifest.xml differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/._java b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/._java
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/._java differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/._res b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/._res
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/._res differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/AndroidManifest.xml b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/AndroidManifest.xml
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/._com b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/._com
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/._com differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/._codetrixstudio b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/._codetrixstudio
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/._codetrixstudio differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/codetrixstudio/._capacitor b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/codetrixstudio/._capacitor
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/codetrixstudio/._capacitor differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/codetrixstudio/capacitor/._GoogleAuth b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/codetrixstudio/capacitor/._GoogleAuth
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/codetrixstudio/capacitor/._GoogleAuth differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/codetrixstudio/capacitor/GoogleAuth/._GoogleAuth.java b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/codetrixstudio/capacitor/GoogleAuth/._GoogleAuth.java
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/codetrixstudio/capacitor/GoogleAuth/._GoogleAuth.java differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/codetrixstudio/capacitor/GoogleAuth/GoogleAuth.java b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/java/com/codetrixstudio/capacitor/GoogleAuth/GoogleAuth.java
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/._layout b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/._layout
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/._layout differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/._values b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/._values
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/._values differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/layout/._bridge_layout_main.xml b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/layout/._bridge_layout_main.xml
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/layout/._bridge_layout_main.xml differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/layout/bridge_layout_main.xml b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/layout/bridge_layout_main.xml
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/._colors.xml b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/._colors.xml
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/._colors.xml differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/._strings.xml b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/._strings.xml
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/._strings.xml differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/._styles.xml b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/._styles.xml
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/._styles.xml differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/colors.xml b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/colors.xml
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/strings.xml b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/strings.xml
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/styles.xml b/node_modules/@codetrix-studio/capacitor-google-auth/android/src/main/res/values/styles.xml
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/._esm b/node_modules/@codetrix-studio/capacitor-google-auth/dist/._esm
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/dist/._esm differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._definitions.d.ts b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._definitions.d.ts
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._definitions.d.ts differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._definitions.js b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._definitions.js
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._definitions.js differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._definitions.js.map b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._definitions.js.map
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._definitions.js.map differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._index.d.ts b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._index.d.ts
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._index.d.ts differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._index.js b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._index.js
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._index.js differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._index.js.map b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._index.js.map
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._index.js.map differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._web.d.ts b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._web.d.ts
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._web.d.ts differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._web.js b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._web.js
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._web.js differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._web.js.map b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._web.js.map
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/._web.js.map differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/definitions.d.ts b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/definitions.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/definitions.js b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/definitions.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/definitions.js.map b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/definitions.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/index.d.ts b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/index.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/index.js b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/index.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/index.js.map b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/index.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/web.d.ts b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/web.d.ts
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/web.js b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/web.js
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/web.js.map b/node_modules/@codetrix-studio/capacitor-google-auth/dist/esm/web.js.map
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Plugin b/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Plugin
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Plugin differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Plugin.xcodeproj b/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Plugin.xcodeproj
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Plugin.xcodeproj differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Plugin.xcworkspace b/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Plugin.xcworkspace
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Plugin.xcworkspace differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/._PluginTests b/node_modules/@codetrix-studio/capacitor-google-auth/ios/._PluginTests
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/._PluginTests differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Podfile b/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Podfile
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Podfile differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Podfile.lock b/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Podfile.lock
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/._Podfile.lock differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcodeproj/._project.pbxproj b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcodeproj/._project.pbxproj
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcodeproj/._project.pbxproj differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcodeproj/._project.xcworkspace b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcodeproj/._project.xcworkspace
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcodeproj/._project.xcworkspace differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcodeproj/project.pbxproj b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcodeproj/project.pbxproj
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcodeproj/project.xcworkspace/._contents.xcworkspacedata b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcodeproj/project.xcworkspace/._contents.xcworkspacedata
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcodeproj/project.xcworkspace/._contents.xcworkspacedata differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcodeproj/project.xcworkspace/contents.xcworkspacedata b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcodeproj/project.xcworkspace/contents.xcworkspacedata
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcworkspace/._contents.xcworkspacedata b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcworkspace/._contents.xcworkspacedata
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcworkspace/._contents.xcworkspacedata differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcworkspace/._xcshareddata b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcworkspace/._xcshareddata
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcworkspace/._xcshareddata differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcworkspace/contents.xcworkspacedata b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcworkspace/contents.xcworkspacedata
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcworkspace/xcshareddata/._IDEWorkspaceChecks.plist b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcworkspace/xcshareddata/._IDEWorkspaceChecks.plist
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcworkspace/xcshareddata/._IDEWorkspaceChecks.plist differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._CapacitorBridge.swift b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._CapacitorBridge.swift
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._CapacitorBridge.swift differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._Info.plist b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._Info.plist
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._Info.plist differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._Plugin.h b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._Plugin.h
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._Plugin.h differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._Plugin.m b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._Plugin.m
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._Plugin.m differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._Plugin.swift b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._Plugin.swift
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/._Plugin.swift differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/CapacitorBridge.swift b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/CapacitorBridge.swift
+new file mode 100755
+index 0000000..9bff986
+--- /dev/null
++++ b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/CapacitorBridge.swift
+@@ -0,0 +1,14 @@
++import Capacitor
++
++extension GoogleAuth: CAPBridgedPlugin {
++    public var identifier: String { "GoogleAuth" }
++    public var jsName: String { "GoogleAuth" }
++    public var pluginMethods: [CAPPluginMethod] {
++        [
++            CAPPluginMethod(name: "initialize", returnType: CAPPluginReturnPromise),
++            CAPPluginMethod(name: "signIn", returnType: CAPPluginReturnPromise),
++            CAPPluginMethod(name: "refresh", returnType: CAPPluginReturnPromise),
++            CAPPluginMethod(name: "signOut", returnType: CAPPluginReturnPromise)
++        ]
++    }
++}
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/Info.plist b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/Info.plist
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/Plugin.h b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/Plugin.h
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/Plugin.m b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/Plugin.m
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/Plugin.swift b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/Plugin.swift
+old mode 100644
+new mode 100755
+index fd39ed9..c8ebb1b
+--- a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/Plugin.swift
++++ b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Plugin/Plugin.swift
+@@ -82,12 +82,13 @@ public class GoogleAuth: CAPPlugin {
+             } else {
+                 let presentingVc = self.bridge!.viewController!;
+                 
+-                self.googleSignIn.signIn(with: self.googleSignInConfiguration, presenting: presentingVc, hint: nil, additionalScopes: self.additionalScopes) { user, error in
++                self.googleSignIn.configuration = self.googleSignInConfiguration
++                self.googleSignIn.signIn(withPresenting: presentingVc, hint: nil, additionalScopes: self.additionalScopes) { signInResult, error in
+                     if let error = error {
+                         self.signInCall?.reject(error.localizedDescription, "\(error._code)");
+                         return;
+                     }
+-                    self.resolveSignInCallWith(user: user!);
++                    self.resolveSignInCallWith(user: signInResult!.user);
+                 };
+             }
+         }
+@@ -100,15 +101,15 @@ public class GoogleAuth: CAPPlugin {
+                 call.reject("User not logged in.");
+                 return
+             }
+-            self.googleSignIn.currentUser!.authentication.do { (authentication, error) in
+-                guard let authentication = authentication else {
++            self.googleSignIn.currentUser!.refreshTokensIfNeeded { user, error in
++                guard let user = user else {
+                     call.reject(error?.localizedDescription ?? "Something went wrong.");
+                     return;
+                 }
+                 let authenticationData: [String: Any] = [
+-                    "accessToken": authentication.accessToken,
+-                    "idToken": authentication.idToken ?? NSNull(),
+-                    "refreshToken": authentication.refreshToken
++                    "accessToken": user.accessToken.tokenString,
++                    "idToken": user.idToken?.tokenString ?? NSNull(),
++                    "refreshToken": user.refreshToken.tokenString
+                 ]
+                 call.resolve(authenticationData);
+             }
+@@ -162,9 +163,9 @@ public class GoogleAuth: CAPPlugin {
+     func resolveSignInCallWith(user: GIDGoogleUser) {
+         var userData: [String: Any] = [
+             "authentication": [
+-                "accessToken": user.authentication.accessToken,
+-                "idToken": user.authentication.idToken,
+-                "refreshToken": user.authentication.refreshToken
++                "accessToken": user.accessToken.tokenString,
++                "idToken": user.idToken?.tokenString ?? NSNull(),
++                "refreshToken": user.refreshToken.tokenString
+             ],
+             "serverAuthCode": user.serverAuthCode ?? NSNull(),
+             "email": user.profile?.email ?? NSNull(),
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/PluginTests/._Info.plist b/node_modules/@codetrix-studio/capacitor-google-auth/ios/PluginTests/._Info.plist
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/PluginTests/._Info.plist differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/PluginTests/._PluginTests.swift b/node_modules/@codetrix-studio/capacitor-google-auth/ios/PluginTests/._PluginTests.swift
+new file mode 100755
+index 0000000..3816895
+Binary files /dev/null and b/node_modules/@codetrix-studio/capacitor-google-auth/ios/PluginTests/._PluginTests.swift differ
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/PluginTests/Info.plist b/node_modules/@codetrix-studio/capacitor-google-auth/ios/PluginTests/Info.plist
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/PluginTests/PluginTests.swift b/node_modules/@codetrix-studio/capacitor-google-auth/ios/PluginTests/PluginTests.swift
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Podfile b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Podfile
+old mode 100644
+new mode 100755
+diff --git a/node_modules/@codetrix-studio/capacitor-google-auth/ios/Podfile.lock b/node_modules/@codetrix-studio/capacitor-google-auth/ios/Podfile.lock
+old mode 100644
+new mode 100755
