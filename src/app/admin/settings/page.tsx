@@ -823,86 +823,95 @@ export default function SettingsPage() {
 
       {/* Campus Create/Edit Dialog */}
       <Dialog open={campusDialogOpen} onOpenChange={setCampusDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingCampusId ? 'Edit Campus' : 'New Campus'}</DialogTitle>
+        <DialogContent className="min-w-0 max-w-md w-[calc(100%-1.25rem)] max-h-[min(90dvh,90%)] overflow-x-hidden overflow-y-auto overscroll-contain p-4 gap-3 sm:p-6 max-sm:rounded-2xl max-sm:top-1/2 max-sm:-translate-y-1/2">
+          <DialogHeader className="min-w-0 text-left">
+            <DialogTitle className="pr-8 break-words leading-snug">
+              {editingCampusId ? 'Edit Campus' : 'New Campus'}
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
+          <div className="min-w-0 space-y-3 sm:space-y-4">
+            <div className="min-w-0 space-y-1.5">
               <Label>Campus Name *</Label>
-              <Input value={campusForm.name} onChange={(e) => setCampusForm({ ...campusForm, name: e.target.value })} placeholder="e.g. South Campus" />
+              <Input className="w-full min-w-0" value={campusForm.name} onChange={(e) => setCampusForm({ ...campusForm, name: e.target.value })} placeholder="e.g. South Campus" />
             </div>
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-1.5">
               <Label>Pastor / Leader</Label>
-              <Input value={campusForm.pastor} onChange={(e) => setCampusForm({ ...campusForm, pastor: e.target.value })} placeholder="e.g. Pastor David" />
+              <Input className="w-full min-w-0" value={campusForm.pastor} onChange={(e) => setCampusForm({ ...campusForm, pastor: e.target.value })} placeholder="e.g. Pastor David" />
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+              <div className="min-w-0 space-y-1.5">
                 <Label>Phone</Label>
-                <Input value={campusForm.phone || ''} onChange={(e) => setCampusForm({ ...campusForm, phone: e.target.value })} placeholder="+1..." />
+                <Input className="w-full min-w-0" value={campusForm.phone || ''} onChange={(e) => setCampusForm({ ...campusForm, phone: e.target.value })} placeholder="+1..." />
               </div>
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-1.5">
                 <Label>Email</Label>
-                <Input type="email" value={campusForm.email || ''} onChange={(e) => setCampusForm({ ...campusForm, email: e.target.value })} placeholder="hello@..." />
+                <Input className="w-full min-w-0" type="email" value={campusForm.email || ''} onChange={(e) => setCampusForm({ ...campusForm, email: e.target.value })} placeholder="hello@..." />
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-1.5">
               <Label>Address</Label>
-              <Input value={campusForm.address || ''} onChange={(e) => setCampusForm({ ...campusForm, address: e.target.value })} placeholder="123 Church St" />
+              <Textarea
+                className="w-full min-w-0 resize-none break-words [overflow-wrap:anywhere]"
+                rows={3}
+                value={campusForm.address || ''}
+                onChange={(e) => setCampusForm({ ...campusForm, address: e.target.value })}
+                placeholder="123 Church St"
+              />
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+              <div className="min-w-0 space-y-1.5">
                 <Label>City</Label>
-                <Input value={campusForm.city || ''} onChange={(e) => setCampusForm({ ...campusForm, city: e.target.value })} placeholder="City" />
+                <Input className="w-full min-w-0" value={campusForm.city || ''} onChange={(e) => setCampusForm({ ...campusForm, city: e.target.value })} placeholder="City" />
               </div>
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-1.5">
                 <Label>Zip Code</Label>
-                <Input value={campusForm.zipCode || ''} onChange={(e) => setCampusForm({ ...campusForm, zipCode: e.target.value })} placeholder="Zip" />
+                <Input className="w-full min-w-0" value={campusForm.zipCode || ''} onChange={(e) => setCampusForm({ ...campusForm, zipCode: e.target.value })} placeholder="Zip" />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+              <div className="min-w-0 space-y-1.5">
                 <Label>Latitude (for Maps)</Label>
-                <Input type="number" step="any" value={campusForm.latitude || ''} onChange={(e) => setCampusForm({ ...campusForm, latitude: parseFloat(e.target.value) })} placeholder="e.g. 23.0238" />
+                <Input className="w-full min-w-0" type="number" step="any" value={campusForm.latitude || ''} onChange={(e) => setCampusForm({ ...campusForm, latitude: parseFloat(e.target.value) })} placeholder="e.g. 23.0238" />
               </div>
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-1.5">
                 <Label>Longitude (for Maps)</Label>
-                <Input type="number" step="any" value={campusForm.longitude || ''} onChange={(e) => setCampusForm({ ...campusForm, longitude: parseFloat(e.target.value) })} placeholder="e.g. 72.5664" />
+                <Input className="w-full min-w-0" type="number" step="any" value={campusForm.longitude || ''} onChange={(e) => setCampusForm({ ...campusForm, longitude: parseFloat(e.target.value) })} placeholder="e.g. 72.5664" />
               </div>
             </div>
 
-            <div className="space-y-2 border-t pt-4">
+            <div className="min-w-0 space-y-2 border-t border-border/50 pt-3">
               <Label>Service Times</Label>
               {campusForm.serviceTimes?.map((st, idx) => (
-                <div key={idx} className="flex gap-2 mb-2">
-                  <Input 
-                    placeholder="Day (e.g. Sunday)" 
+                <div key={idx} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Input
+                    className="w-full min-w-0"
+                    placeholder="Day (e.g. Sunday)"
                     value={st.day}
                     onChange={(e) => {
                       const newST = [...(campusForm.serviceTimes || [])];
                       newST[idx].day = e.target.value;
                       setCampusForm({ ...campusForm, serviceTimes: newST });
-                    }} 
+                    }}
                   />
-                  <Input 
-                    placeholder="Times (e.g. 9:00 AM, 11:00 AM)" 
+                  <Input
+                    className="w-full min-w-0"
+                    placeholder="Times (e.g. 9:00 AM, 11:00 AM)"
                     value={st.times.join(', ')}
                     onChange={(e) => {
                       const newST = [...(campusForm.serviceTimes || [])];
                       newST[idx].times = e.target.value.split(',').map(t => t.trim());
                       setCampusForm({ ...campusForm, serviceTimes: newST });
-                    }} 
+                    }}
                   />
                 </div>
               ))}
             </div>
-
           </div>
-          <DialogFooter className="flex justify-between w-full sm:justify-between items-center mt-4">
+          <DialogFooter className="mt-2 flex w-full min-w-0 flex-col-reverse gap-2 sm:mt-4 sm:flex-row sm:items-center sm:justify-between">
             {editingCampusId ? (
               <Button
                 variant="secondary"
@@ -910,14 +919,14 @@ export default function SettingsPage() {
                   setCampusDialogOpen(false);
                   router.push(`/admin/users?campus=${editingCampusId}&action=add`);
                 }}
-                className="gap-2 bg-muted text-muted-foreground hover:bg-muted/80"
+                className="h-11 w-full gap-2 bg-muted text-muted-foreground hover:bg-muted/80 sm:h-10 sm:w-auto"
               >
                 <UserPlus className="w-4 h-4" /> Add Members
               </Button>
-            ) : <div />}
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setCampusDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleCampusSubmit} disabled={!campusForm.name}>
+            ) : <div className="hidden sm:block" />}
+            <div className="flex w-full min-w-0 flex-col-reverse gap-2 sm:w-auto sm:flex-row">
+              <Button variant="outline" className="h-11 w-full sm:h-10 sm:w-auto" onClick={() => setCampusDialogOpen(false)}>Cancel</Button>
+              <Button className="h-11 w-full sm:h-10 sm:w-auto" onClick={handleCampusSubmit} disabled={!campusForm.name}>
                 {editingCampusId ? 'Save' : 'Create Campus'}
               </Button>
             </div>
