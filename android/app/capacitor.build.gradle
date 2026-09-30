@@ -10,11 +10,14 @@ android {
 apply from: "../capacitor-cordova-android-plugins/cordova.variables.gradle"
 dependencies {
     implementation project(':capacitor-community-apple-sign-in')
+    implementation project(':capacitor-community-fcm')
     implementation project(':capacitor-app')
+    implementation project(':capacitor-browser')
     implementation project(':capacitor-camera')
     implementation project(':capacitor-geolocation')
     implementation project(':capacitor-keyboard')
     implementation project(':capacitor-push-notifications')
+    implementation project(':capgo-background-geolocation')
     implementation project(':codetrix-studio-capacitor-google-auth')
     implementation project(':capacitor-native-settings')
 

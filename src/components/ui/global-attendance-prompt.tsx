@@ -119,6 +119,8 @@ function sendAttendanceNotification(session: any) {
   };
 }
 
+import { BackgroundGeolocation } from '@capgo/background-geolocation';
+
 /**
  * GlobalAttendancePrompt — completely invisible.
  * 
@@ -131,6 +133,45 @@ function sendAttendanceNotification(session: any) {
  */
 export function GlobalAttendancePrompt() {
   const pathname = usePathname();
+
+  // Handle background geofence transitions
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let listener: any;
+    const setupListener = async () => {
+      try {
+        listener = await BackgroundGeolocation.addListener('geofenceTransition', async (event) => {
+          if (event.transition === 'enter') {
+            const sessionId = event.identifier;
+            // Send check-in API
+            try {
+              await fetch('/api/attendance/check-in', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id: sessionId,
+                  type: 'session',
+                  latitude: 0,
+                  longitude: 0,
+                  isGeofence: true
+                })
+              });
+            } catch (err) {
+              console.error('Geofence check-in failed', err);
+            }
+          }
+        });
+      } catch (e) {
+        console.warn('Failed to listen to geofence transitions', e);
+      }
+    };
+    setupListener();
+
+    return () => {
+      if (listener) listener.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (pathname?.includes('/admin')) return;
@@ -195,6 +236,34 @@ export function GlobalAttendancePrompt() {
 
           return isWithinTimeWindow(startTime, endTime);
         });
+
+        // Setup background geofencing for all active sessions today
+        if (Capacitor.isNativePlatform()) {
+          try {
+            await BackgroundGeolocation.setupGeofencing({
+              notifyOnEntry: true,
+              notifyOnExit: false
+            });
+            await BackgroundGeolocation.removeAllGeofences();
+
+            const geofenceSessions = sessions.filter(s => isSessionActiveToday(s) && !checkedDates[`${s._id}::${todayKey}`]);
+            for (const s of geofenceSessions) {
+              const targetLat = s.latitude || s.attendanceConfig?.latitude;
+              const targetLon = s.longitude || s.attendanceConfig?.longitude;
+              const radius = s.radius || s.attendanceConfig?.radius || 500;
+              if (targetLat !== undefined && targetLon !== undefined) {
+                await BackgroundGeolocation.addGeofence({
+                  identifier: s._id,
+                  latitude: targetLat,
+                  longitude: targetLon,
+                  radius: radius
+                });
+              }
+            }
+          } catch (e) {
+            console.warn("Failed to set up native geofences", e);
+          }
+        }
 
         if (!eligibleSession) return;
 
