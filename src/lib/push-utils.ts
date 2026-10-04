@@ -115,6 +115,22 @@ export async function sendPushToTargeted(
                   color: '#810008',
                 },
               },
+              apns: {
+                headers: {
+                  'apns-push-type': 'alert',
+                  'apns-priority': '10',
+                },
+                payload: {
+                  aps: {
+                    alert: {
+                      title: payload.title,
+                      body: payload.body,
+                    },
+                    sound: 'default',
+                    'content-available': 1,
+                  },
+                },
+              },
               data: {
                 type: payload.type || 'system',
                 url: payload.url || '',
@@ -215,6 +231,22 @@ export async function sendPushToUsers(
                 notification: {
                   icon: 'ic_stat_icon',
                   color: '#810008',
+                },
+              },
+              apns: {
+                headers: {
+                  'apns-push-type': 'alert',
+                  'apns-priority': '10',
+                },
+                payload: {
+                  aps: {
+                    alert: {
+                      title: payload.title,
+                      body: payload.body,
+                    },
+                    sound: 'default',
+                    'content-available': 1,
+                  },
                 },
               },
               data: {
