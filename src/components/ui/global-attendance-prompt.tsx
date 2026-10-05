@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
+import { BackgroundGeolocation } from '@capgo/background-geolocation';
 
 /**
  * Haversine distance calculation (client-side mirror of geo-utils.ts)
@@ -118,8 +119,6 @@ function sendAttendanceNotification(session: any) {
     notification.close();
   };
 }
-
-import { BackgroundGeolocation } from '@capgo/background-geolocation';
 
 /**
  * GlobalAttendancePrompt — completely invisible.
