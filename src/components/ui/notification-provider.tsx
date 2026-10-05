@@ -98,42 +98,56 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       // 1. Native Capacitor App (Android/iOS)
       if (Capacitor.isNativePlatform()) {
         let permStatus = await PushNotifications.checkPermissions();
-        
+
         if (permStatus.receive === 'prompt' || permStatus.receive === 'prompt-with-rationale') {
           permStatus = await PushNotifications.requestPermissions();
         }
 
         if (permStatus.receive !== 'granted') return;
 
-        // Register with Apple / Google to receive tokens
-        await PushNotifications.register();
-
-        // On success, we should be able to receive tokens
-        PushNotifications.addListener('registration', async (token) => {
-          console.log('[Native Push] Push registration success, APNs/FCM token:', token.value);
-          let finalToken = token.value;
+        const syncNativeToken = async (rawToken?: string) => {
+          let finalToken = rawToken || '';
 
           if (Capacitor.getPlatform() === 'ios') {
             try {
-              // Import FCM dynamically to avoid SSR issues if any, but since it's in a useEffect it's safe
               const { FCM } = await import('@capacitor-community/fcm');
               const fcmToken = await FCM.getToken();
-              finalToken = fcmToken.token;
-              console.log('[Native Push] iOS FCM token retrieved:', finalToken);
+              if (fcmToken?.token) {
+                finalToken = fcmToken.token;
+                console.log('[Native Push] iOS FCM token resolved:', finalToken);
+              }
             } catch (err) {
               console.error('[Native Push] Failed to get FCM token on iOS:', err);
             }
           }
 
-          // Send native FCM token to our server
-          await fetch('/api/push/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              platform: Capacitor.getPlatform(), // 'android' or 'ios'
-              fcmToken: finalToken 
-            }),
-          });
+          if (!finalToken) {
+            console.warn('[Native Push] No valid token found to register.');
+            return;
+          }
+
+          try {
+            await fetch('/api/push/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                platform: Capacitor.getPlatform(),
+                fcmToken: finalToken,
+              }),
+            });
+            console.log('[Native Push] Token registered with server successfully.');
+          } catch (err) {
+            console.error('[Native Push] Failed to send push subscription to server:', err);
+          }
+        };
+
+        // Remove old listeners before attaching new ones
+        await PushNotifications.removeAllListeners();
+
+        // Attach listeners BEFORE calling register()
+        PushNotifications.addListener('registration', async (token) => {
+          console.log('[Native Push] Push registration success, APNs/FCM token:', token.value);
+          await syncNativeToken(token.value);
         });
 
         PushNotifications.addListener('registrationError', (error) => {
@@ -158,6 +172,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             type: notification.data?.type,
           });
         });
+
+        // Register with Apple / Google to receive tokens
+        await PushNotifications.register();
+
+        // On iOS, also immediately attempt to retrieve the FCM token directly
+        // in case iOS already fired didRegisterForRemoteNotifications earlier
+        if (Capacitor.getPlatform() === 'ios') {
+          await syncNativeToken();
+        }
 
         swRegistered.current = true;
         return;

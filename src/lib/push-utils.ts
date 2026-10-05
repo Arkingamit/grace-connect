@@ -139,6 +139,7 @@ export async function sendPushToTargeted(
             });
           }
         } catch (err: any) {
+          console.error(`[push] Failed sending to ${sub.platform} user=${sub.userId}:`, err?.code || err?.message || err);
           // Web Push expiration
           if (sub.platform === 'web' && (err.statusCode === 404 || err.statusCode === 410)) {
             expiredWebEndpoints.push(sub.endpoint!);
@@ -257,6 +258,7 @@ export async function sendPushToUsers(
             });
           }
         } catch (err: any) {
+          console.error(`[push] Failed sending to ${sub.platform} user=${sub.userId}:`, err?.code || err?.message || err);
           if (sub.platform === 'web' && (err.statusCode === 404 || err.statusCode === 410)) {
             expiredWebEndpoints.push(sub.endpoint!);
           } else if (
