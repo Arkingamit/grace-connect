@@ -233,7 +233,7 @@ function LiveStreamPageLayout() {
     : "";
 
   return (
-    <div className="py-8 md:py-12">
+    <div className="pt-2 pb-8 md:pt-4 md:pb-12">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-5 mb-8 max-w-4xl mx-auto">
         <div className="flex items-center justify-center gap-3 w-full sm:w-auto">
           <div className="relative flex h-5 w-5">
