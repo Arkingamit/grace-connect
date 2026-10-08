@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start -p 4000",
     "lint": "next lint",
-    "deploy": "git pull && npm install && cross-env BUILD_DIR=.next-temp npm run build && rm -rf .next && mv .next-temp .next && pm2 reload all",
+    "deploy": "git pull && npm install && cross-env BUILD_DIR=.next-temp npm run build && node -e \"const fs = require('fs'); fs.rmSync('.next', {recursive: true, force: true}); fs.renameSync('.next-temp', '.next');\" && pm2 reload all",
     "postinstall": "node scripts/ensure-google-auth-spm.mjs"
   },
   "browserslist": [

@@ -34,3 +34,6 @@ keystore.properties
 *.jks
 *.keystore
 *.tsbuildinfo
+
+.next-temp
+
