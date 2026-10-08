@@ -43,9 +43,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="https"
-                    android:host="graceconnect.graceahmedabad.org" />
+                <data android:scheme="https" android:host="graceconnect.graceahmedabad.org" />
             </intent-filter>
             <!-- Custom scheme fallback when App Links are not yet verified -->
             <intent-filter>
@@ -67,10 +65,12 @@
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_stat_icon" />
+            android:resource="@drawable/ic_stat_icon"
+        />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
-            android:resource="@color/colorPrimary" />
+            android:resource="@color/colorPrimary"
+        />
     </application>
 
     <!-- Permissions -->

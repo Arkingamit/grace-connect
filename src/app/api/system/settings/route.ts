@@ -4,6 +4,8 @@ import { SystemSettings } from '@/models/SystemSettings';
 import { requireAdmin } from '@/lib/api-auth';
 import { serverCache, CACHE_TTL } from '@/lib/cache';
 
+export const dynamic = 'force-dynamic';
+
 // GET is public so the app can check version on launch
 export async function GET() {
   try {
