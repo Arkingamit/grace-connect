@@ -65,6 +65,7 @@ const emptySessionForm = (campusId: string) => ({
     scannerRequireGps: false,
   },
   assignedScannerIds: [] as string[],
+  sendNotification: true,
 });
 
 export default function AdminAttendancePage() {
@@ -533,17 +534,17 @@ export default function AdminAttendancePage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:flex gap-2 pt-2 border-t">
-                  <Button variant="outline" className="w-full sm:flex-1" onClick={() => viewRecords(s._id)}>
+                <div className="flex flex-wrap gap-2 pt-2 border-t">
+                  <Button variant="outline" className="flex-1 min-w-[100px]" onClick={() => viewRecords(s._id)}>
                     <Users className="w-4 h-4 sm:mr-2 mr-1 shrink-0" /> <span className="truncate text-xs sm:text-sm">Records</span>
                   </Button>
                   {canManageSessions && (
                     <>
-                      <Button variant="outline" className="w-full sm:flex-1" onClick={() => { setSelectedSessionForQr(s); setQrDialogOpen(true); }}>
+                      <Button variant="outline" className="flex-1 min-w-[100px]" onClick={() => { setSelectedSessionForQr(s); setQrDialogOpen(true); }}>
                         <QrCode className="w-4 h-4 sm:mr-2 mr-1 shrink-0" /> <span className="truncate text-xs sm:text-sm">Show QR</span>
                       </Button>
-                      <Button variant="outline" className="col-span-2 w-full sm:w-auto sm:px-3 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDelete(s._id)}>
-                        <Trash2 className="w-4 h-4 sm:mr-0 mr-2 shrink-0" /> <span className="sm:hidden text-xs">Delete Session</span>
+                      <Button variant="outline" className="flex-none px-3 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDelete(s._id)} title="Delete Session">
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </>
                   )}
@@ -622,6 +623,17 @@ export default function AdminAttendancePage() {
                         Recurring Session
                       </Label>
                       <p className="text-xs text-[#7A6150]">Automatically schedule repeated attendance sessions</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Switch checked={form.sendNotification} onCheckedChange={(c) => setForm({ ...form, sendNotification: c })} />
+                    <div className="space-y-0.5">
+                      <Label className="flex items-center gap-2 font-semibold text-[#1A202C]">
+                        <Megaphone className="w-4 h-4 text-[#8B2323]" />
+                        Send Notification
+                      </Label>
+                      <p className="text-xs text-[#7A6150]">Notify the target audience when this session starts</p>
                     </div>
                   </div>
 

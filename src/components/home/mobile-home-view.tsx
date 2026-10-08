@@ -982,10 +982,22 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                             <ExpandableCard
                               className="w-full relative rounded-3xl shadow-sm border transition-colors bg-[#FAF7F2] border-[#E5D5C5]/40"
                               collapsedSize={{ width: 280, height: 96 }}
-                              expandedSize={{ width: 280, height: 232 }}
+                              expandedSize={{ width: 280, height: 180 }}
                               hoverToExpand={false}
                             >
                               <ExpandableCardHeader className={cn("p-4", isExpanded ? "pb-2" : "pb-4")}>
+                                {isExpanded && (
+                                  <button
+                                    type="button"
+                                    className="absolute top-4 right-4 z-10 h-7 flex items-center justify-center text-[11px] rounded-xl px-2.5 bg-[#8B2323] hover:bg-[#721515] text-white font-medium shadow-sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setRsvpEvent(event);
+                                    }}
+                                  >
+                                    RSVP <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                                  </button>
+                                )}
                                 <motion.div layout className={cn("flex", isExpanded ? "flex-col" : "gap-4")}>
                                   {!isExpanded && (
                                     <motion.div layoutId={`date-wrapper-${event.id}`} className="flex flex-col items-center gap-2 shrink-0">
@@ -1003,7 +1015,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                       </p>
                                     </motion.div>
                                   )}
-                                  <motion.div layoutId={`title-container-${event.id}`} className={cn("flex flex-col justify-center", isExpanded ? "w-full" : "flex-1")}>
+                                  <motion.div layoutId={`title-container-${event.id}`} className={cn("flex flex-col justify-center pr-16", isExpanded ? "w-full" : "flex-1")}>
                                     <div className="flex items-start justify-between gap-2 mb-1.5">
                                       <motion.h4 layoutId={`title-${event.id}`} className={cn("font-bold text-[#1A202C] leading-snug", isExpanded ? "text-sm" : "line-clamp-1 mb-2")}>{event.title}</motion.h4>
                                     </div>
@@ -1057,21 +1069,6 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                     })()}
                                   </div>
                                 </ExpandableCardContent>
-                                <ExpandableCardFooter className="px-4 pt-3 pb-5 border-t border-[#E5D5C5]/40 justify-between items-center mt-2">
-                                  <span className="text-[10px] uppercase tracking-wider font-bold text-[#8B2323]/90">
-                                    Open Registration
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="h-7 flex items-center justify-center text-[11px] rounded-xl px-2.5 bg-[#8B2323] hover:bg-[#721515] text-white font-medium"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setRsvpEvent(event);
-                                    }}
-                                  >
-                                    RSVP <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                                  </button>
-                                </ExpandableCardFooter>
                               </ExpandableContent>
                             </ExpandableCard>
                           </ExpandableTrigger>
@@ -1328,10 +1325,22 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                   <ExpandableCard
                                     className="w-full relative rounded-3xl shadow-sm border transition-colors bg-[#FAF7F2] border-[#E5D5C5]/40"
                                     collapsedSize={{ width: 280, height: 96 }}
-                                    expandedSize={{ width: 280, height: 248 }}
+                                    expandedSize={{ width: 280, height: 196 }}
                                     hoverToExpand={false}
                                   >
                                     <ExpandableCardHeader className={cn("p-4", isExpanded ? "pb-2" : "pb-4")}>
+                                      {isExpanded && (
+                                        <button
+                                          type="button"
+                                          className="absolute top-4 right-4 z-10 h-7 flex items-center justify-center text-[11px] rounded-xl px-2.5 bg-[#8B2323] hover:bg-[#721515] text-white font-medium shadow-sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setRsvpEvent(event);
+                                          }}
+                                        >
+                                          RSVP <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                                        </button>
+                                      )}
                                       <div className={cn("flex", isExpanded ? "flex-col" : "gap-4")}>
                                         {!isExpanded && (
                                           <motion.div layoutId={`date-block-${event.id}`} className="flex flex-col items-center gap-2 shrink-0">
@@ -1348,7 +1357,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                             </p>
                                           </motion.div>
                                         )}
-                                        <motion.div layoutId={`title-container-${event.id}`} className={cn("flex flex-col justify-center", isExpanded ? "w-full" : "flex-1")}>
+                                        <motion.div layoutId={`title-container-${event.id}`} className={cn("flex flex-col justify-center pr-16", isExpanded ? "w-full" : "flex-1")}>
                                           <div className="flex items-start justify-between gap-2 mb-1.5">
                                             <h4 className={cn("font-bold text-[#1A202C] leading-snug", isExpanded ? "text-sm" : "line-clamp-1 mb-2")}>{event.title}</h4>
                                             {isExpanded && (
@@ -1408,21 +1417,6 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                           })()}
                                         </div>
                                       </ExpandableCardContent>
-                                      <ExpandableCardFooter className="px-4 pt-3 pb-5 border-t border-[#E5D5C5]/40 justify-between items-center mt-2">
-                                        <span className="text-[10px] font-medium text-[#16a34a]">
-                                          Open Registration
-                                        </span>
-                                        <button
-                                          type="button"
-                                          className="h-8 flex items-center justify-center text-xs rounded-xl px-4 bg-[#8B2323] hover:bg-[#721515] text-white font-medium"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setRsvpEvent(event);
-                                          }}
-                                        >
-                                          RSVP <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                                        </button>
-                                      </ExpandableCardFooter>
                                     </ExpandableContent>
                                   </ExpandableCard>
                                 </ExpandableTrigger>

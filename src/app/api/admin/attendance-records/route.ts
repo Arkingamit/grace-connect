@@ -40,7 +40,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const records = await AttendanceRecord.find({ sessionId }).sort({ markedAt: -1 }).lean();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const viewDate = url.searchParams.get('date') || (attSession.recurring ? todayStr : attSession.date);
+
+    const records = await AttendanceRecord.find({ sessionId, date: viewDate }).sort({ markedAt: -1 }).lean();
     
     const targetCampuses: string[] =
       Array.isArray(attSession.targetCampuses) && attSession.targetCampuses.length > 0

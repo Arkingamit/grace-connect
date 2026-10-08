@@ -39,13 +39,18 @@ export async function POST(req: Request) {
 
     if (status === 'unmarked') {
       // If deleting the record manually
-      await AttendanceRecord.deleteOne({ sessionId, userId, date: session.date });
+      const todayStr = new Date().toISOString().split('T')[0];
+      const targetDate = body.date || (session.recurring ? todayStr : session.date);
+      await AttendanceRecord.deleteOne({ sessionId, userId, date: targetDate });
       return NextResponse.json({ success: true, message: 'Record removed' });
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    const targetDate = body.date || (session.recurring ? todayStr : session.date);
+
     // Upsert the record
     const updatedRecord = await AttendanceRecord.findOneAndUpdate(
-      { sessionId, userId, date: session.date },
+      { sessionId, userId, date: targetDate },
       { 
         $set: { 
           status, 

@@ -95,24 +95,26 @@ export async function POST(req: Request) {
     const targetCampuses = newSession.targetCampuses?.length ? newSession.targetCampuses : [newSession.campusId || 'all'];
     const targetGroups = newSession.targetGroups?.length ? newSession.targetGroups : ['all'];
 
-    await Notification.create({
-      title: `Attendance Session: ${newSession.title}`,
-      message: `Check in opens ${newSession.date} · ${newSession.startTime}–${newSession.endTime}`,
-      type: 'attendance',
-      sourceId: newSession._id.toString(),
-      targetCampuses,
-      targetGroups,
-    });
-
-    await sendPushToTargeted(
-      {
+    if (body.sendNotification !== false) {
+      await Notification.create({
         title: `Attendance Session: ${newSession.title}`,
-        body: `Check in opens ${newSession.date} · ${newSession.startTime}–${newSession.endTime}`,
+        message: `Check in opens ${newSession.date} · ${newSession.startTime}–${newSession.endTime}`,
         type: 'attendance',
-      },
-      targetCampuses,
-      targetGroups
-    );
+        sourceId: newSession._id.toString(),
+        targetCampuses,
+        targetGroups,
+      });
+
+      await sendPushToTargeted(
+        {
+          title: `Attendance Session: ${newSession.title}`,
+          body: `Check in opens ${newSession.date} · ${newSession.startTime}–${newSession.endTime}`,
+          type: 'attendance',
+        },
+        targetCampuses,
+        targetGroups
+      );
+    }
 
     return NextResponse.json(newSession, { status: 201 });
   } catch (error) {
