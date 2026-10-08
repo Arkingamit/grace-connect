@@ -66,8 +66,10 @@ export async function GET() {
       id: String((user as any)._id),
     };
 
+    const token = (await import('next/headers').then(m => m.cookies())).get('session')?.value;
+
     return NextResponse.json(
-      { user: formattedUser, linkedProfiles: formattedProfiles },
+      { user: formattedUser, linkedProfiles: formattedProfiles, token: token },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error: any) {

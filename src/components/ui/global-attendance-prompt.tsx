@@ -236,12 +236,23 @@ export function GlobalAttendancePrompt() {
           return isWithinTimeWindow(startTime, endTime);
         });
 
+        let token = '';
+        try {
+          const authRes = await fetch('/api/auth/me');
+          if (authRes.ok) {
+            const authData = await authRes.json();
+            token = authData.token || '';
+          }
+        } catch { /* ignore */ }
+
         // Setup background geofencing for all active sessions today
         if (Capacitor.isNativePlatform()) {
           try {
             await BackgroundGeolocation.setupGeofencing({
               notifyOnEntry: true,
-              notifyOnExit: false
+              notifyOnExit: false,
+              url: `${window.location.origin}/api/attendance/check-in`,
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined
             });
             await BackgroundGeolocation.removeAllGeofences();
 
@@ -255,7 +266,14 @@ export function GlobalAttendancePrompt() {
                   identifier: s._id,
                   latitude: targetLat,
                   longitude: targetLon,
-                  radius: radius
+                  radius: radius,
+                  payload: {
+                    id: s._id,
+                    type: s.type || 'session',
+                    latitude: 0,
+                    longitude: 0,
+                    isGeofence: true
+                  }
                 });
               }
             }

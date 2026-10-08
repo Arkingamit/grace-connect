@@ -90,8 +90,18 @@ export async function deleteSession() {
 
 /** Returns isAuth, userId, role and permissions — no DB query needed */
 export async function verifySession() {
-  const cookie = (await cookies()).get('session')?.value;
-  const session = await decrypt(cookie);
+  const cookieStore = await cookies();
+  let token = cookieStore.get('session')?.value;
+  
+  if (!token) {
+    const headersList = await import('next/headers').then(m => m.headers());
+    const authHeader = headersList.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+  }
+  
+  const session = await decrypt(token);
 
   if (!session?.userId) {
     return {
