@@ -501,8 +501,8 @@ export function MobileBottomNav() {
                   goToIndex(index);
                 }}
                 className={cn(
-                  "relative z-10 flex flex-1 flex-col items-center justify-center rounded-full transition-colors duration-200 [-webkit-tap-highlight-color:transparent]",
-                  compact ? "h-11 px-2" : "h-[3.4rem] px-2",
+                  "relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center rounded-full transition-colors duration-200 [-webkit-tap-highlight-color:transparent]",
+                  compact ? "h-11 px-1.5" : "h-[3.4rem] px-1.5",
                   isActive ? "text-[#8B2323]" : "text-[#4A3A32] active:text-[#3A2D27]",
                 )}
                 aria-current={isActive ? "page" : undefined}
@@ -517,7 +517,7 @@ export function MobileBottomNav() {
                 />
                 <span
                   className={cn(
-                    "relative z-10 overflow-hidden text-[10px] font-semibold leading-none tracking-wide transition-all duration-300",
+                    "relative z-10 overflow-hidden text-center text-[10px] font-semibold leading-none tracking-wide transition-all duration-300",
                     compact ? "mt-0 max-h-0 opacity-0" : "mt-0.5 max-h-4 opacity-100",
                   )}
                 >

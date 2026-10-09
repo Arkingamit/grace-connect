@@ -44,6 +44,7 @@ export const viewport: Viewport = {
 };
 
 import { PublicLayoutWrapper } from "@/components/ui/public-layout-wrapper";
+import GlassFilter from "@/components/ui/glass-filter";
 
 export default function RootLayout({
   children,
@@ -56,6 +57,7 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body>
+        <GlassFilter />
         <Providers>
           <PublicLayoutWrapper>
             {children}
