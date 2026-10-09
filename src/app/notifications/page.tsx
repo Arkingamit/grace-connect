@@ -363,7 +363,7 @@ export default function NotificationsPage() {
                       <div className="mb-1 flex items-start justify-between gap-2">
                         <h4 className="truncate pr-2 text-sm font-bold text-[#1A202C]">{notif.title}</h4>
                         <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-[#7A6150]">
-                          {notif.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {notif.date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                         </span>
                       </div>
                       <p className="text-xs text-[#7A6150] leading-relaxed line-clamp-3">
