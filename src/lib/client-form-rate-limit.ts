@@ -34,7 +34,10 @@ function requestKey(input: RequestInfo | URL, init?: RequestInit): string | null
   if (!MUTATING.has(method)) return null;
   const raw = input instanceof Request ? input.url : String(input);
   try {
-    return `${method}:${new URL(raw, window.location.origin).pathname}`;
+    const url = new URL(raw, window.location.origin);
+    // Ignore background API routes (they have their own server limits, and shouldn't popup toasts)
+    if (url.pathname.startsWith('/api/push') || url.pathname.startsWith('/api/attendance')) return null;
+    return `${method}:${url.pathname}`;
   } catch {
     return `${method}:${raw}`;
   }
