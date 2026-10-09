@@ -36,10 +36,14 @@ export async function GET() {
     const userCampusId = (user as any).campusId || '';
     const userGroups: string[] = (user as any).groups || [];
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const userCreatedAt = (user as any).createdAt ? new Date((user as any).createdAt) : thirtyDaysAgo;
+    
+    // Only show notifications from the last 30 days OR since the user registered, whichever is more recent
+    const cutoffDate = userCreatedAt > thirtyDaysAgo ? userCreatedAt : thirtyDaysAgo;
 
     // Push campus/group targeting into MongoDB — returns only relevant notifications
     const notifications = await Notification.find({
-      createdAt: { $gte: thirtyDaysAgo },
+      createdAt: { $gte: cutoffDate },
       // Exclude notifications that explicitly exclude this campus
       excludeCampuses: { $nin: [userCampusId] },
       // Campus must be 'all' or the user's campus
