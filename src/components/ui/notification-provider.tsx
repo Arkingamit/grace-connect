@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
+import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Bell, Calendar, Megaphone, BookOpen, Heart, Music, FileText, X, Radio, Image as ImageIcon } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
@@ -16,6 +17,7 @@ interface NotificationToast {
   title: string;
   message: string;
   type: string;
+  url?: string;
   createdAt: string;
 }
 
@@ -68,6 +70,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
+  const router = useRouter();
   const [toasts, setToasts] = useState<NotificationToast[]>([]);
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const lastPollRef = useRef<string | null>(null);
@@ -75,13 +78,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const swRegistered = useRef(false);
 
   // Helper: show a toast from a push payload (reused by foreground handler)
-  const showPushToast = useCallback((data: { title?: string; body?: string; message?: string; type?: string }) => {
+  const showPushToast = useCallback((data: { title?: string; body?: string; message?: string; type?: string; url?: string }) => {
     const id = `push-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const toast: NotificationToast = {
       id,
       title: data.title || 'Grace Connect',
       message: data.body || data.message || '',
       type: data.type || 'system',
+      url: data.url,
       createdAt: new Date().toISOString(),
     };
     setToasts((prev) => [toast, ...prev].slice(0, 5));
@@ -156,10 +160,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
         // Add listener for native push notification action clicks
         PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-          const url = notification.notification.data?.url;
-          if (url) {
-            window.location.href = url;
-          }
+          const url = notification.notification.data?.url || '/notifications';
+          window.location.href = url;
         });
 
         // Foreground handler: show an in-app toast immediately when a push
@@ -170,6 +172,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             title: notification.title || notification.data?.title,
             body: notification.body || notification.data?.body || notification.data?.message,
             type: notification.data?.type,
+            url: notification.data?.url,
           });
         });
 
@@ -375,7 +378,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 exit={{ opacity: 0, x: 80, scale: 0.9 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 className={`pointer-events-auto rounded-2xl border ${colors.border} ${colors.bg} p-4 shadow-xl backdrop-blur-sm flex items-start gap-3 cursor-pointer`}
-                onClick={() => dismissToast(toast.id)}
+                onClick={() => {
+                  dismissToast(toast.id);
+                  if (toast.url) {
+                    router.push(toast.url);
+                  } else {
+                    router.push('/notifications');
+                  }
+                }}
               >
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${colors.bg}`}>
                   <Icon className={`w-5 h-5 ${colors.icon}`} />
