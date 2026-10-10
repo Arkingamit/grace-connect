@@ -33,10 +33,10 @@ export function NavigationHistoryProvider({ children }: { children: React.ReactN
     const previous = popNavStack();
     if (previous) {
       setHistory(readNavStack());
-      router.push(previous);
+      router.push(previous, { scroll: false });
       return;
     }
-    router.push(fallbackRoute);
+    router.push(fallbackRoute, { scroll: false });
   };
 
   return (

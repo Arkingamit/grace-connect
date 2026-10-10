@@ -44,7 +44,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ type: st
       }
 
       // .lean() returns plain JS objects — 30-50% faster than full Mongoose documents
-      items = await Model.find({}).sort({ sortOrder: 1, createdAt: -1 }).lean();
+      if (type === 'gallery') {
+        items = await Model.find({}).sort({ createdAt: -1, _id: -1 }).lean();
+      } else {
+        items = await Model.find({}).sort({ sortOrder: 1, createdAt: -1 }).lean();
+      }
 
       // Use shorter TTL for livestreams since they're real-time
       const ttl = type === 'livestreams' ? CACHE_TTL.LIVESTREAMS : CACHE_TTL.SERMONS;

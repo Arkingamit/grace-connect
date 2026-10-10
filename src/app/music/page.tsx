@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { useAdminData } from "@/lib/admin-data-context";
 import { GoldRule } from "@/components/ui/gold-rule";
+import { searchSongs } from "@/lib/songSearch";
 
 
 const categoryColors: Record<string, string> = {
@@ -69,6 +70,33 @@ export default function MusicPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [youtubeStats, setYoutubeStats] = useState<Record<string, { viewCount: string; publishedAt: string; title?: string; artist?: string }>>({});
 
+  // Mark worship notifications as visited when user views this page
+  useEffect(() => {
+    try {
+      localStorage.setItem('grace_visited_worship', String(Date.now()));
+      fetch('/api/notifications')
+        .then(res => res.ok ? res.json() : [])
+        .then((notifs: any[]) => {
+          if (!Array.isArray(notifs)) return;
+          const worshipNotifs = notifs.filter(n => n.type === 'new_worship_video');
+          const ids = worshipNotifs.flatMap(n => [n._id, n.sourceId ? `worship-${n.sourceId}` : null]).filter(Boolean) as string[];
+          if (ids.length > 0) {
+            const current: string[] = JSON.parse(localStorage.getItem('grace_dismissed_notifications') || '[]');
+            const updated = Array.from(new Set([...current, ...ids]));
+            localStorage.setItem('grace_dismissed_notifications', JSON.stringify(updated));
+            const dbIds = worshipNotifs.map(n => n._id).filter(Boolean);
+            if (dbIds.length > 0) {
+              fetch('/api/notifications', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: dbIds })
+              }).catch(() => {});
+            }
+          }
+        }).catch(() => {});
+    } catch {}
+  }, []);
+
   useEffect(() => {
     const fetchYoutubeStats = async () => {
       const videoIds = Array.from(new Set(worshipVideos.map((v) => v.videoId))).filter(Boolean);
@@ -103,19 +131,18 @@ export default function MusicPage() {
     new Set(worshipVideos.flatMap((video) => video.categories || []))
   );
 
-  // Filter videos based on search term and category
-  const filteredVideos = worshipVideos.filter((video) => {
-    const matchesSearch =
-      searchTerm === "" ||
-      video.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      video.artist.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      video.album.toLowerCase().includes(searchTerm.toLowerCase());
+  // Filter videos based on category first
+  const categoryFiltered = React.useMemo(() => {
+    if (selectedCategory === "all") return worshipVideos;
+    return worshipVideos.filter(
+      (video) => video.categories && video.categories.includes(selectedCategory)
+    );
+  }, [worshipVideos, selectedCategory]);
 
-    const matchesCategory =
-      selectedCategory === "all" || (video.categories && video.categories.includes(selectedCategory));
-
-    return matchesSearch && matchesCategory;
-  });
+  // Apply Fuse.js Bitap fuzzy matching with multi-script Hindi/Gujarati/Hinglish mapping
+  const filteredVideos = React.useMemo(() => {
+    return searchSongs(categoryFiltered, searchTerm);
+  }, [categoryFiltered, searchTerm]);
 
   const handlePlay = (videoId: string) => setFullscreenVideo(videoId);
 

@@ -192,9 +192,6 @@ export default function ProfilePage() {
               <span className="px-3 py-1 bg-muted/60 text-muted-foreground text-xs font-semibold rounded-full capitalize">
                 {member.gender}
               </span>
-              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-semibold rounded-full border border-emerald-500/20">
-                Active Member
-              </span>
               {hasCustomPhoto ? (
                 <button
                   type="button"
@@ -211,7 +208,7 @@ export default function ProfilePage() {
           {/* Official ePass Canvas */}
           <div className="w-full bg-[#FAF7F2] dark:bg-muted/30 rounded-3xl p-6 flex flex-col items-center border border-border/40">
             {/* QR Code Container */}
-            <div className="bg-white p-4 rounded-2xl shadow-sm mb-3 border border-border/30">
+            <div className="bg-white p-4 rounded-2xl shadow-sm mb-4 border border-border/30">
               <div className="w-44 h-44 bg-white flex items-center justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -223,9 +220,6 @@ export default function ProfilePage() {
                 />
               </div>
             </div>
-            <code className="text-[11px] font-mono text-muted-foreground mb-4 tracking-tight opacity-80 bg-white/60 dark:bg-background/60 px-3 py-1 rounded-md border border-border/30">
-              {member.qrCode}
-            </code>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#8B2323]/10 text-[#8B2323] dark:bg-primary/20 dark:text-primary rounded-xl border border-[#8B2323]/20 mb-2">
               <QrCode className="w-4 h-4" />
               <span className="text-xs font-bold uppercase tracking-widest">Official ePass</span>

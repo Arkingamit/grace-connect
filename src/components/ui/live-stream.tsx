@@ -111,9 +111,12 @@ function LiveStreamWidgetLayout() {
                   <SelectValue placeholder="Select Campus" />
                 </SelectTrigger>
                 <SelectContent>
-                  {campuses.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
+                  {campuses.map((c: any) => {
+                    const campusId = c.id || c._id;
+                    return (
+                      <SelectItem key={campusId} value={campusId}>{c.name}</SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               {isRefreshing && (
@@ -257,9 +260,12 @@ function LiveStreamPageLayout() {
               <SelectValue placeholder="Select Campus" />
             </SelectTrigger>
             <SelectContent>
-              {campuses.map((c: any) => (
-                <SelectItem key={c.id} value={c.id} className="text-base py-3">{c.name}</SelectItem>
-              ))}
+              {campuses.map((c: any) => {
+                const campusId = c.id || c._id;
+                return (
+                  <SelectItem key={campusId} value={campusId} className="text-base py-3">{c.name}</SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>

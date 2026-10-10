@@ -546,5 +546,20 @@
     color: hsl(var(--muted-foreground) / 0.35);
     pointer-events: none;
   }
+
+  .spanned-restored-component {
+    animation: restoredComponentGlow 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes restoredComponentGlow {
+    0% {
+      box-shadow: 0 0 0 3px hsl(var(--primary) / 0.35);
+      border-radius: inherit;
+    }
+    100% {
+      box-shadow: 0 0 0 0 hsl(var(--primary) / 0);
+      border-radius: inherit;
+    }
+  }
 }
 

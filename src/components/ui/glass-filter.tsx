@@ -1,37 +1,56 @@
 import React from "react";
-import { GLASS_DISPLACEMENT_MAP } from "@/lib/glass-map";
 
 /**
- * Global SVG filter providing liquid glass refraction via displacement mapping.
- * Used by backdrop-filter: url(#frosted) on .liquid-glass-pill elements.
+ * Global SVG filter providing liquid glass refraction.
+ * Used by backdrop-filter or direct filter on liquid glass elements.
  */
 export default function GlassFilter() {
   return (
-    <svg
-      aria-hidden="true"
-      style={{
-        position: "absolute",
-        width: 0,
-        height: 0,
-        pointerEvents: "none",
-        overflow: "hidden",
-      }}
-    >
-      <filter id="frosted" primitiveUnits="objectBoundingBox">
-        <feImage
-          href={GLASS_DISPLACEMENT_MAP}
-          x="0"
-          y="0"
-          width="1"
-          height="1"
-          result="map"
+    <svg style={{ display: "none" }}>
+      <filter
+        id="glass-distortion"
+        x="0%"
+        y="0%"
+        width="100%"
+        height="100%"
+        filterUnits="objectBoundingBox"
+      >
+        <feTurbulence
+          type="fractalNoise"
+          baseFrequency="0.001 0.005"
+          numOctaves="1"
+          seed="17"
+          result="turbulence"
         />
-        <feGaussianBlur in="SourceGraphic" stdDeviation="0.02" result="blur" />
+        <feComponentTransfer in="turbulence" result="mapped">
+          <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
+          <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
+          <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
+        </feComponentTransfer>
+        <feGaussianBlur in="turbulence" stdDeviation="3" result="softMap" />
+        <feSpecularLighting
+          in="softMap"
+          surfaceScale="5"
+          specularConstant="1"
+          specularExponent="100"
+          lightingColor="white"
+          result="specLight"
+        >
+          <fePointLight x="-200" y="-200" z="300" />
+        </feSpecularLighting>
+        <feComposite
+          in="specLight"
+          operator="arithmetic"
+          k1="0"
+          k2="1"
+          k3="1"
+          k4="0"
+          result="litImage"
+        />
         <feDisplacementMap
-          id="disp"
-          in="blur"
-          in2="map"
-          scale={1}
+          in="SourceGraphic"
+          in2="softMap"
+          scale="200"
           xChannelSelector="R"
           yChannelSelector="G"
         />

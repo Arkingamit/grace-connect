@@ -14,7 +14,7 @@ function isTextFieldFocused(): boolean {
   const el = document.activeElement as HTMLElement | null;
   if (!el) return false;
   const tag = (el.tagName || "").toLowerCase();
-  return tag === "input" || tag === "textarea" || !!el.isContentEditable;
+  return tag === "input" || tag === "textarea" || tag === "select" || !!el.isContentEditable;
 }
 
 /** Undo residual WebView scroll/offset after the keyboard dismisses. */
@@ -161,6 +161,7 @@ export function useKeyboardInset(enabled = true): number {
 
     let cancelled = false;
     let nativeHeight = 0;
+    let blurTimer: NodeJS.Timeout | null = null;
     const isIos = Capacitor.getPlatform() === "ios";
 
     const update = () => {
@@ -173,14 +174,30 @@ export function useKeyboardInset(enabled = true): number {
       setInset(vvInset);
     };
 
+    const onFocusIn = () => {
+      if (blurTimer) {
+        clearTimeout(blurTimer);
+        blurTimer = null;
+      }
+      update();
+    };
+
+    const onFocusOut = () => {
+      if (blurTimer) clearTimeout(blurTimer);
+      // Grace period: if user taps another input, focusin cancels this and prevents flicker
+      blurTimer = setTimeout(() => {
+        update();
+      }, 150);
+    };
+
     update();
 
     const vv = window.visualViewport;
     vv?.addEventListener("resize", update);
     vv?.addEventListener("scroll", update);
     window.addEventListener("resize", update);
-    document.addEventListener("focusin", update);
-    document.addEventListener("focusout", update);
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
 
     const removals: Array<() => void> = [];
 
@@ -217,11 +234,12 @@ export function useKeyboardInset(enabled = true): number {
 
     return () => {
       cancelled = true;
+      if (blurTimer) clearTimeout(blurTimer);
       vv?.removeEventListener("resize", update);
       vv?.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
-      document.removeEventListener("focusin", update);
-      document.removeEventListener("focusout", update);
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
       removals.forEach((remove) => remove());
       setInset(0);
     };
@@ -261,6 +279,7 @@ export function useKeyboardOpen(enabled = true): boolean {
     }
 
     let cancelled = false;
+    let blurTimer: NodeJS.Timeout | null = null;
     const set = (value: boolean) => {
       if (!cancelled) setOpen(value);
     };
@@ -276,8 +295,24 @@ export function useKeyboardOpen(enabled = true): boolean {
       }
     };
 
-    document.addEventListener("focusin", syncFromFocus);
-    document.addEventListener("focusout", syncFromFocus);
+    const onFocusIn = () => {
+      if (blurTimer) {
+        clearTimeout(blurTimer);
+        blurTimer = null;
+      }
+      syncFromFocus();
+    };
+
+    const onFocusOut = () => {
+      if (blurTimer) clearTimeout(blurTimer);
+      // Grace period: if user taps another input, focusin cancels this and prevents flicker
+      blurTimer = setTimeout(() => {
+        syncFromFocus();
+      }, 150);
+    };
+
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
 
     const removals: Array<() => void> = [];
 
@@ -311,8 +346,9 @@ export function useKeyboardOpen(enabled = true): boolean {
 
     return () => {
       cancelled = true;
-      document.removeEventListener("focusin", syncFromFocus);
-      document.removeEventListener("focusout", syncFromFocus);
+      if (blurTimer) clearTimeout(blurTimer);
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
       removals.forEach((remove) => remove());
       setOpen(false);
     };
@@ -342,14 +378,15 @@ export function useKeyboardAwareDialogPosition(enabled: boolean): {
   const style = useMemo(() => {
     if (!lifted) return undefined;
     const pad = 12;
-    const top = viewportBox.top + pad;
+    const top = Math.round(viewportBox.top + pad);
     const overlay = keyboardPadBeyondViewport(viewportBox, keyboardInset);
-    const maxHeight = Math.max(180, viewportBox.height - pad * 2 - overlay);
+    const maxHeight = Math.max(180, Math.round(viewportBox.height - pad * 2 - overlay));
     return {
       top: `${top}px`,
       transform: "translateX(-50%)",
       maxHeight: `${maxHeight}px`,
       overflowY: "auto" as const,
+      transition: "none",
     };
   }, [lifted, viewportBox, keyboardInset]);
 

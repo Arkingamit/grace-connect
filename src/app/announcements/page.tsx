@@ -10,6 +10,33 @@ import { useNavigationHistory } from "@/components/ui/navigation-history-provide
 export default function AnnouncementsPage() {
   const { goBack } = useNavigationHistory();
 
+  // Mark announcements as visited when user views this page
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('grace_visited_announcements', String(Date.now()));
+      fetch('/api/notifications')
+        .then(res => res.ok ? res.json() : [])
+        .then((notifs: any[]) => {
+          if (!Array.isArray(notifs)) return;
+          const annNotifs = notifs.filter(n => n.type === 'new_announcement' || n.type === 'recurring_announcement');
+          const ids = annNotifs.flatMap(n => [n._id, n.sourceId ? `ann-${n.sourceId}` : null]).filter(Boolean) as string[];
+          if (ids.length > 0) {
+            const current: string[] = JSON.parse(localStorage.getItem('grace_dismissed_notifications') || '[]');
+            const updated = Array.from(new Set([...current, ...ids]));
+            localStorage.setItem('grace_dismissed_notifications', JSON.stringify(updated));
+            const dbIds = annNotifs.map(n => n._id).filter(Boolean);
+            if (dbIds.length > 0) {
+              fetch('/api/notifications', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: dbIds })
+              }).catch(() => {});
+            }
+          }
+        }).catch(() => {});
+    } catch {}
+  }, []);
+
   return (
     <div className="min-h-screen bg-transparent pb-24 md:pb-12 text-[#3A2D27]">
       <div className="container mx-auto px-4 sm:px-6 page-back-offset pb-2">

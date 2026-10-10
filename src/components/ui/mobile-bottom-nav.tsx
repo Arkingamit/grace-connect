@@ -176,13 +176,15 @@ export function MobileBottomNav() {
     const a = tabMetrics(fromEl);
     const b = tabMetrics(toEl);
     const tt = Math.max(0, Math.min(1, t));
-    const jelly = 1 + Math.sin(tt * Math.PI) * 0.16;
-    const width = (a.width + (b.width - a.width) * tt) * jelly;
-    const natural = a.width + (b.width - a.width) * tt;
-    pillX.set(a.left + (b.left - a.left) * tt - (width - natural) / 2);
-    pillY.set(a.top + (b.top - a.top) * tt);
+    const jelly = 1.35; // stay large while swiping
+    const naturalW = a.width + (b.width - a.width) * tt;
+    const width = naturalW * jelly;
+    const naturalH = a.height + (b.height - a.height) * tt;
+    const height = naturalH * jelly;
+    pillX.set(a.left + (b.left - a.left) * tt - (width - naturalW) / 2);
+    pillY.set(a.top + (b.top - a.top) * tt - (height - naturalH) / 2);
     pillW.set(width);
-    pillH.set(a.height + (b.height - a.height) * tt);
+    pillH.set(height);
   }, [pillH, pillW, pillX, pillY]);
 
   const followPointer = useCallback((clientX: number) => {
@@ -202,13 +204,15 @@ export function MobileBottomNav() {
     const b = tabs[Math.min(i + 1, tabs.length - 1)];
     const span = b.center - a.center || 1;
     const t = Math.max(0, Math.min(1, (x - a.center) / span));
-    const jelly = 1 + Math.sin(t * Math.PI) * 0.16;
-    const width = (a.width + (b.width - a.width) * t) * jelly;
-    const natural = a.width + (b.width - a.width) * t;
-    pillX.set(a.left + (b.left - a.left) * t - (width - natural) / 2);
+    const jelly = 1.35; // stay large while dragging
+    const naturalW = a.width + (b.width - a.width) * t;
+    const width = naturalW * jelly;
+    const naturalH = a.height + (b.height - a.height) * t;
+    const height = naturalH * jelly;
+    pillX.set(a.left + (b.left - a.left) * t - (width - naturalW) / 2);
+    pillY.set(a.top + (b.top - a.top) * t - (height - naturalH) / 2);
     pillW.set(width);
-    pillH.set(a.height + (b.height - a.height) * t);
-    pillY.set(a.top + (b.top - a.top) * t);
+    pillH.set(height);
     const hovered = t < 0.5 ? i : Math.min(i + 1, tabs.length - 1);
     highlightRef.current = hovered;
     setHighlightIndex(hovered);
@@ -227,7 +231,7 @@ export function MobileBottomNav() {
       placePill(next, false);
       clearSheen();
       if (isOnTab(pathname, item)) return;
-      router.replace(item.href);
+      router.replace(item.href, { scroll: false });
     },
     [clearSheen, pathname, placePill, router],
   );
@@ -461,6 +465,7 @@ export function MobileBottomNav() {
     <nav
       className="fixed inset-x-0 bottom-0 z-50 desktop:hidden pointer-events-none px-5 pb-[max(0.4rem,env(safe-area-inset-bottom))]"
       aria-label="Primary"
+      data-no-restore="true"
     >
       <div
         className={cn(
@@ -476,12 +481,26 @@ export function MobileBottomNav() {
           )}
           onPointerDown={onNavPointerDown}
         >
-          <div className="liquid-glass-nav pointer-events-none absolute inset-0 rounded-full" />
+          <div 
+            className="pointer-events-none absolute inset-0 rounded-full overflow-hidden"
+            style={{ boxShadow: "0 6px 6px rgba(0, 0, 0, 0.2), 0 0 20px rgba(0, 0, 0, 0.1)" }}
+          >
+            <div className="absolute -inset-12 z-0" style={{ backdropFilter: "blur(3px)", filter: "url(#glass-distortion)", isolation: "isolate" }} />
+            <div className="absolute inset-0 z-10 rounded-[inherit]" style={{ background: "rgba(255, 255, 255, 0.25)" }} />
+            <div className="absolute inset-0 z-20 rounded-[inherit] overflow-hidden" style={{ boxShadow: "inset 2px 2px 1px 0 rgba(255, 255, 255, 0.5), inset -1px -1px 1px 1px rgba(255, 255, 255, 0.5)" }} />
+          </div>
           <motion.span
             aria-hidden
-            className="liquid-glass-pill pointer-events-none absolute z-[1] rounded-full will-change-[left,width]"
-            style={{ left: pillX, top: pillY, width: pillW, height: pillH }}
-          />
+            className="pointer-events-none absolute z-[1] rounded-full overflow-hidden will-change-[left,width]"
+            style={{ 
+              left: pillX, top: pillY, width: pillW, height: pillH,
+              boxShadow: "0 8px 16px rgba(0, 0, 0, 0.15), 0 0 10px rgba(0, 0, 0, 0.05)"
+            }}
+          >
+            <div className="absolute -inset-4 z-0" style={{ backdropFilter: "blur(6px)", filter: "url(#glass-distortion)", isolation: "isolate" }} />
+            <div className="absolute inset-0 z-10 rounded-[inherit]" style={{ background: "rgba(255, 255, 255, 0.15)" }} />
+            <div className="absolute inset-0 z-20 rounded-[inherit] overflow-hidden" style={{ boxShadow: "inset 4px 4px 4px 0 rgba(255, 255, 255, 0.95), inset -2px -2px 4px 0 rgba(220, 180, 180, 0.4), inset 0 -4px 10px rgba(255, 255, 255, 0.4)" }} />
+          </motion.span>
           {NAV_ITEMS.map((item, index) => {
             const Icon = item.icon;
             const isActive = highlightIndex === index;

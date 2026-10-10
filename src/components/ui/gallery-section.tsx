@@ -6,11 +6,22 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { X, Download, Share2, Heart, Calendar, User, Loader2, Image as ImageIcon, AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Search, Lock, Maximize2 } from 'lucide-react';
+import { X, Download, Share2, Heart, Calendar, User, Loader2, Image as ImageIcon, AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Search, Lock, Maximize2, Film, Play, Video } from 'lucide-react';
 import { useAdminData } from '@/lib/admin-data-context';
 import { useAuth } from '@/lib/auth-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { getAlbumTimestamp } from '@/lib/types';
+
+function getYouTubeEmbedUrl(url?: string): string | null {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  if (match && match[2].length === 11) {
+    return `https://www.youtube.com/embed/${match[2]}?autoplay=0&rel=0`;
+  }
+  return null;
+}
 
 const ITEMS_PER_PAGE = 6;
 
@@ -47,6 +58,7 @@ function GalleryWidgetLayout() {
   const [previewPhotos, setPreviewPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedMediaType, setSelectedMediaType] = useState<'all' | 'photos' | 'videos'>('all');
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [albumCovers, setAlbumCovers] = useState<Record<string, string>>({});
 
@@ -99,9 +111,25 @@ function GalleryWidgetLayout() {
   }, [galleryAlbums]);
 
   const filteredAlbums = useMemo(() => {
-    // Sort by sortOrder
-    return [...galleryAlbums].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-  }, [galleryAlbums]);
+    let albums = galleryAlbums;
+    if (selectedMediaType !== 'all') {
+      albums = albums.filter(a => {
+        const m = a.mediaType || 'both';
+        if (selectedMediaType === 'photos') return m === 'photos' || m === 'both';
+        if (selectedMediaType === 'videos') return m === 'videos' || m === 'both' || !!a.videoUrl;
+        return true;
+      });
+    }
+    if (selectedCategory !== 'All') {
+      albums = albums.filter(a => a.category === selectedCategory);
+    }
+    return [...albums].sort((a, b) => {
+      const timeA = getAlbumTimestamp(a);
+      const timeB = getAlbumTimestamp(b);
+      if (timeA !== timeB) return timeB - timeA;
+      return (b.sortOrder ?? 0) - (a.sortOrder ?? 0);
+    });
+  }, [galleryAlbums, selectedMediaType, selectedCategory]);
 
   const fetchAlbumPreview = async (album: any) => {
     setSelectedAlbum(album);
@@ -157,10 +185,36 @@ function GalleryWidgetLayout() {
           {/* Section Header */}
           <div className="relative z-10 text-center space-y-5 mb-12">
             <span className="section-heading">Gallery</span>
-            <h2 className="section-title">Photo Gallery</h2>
+            <h2 className="section-title">Gallery</h2>
             <p className="section-subtitle">
-              Capturing moments of faith, fellowship, and community
+              Capturing moments of faith, fellowship, and worship in photos and videos
             </p>
+
+            {/* Media Type Filter Tabs */}
+            <div className="flex items-center justify-center gap-2 pt-2">
+              {([
+                { id: 'all' as const, label: 'All Media', icon: undefined },
+                { id: 'photos' as const, label: 'Photos', icon: ImageIcon },
+                { id: 'videos' as const, label: 'Videos', icon: Play },
+              ]).map(tab => {
+                const Icon = tab.icon;
+                const active = selectedMediaType === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSelectedMediaType(tab.id)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
+                      active
+                        ? 'bg-[#8B2323] text-white shadow-sm'
+                        : 'bg-white/80 border border-[#E5D5C5]/60 text-[#7A6150] hover:bg-white'
+                    }`}
+                  >
+                    {Icon && <Icon className={`w-3.5 h-3.5 ${tab.id === 'videos' && active ? 'fill-white' : ''}`} />}
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
 
@@ -240,6 +294,25 @@ function GalleryWidgetLayout() {
                           >
                             {album.category}
                           </Badge>
+
+                          <div className={`absolute top-4 right-4 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold flex items-center gap-1.5 shadow-sm transition-opacity duration-300 ${shouldCompress ? 'opacity-0' : 'opacity-100'}`}>
+                            {album.mediaType === 'videos' || album.videoUrl ? (
+                              <>
+                                <Play className="w-3 h-3 fill-white" />
+                                <span>Videos</span>
+                              </>
+                            ) : album.mediaType === 'photos' ? (
+                              <>
+                                <ImageIcon className="w-3 h-3" />
+                                <span>Photos</span>
+                              </>
+                            ) : (
+                              <>
+                                <Film className="w-3 h-3" />
+                                <span>Photos & Videos</span>
+                              </>
+                            )}
+                          </div>
 
                           <div className={`absolute inset-0 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
                             <div className="absolute bottom-0 left-0 right-0 p-8 text-white space-y-1 gallery-3d-card-inner">
@@ -331,6 +404,38 @@ function GalleryWidgetLayout() {
                 </Button>
               </div>
 
+              {/* Featured Video if album contains video */}
+              {selectedAlbum.videoUrl && (
+                <div className="w-full max-w-3xl mx-auto">
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Play className="w-3.5 h-3.5 text-primary fill-primary" /> Featured Video
+                  </h3>
+                  {(() => {
+                    const embedUrl = getYouTubeEmbedUrl(selectedAlbum.videoUrl);
+                    if (embedUrl) {
+                      return (
+                        <div className="relative aspect-video w-full rounded-2xl overflow-hidden shadow-lg border border-border/50">
+                          <iframe
+                            src={embedUrl}
+                            className="w-full h-full"
+                            title={selectedAlbum.title}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <video
+                        src={selectedAlbum.videoUrl}
+                        controls
+                        className="w-full rounded-2xl aspect-video bg-black object-cover"
+                      />
+                    );
+                  })()}
+                </div>
+              )}
+
               {/* Photos Grid */}
               <div className="relative min-h-[300px]">
                 {loading ? (
@@ -353,7 +458,7 @@ function GalleryWidgetLayout() {
                     {previewPhotos.length === 0 && !loading && (
                       <div className="col-span-full py-16 text-center border-2 border-dashed border-border/50 rounded-2xl flex flex-col items-center justify-center space-y-4">
                          <AlertCircle className="w-10 h-10 text-muted-foreground/30" />
-                         <p className="text-muted-foreground italic">Unable to fetch preview photos. Please check the album link.</p>
+                         <p className="text-muted-foreground italic">View full album with all high-resolution photos and videos below.</p>
                       </div>
                     )}
                   </div>
@@ -363,7 +468,7 @@ function GalleryWidgetLayout() {
               {/* Modal Footer */}
               <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-8 border-t border-border/50">
                 <p className="text-sm text-muted-foreground italic">
-                  Showing {previewPhotos.length} preview photos from the album
+                  {previewPhotos.length > 0 ? `Showing ${previewPhotos.length} preview photos from the album` : 'Photos and videos available in shared album'}
                 </p>
                 <div className="flex gap-4">
                   <Button variant="outline" className="rounded-full px-8 border-border/50" onClick={closePreview}>
@@ -371,7 +476,7 @@ function GalleryWidgetLayout() {
                   </Button>
                   <a href={selectedAlbum.url} target="_blank" rel="noopener noreferrer">
                     <Button className="rounded-full px-10 font-bold hover-lift gap-2">
-                       View Full Album <Share2 className="w-4 h-4" />
+                       View Album (Photos & Videos) <Share2 className="w-4 h-4" />
                     </Button>
                   </a>
                 </div>
@@ -399,6 +504,7 @@ function GalleryPageLayout() {
   const galleryAlbums = getVisibleGalleryAlbums('all', userGroups as string[]);
 
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedMediaType, setSelectedMediaType] = useState<'all' | 'photos' | 'videos'>('all');
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -460,7 +566,7 @@ function GalleryPageLayout() {
   // Reset page when filter or search changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, selectedMediaType, searchQuery]);
 
   const categories = useMemo(() => {
     if (!session || !member) return [];
@@ -475,6 +581,12 @@ function GalleryPageLayout() {
       albums = albums.filter(album => album.category === selectedCategory);
     }
 
+    if (selectedMediaType === 'photos') {
+      albums = albums.filter(album => (album.mediaType || 'both') === 'photos' || (album.mediaType || 'both') === 'both');
+    } else if (selectedMediaType === 'videos') {
+      albums = albums.filter(album => (album.mediaType || 'both') === 'videos' || (album.mediaType || 'both') === 'both' || !!album.videoUrl);
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       albums = albums.filter(album => 
@@ -483,8 +595,13 @@ function GalleryPageLayout() {
       );
     }
 
-    return [...albums].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-  }, [galleryAlbums, selectedCategory, searchQuery, session, member]);
+    return [...albums].sort((a, b) => {
+      const timeA = getAlbumTimestamp(a);
+      const timeB = getAlbumTimestamp(b);
+      if (timeA !== timeB) return timeB - timeA;
+      return (b.sortOrder ?? 0) - (a.sortOrder ?? 0);
+    });
+  }, [galleryAlbums, selectedCategory, selectedMediaType, searchQuery, session, member]);
 
   // Paginated albums
   const paginatedAlbums = useMemo(() => {
@@ -541,7 +658,7 @@ function GalleryPageLayout() {
             <div className="space-y-2">
               <h2 className="text-2xl font-bold tracking-tight italic">Members Only Gallery</h2>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                The photo gallery is reserved for signed-in members of Grace Community Church. Please sign in to browse albums of our worship and community life.
+                The gallery is reserved for signed-in members of Grace Community Church. Please sign in to browse photos, videos, and albums of our worship and community life.
               </p>
             </div>
             <div className="pt-2 flex flex-col gap-3">
@@ -563,16 +680,64 @@ function GalleryPageLayout() {
       <section className="pt-2 pb-12">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto space-y-5">
-            {/* Search Bar */}
-            <div className="relative w-full">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7A6150]" />
-              <Input
-                type="text"
-                placeholder="Search albums..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 h-11 rounded-2xl border-[#E5D5C5]/60 bg-white/85 text-[#1A202C] placeholder:text-[#7A6150]/60 focus-visible:ring-[#8B2323]/20 shadow-xs"
-              />
+            {/* Search Bar & Media Filter */}
+            <div className="space-y-3">
+              <div className="relative w-full">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7A6150]" />
+                <Input
+                  type="text"
+                  placeholder="Search albums, photos & videos..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 pr-4 h-11 rounded-2xl border-[#E5D5C5]/60 bg-white/85 text-[#1A202C] placeholder:text-[#7A6150]/60 focus-visible:ring-[#8B2323]/20 shadow-xs"
+                />
+              </div>
+
+              {/* Media Type & Category Tabs */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                  {([
+                    { id: 'all' as const, label: 'All Media', icon: undefined },
+                    { id: 'photos' as const, label: 'Photos', icon: ImageIcon },
+                    { id: 'videos' as const, label: 'Videos', icon: Play },
+                  ]).map(tab => {
+                    const Icon = tab.icon;
+                    const active = selectedMediaType === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setSelectedMediaType(tab.id)}
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
+                          active
+                            ? 'bg-[#8B2323] text-white shadow-xs'
+                            : 'bg-white/80 border border-[#E5D5C5]/60 text-[#7A6150] hover:bg-white'
+                        }`}
+                      >
+                        {Icon && <Icon className={`w-3.5 h-3.5 ${tab.id === 'videos' && active ? 'fill-white' : ''}`} />}
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {categories.length > 2 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+                    {categories.map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-3 py-1 rounded-full font-medium transition-all ${
+                          selectedCategory === cat
+                            ? 'bg-[#5C1111] text-white'
+                            : 'bg-[#F3EAE1]/70 text-[#7A6150] hover:bg-[#F3EAE1]'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Album Grid / Hover Layout */}
@@ -601,7 +766,29 @@ function GalleryPageLayout() {
 
 
 
+                    <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold flex items-center gap-1 shadow-sm">
+                      {album.mediaType === 'videos' || album.videoUrl ? (
+                        <>
+                          <Play className="w-2.5 h-2.5 fill-white" />
+                          <span>Videos</span>
+                        </>
+                      ) : album.mediaType === 'photos' ? (
+                        <>
+                          <ImageIcon className="w-2.5 h-2.5" />
+                          <span>Photos</span>
+                        </>
+                      ) : (
+                        <>
+                          <Film className="w-2.5 h-2.5" />
+                          <span>Photos & Videos</span>
+                        </>
+                      )}
+                    </div>
+
                     <div className="absolute bottom-4 left-4 right-4 text-white">
+                      <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mb-1.5">
+                        {album.category}
+                      </span>
                       <h3 className="text-lg font-bold italic tracking-tight">{album.title}</h3>
                     </div>
                   </div>
@@ -640,6 +827,25 @@ function GalleryPageLayout() {
                                 <ImageIcon className="w-16 h-16 text-primary/10 group-hover:scale-110 transition-transform duration-700" />
                               )}
                               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                            </div>
+
+                            <div className="absolute top-4 right-4 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold flex items-center gap-1.5 shadow-sm transition-opacity duration-300">
+                              {album.mediaType === 'videos' || album.videoUrl ? (
+                                <>
+                                  <Play className="w-3 h-3 fill-white" />
+                                  <span>Videos</span>
+                                </>
+                              ) : album.mediaType === 'photos' ? (
+                                <>
+                                  <ImageIcon className="w-3 h-3" />
+                                  <span>Photos</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Film className="w-3 h-3" />
+                                  <span>Photos & Videos</span>
+                                </>
+                              )}
                             </div>
 
 
@@ -737,14 +943,59 @@ function GalleryPageLayout() {
           {/* Header */}
           <DialogHeader className="p-6 sm:p-8">
             <div className="flex flex-col gap-5">
-              <div className="space-y-2 pr-6 text-left">
-                <Badge variant="glass" className="bg-primary/10 text-primary border-0 w-max">{selectedAlbum?.category}</Badge>
-                <DialogTitle className="text-3xl font-bold italic tracking-tight text-left">{selectedAlbum?.title}</DialogTitle>
-                <p className="text-muted-foreground text-base leading-relaxed text-left">
+              <div className="space-y-2 text-center flex flex-col items-center px-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="glass" className="bg-primary/10 text-primary border-0 w-max">{selectedAlbum?.category}</Badge>
+                  {selectedAlbum?.mediaType === 'videos' || selectedAlbum?.videoUrl ? (
+                    <Badge variant="glass" className="bg-rose-50 text-rose-600 border-0 flex items-center gap-1">
+                      <Play className="w-2.5 h-2.5 fill-current" /> Videos
+                    </Badge>
+                  ) : selectedAlbum?.mediaType === 'photos' ? (
+                    <Badge variant="glass" className="bg-blue-50 text-blue-600 border-0 flex items-center gap-1">
+                      <ImageIcon className="w-2.5 h-2.5" /> Photos
+                    </Badge>
+                  ) : (
+                    <Badge variant="glass" className="bg-purple-50 text-purple-600 border-0 flex items-center gap-1">
+                      <Film className="w-2.5 h-2.5" /> Photos & Videos
+                    </Badge>
+                  )}
+                </div>
+                <DialogTitle className="text-3xl font-bold italic tracking-tight text-center">{selectedAlbum?.title}</DialogTitle>
+                <p className="text-muted-foreground text-base leading-relaxed text-center">
                   {selectedAlbum?.description}
                 </p>
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+
+              {/* Video Player if videoUrl available */}
+              {selectedAlbum?.videoUrl && (
+                <div className="w-full max-w-sm mx-auto">
+                  {(() => {
+                    const embedUrl = getYouTubeEmbedUrl(selectedAlbum.videoUrl);
+                    if (embedUrl) {
+                      return (
+                        <div className="relative aspect-video w-full rounded-2xl overflow-hidden shadow-md border border-border/50">
+                          <iframe
+                            src={embedUrl}
+                            className="w-full h-full"
+                            title={selectedAlbum.title}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <video
+                        src={selectedAlbum.videoUrl}
+                        controls
+                        className="w-full rounded-2xl aspect-video bg-black object-cover"
+                      />
+                    );
+                  })()}
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-2 w-full max-w-sm mx-auto">
                 <Button 
                   onClick={handleShareAlbum}
                   variant="outline" 
@@ -758,7 +1009,7 @@ function GalleryPageLayout() {
                   className="rounded-full px-6 gap-2 h-11 shadow-lg shadow-primary/15 hover:scale-[1.02] transition-all w-full sm:w-auto"
                 >
                   <a href={selectedAlbum?.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
-                    View Full Google Album <ExternalLink className="w-4 h-4" />
+                    View Album (Photos & Videos) <ExternalLink className="w-4 h-4" />
                   </a>
                 </Button>
               </div>

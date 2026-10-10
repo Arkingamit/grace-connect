@@ -288,7 +288,7 @@ export default function SermonsPage() {
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                           <User className="w-4 h-4 text-primary" />
                         </div>
-                        <span className="text-xs font-medium">{sermon.pastor || 'Pastor Geo'}</span>
+                        <span className="text-xs font-medium max-w-[140px] truncate" title={sermon.pastor}>{sermon.pastor || 'Pastor Geo'}</span>
                       </div>
                       <span className="inline-flex items-center h-8 text-xs font-semibold text-primary group/btn">
                         Watch <ChevronRight className="w-4 h-4 ml-1 group-hover/btn:translate-x-1 transition-transform" />
@@ -353,7 +353,7 @@ export default function SermonsPage() {
                               </div>
                               <div className="flex items-baseline gap-1.5 leading-none">
                                 <span className="text-[10px] uppercase font-bold text-[#7A6150] tracking-wider">Pastor</span>
-                                <span className="text-xs sm:text-sm font-bold text-[#1A202C]">{sermon.pastor || 'Pastor Geo'}</span>
+                                <span className="text-xs sm:text-sm font-bold text-[#1A202C] max-w-[180px] sm:max-w-[220px] truncate" title={sermon.pastor}>{sermon.pastor || 'Pastor Geo'}</span>
                               </div>
                             </div>
                             

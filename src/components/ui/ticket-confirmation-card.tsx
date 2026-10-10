@@ -26,9 +26,6 @@ const QrPass = ({ value }: { value: string }) => {
           className="h-[168px] w-[168px] object-contain"
         />
       </div>
-      <p className="mt-2 max-w-full truncate px-2 font-mono text-[11px] tracking-wide text-muted-foreground">
-        {value}
-      </p>
     </div>
   );
 };

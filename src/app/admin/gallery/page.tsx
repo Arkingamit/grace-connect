@@ -27,9 +27,19 @@ import {
   Users,
   Download,
   FileText,
-  ChevronLeft,
   ChevronRight,
+  ChevronLeft,
+  Film,
+  Play,
+  Video,
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { saveJsPdf } from '@/lib/save-image';
@@ -55,6 +65,8 @@ export default function GalleryManagementPage() {
     url: '',
     coverImage: '',
     category: 'Worship',
+    mediaType: 'both',
+    videoUrl: '',
     targetCampuses: ['all'],
     targetGroups: ['all'],
     excludeCampuses: [],
@@ -208,7 +220,7 @@ export default function GalleryManagementPage() {
     }
     setAlbumFormStep('basics');
     setSendNotification(false);
-    setForm({ title: '', description: '', url: '', coverImage: '', category: 'Worship', targetCampuses: ['all'], targetGroups: ['all'], excludeCampuses: [], excludeGroups: [] });
+    setForm({ title: '', description: '', url: '', coverImage: '', category: 'Worship', mediaType: 'both', videoUrl: '', targetCampuses: ['all'], targetGroups: ['all'], excludeCampuses: [], excludeGroups: [] });
   };
 
   const handleEdit = (album: GalleryAlbum) => {
@@ -218,6 +230,8 @@ export default function GalleryManagementPage() {
       url: album.url,
       coverImage: album.coverImage || '',
       category: album.category,
+      mediaType: album.mediaType || 'both',
+      videoUrl: album.videoUrl || '',
       targetCampuses: album.targetCampuses || ['all'],
       targetGroups: isFas
         ? (album.targetGroups || []).includes('all')
@@ -380,6 +394,58 @@ export default function GalleryManagementPage() {
                         </div>
                         <p className="text-xs text-muted-foreground italic">
                           Leave blank to fetch and store the first album photo as the cover on the server.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-[#3A2D27] font-semibold">Media Content Type *</Label>
+                          <Select
+                            value={form.mediaType || 'both'}
+                            onValueChange={(val: any) => setForm({ ...form, mediaType: val })}
+                          >
+                            <SelectTrigger className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="both">🎞️ Both (Photos & Videos)</SelectItem>
+                              <SelectItem value="photos">📸 Photos Only</SelectItem>
+                              <SelectItem value="videos">🎬 Videos Only</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[#3A2D27] font-semibold">Category</Label>
+                          <Select
+                            value={form.category || 'Worship'}
+                            onValueChange={val => setForm({ ...form, category: val })}
+                          >
+                            <SelectTrigger className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60">
+                              <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {categories.map(c => (
+                                <SelectItem key={c} value={c}>{c}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="videoUrl" className="text-[#3A2D27] font-semibold">Featured Video Link (Optional YouTube / MP4)</Label>
+                        <div className="relative">
+                          <Input
+                            id="videoUrl"
+                            value={form.videoUrl || ''}
+                            onChange={e => setForm({ ...form, videoUrl: e.target.value })}
+                            placeholder="https://youtube.com/watch?v=... or direct video link"
+                            className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 pl-10"
+                          />
+                          <Play className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <p className="text-xs text-muted-foreground italic">
+                          If this album features a specific video, add the link here to enable in-app streaming.
                         </p>
                       </div>
                     </div>
@@ -725,8 +791,21 @@ export default function GalleryManagementPage() {
                 <CardContent className="p-6 flex-1 flex flex-col">
 
 
-                  {/* Audience Tags */}
+                  {/* Audience & Media Tags */}
                   <div className="flex items-center gap-1.5 flex-wrap mb-4">
+                    {album.mediaType === 'videos' ? (
+                      <Badge variant="outline" className="text-[9px] gap-1 border-rose-500/30 text-rose-600 bg-rose-50/50">
+                        <Play className="w-2.5 h-2.5 fill-current" /> Videos
+                      </Badge>
+                    ) : album.mediaType === 'photos' ? (
+                      <Badge variant="outline" className="text-[9px] gap-1 border-blue-500/30 text-blue-600 bg-blue-50/50">
+                        <ImageIcon className="w-2.5 h-2.5" /> Photos
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[9px] gap-1 border-purple-500/30 text-purple-600 bg-purple-50/50">
+                        <Film className="w-2.5 h-2.5" /> Photos & Videos
+                      </Badge>
+                    )}
                     {(album.targetCampuses ?? ['all']).includes('all') ? (
                       <Badge variant="outline" className="text-[9px] gap-1 border-amber-500/30 text-amber-600">
                         <Globe className="w-2.5 h-2.5" /> All Campuses

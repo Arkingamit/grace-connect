@@ -104,7 +104,7 @@ export function NativeBackNavigation() {
       const previous = popNavStack();
       if (previous) {
         lastBackAt.current = 0;
-        router.push(previous);
+        router.push(previous, { scroll: false });
         return true;
       }
 
@@ -125,7 +125,7 @@ export function NativeBackNavigation() {
       if (!isExitConfirmRoute(path)) {
         lastBackAt.current = 0;
         writeNavStack([]);
-        router.push(HOME_ROUTE);
+        router.push(HOME_ROUTE, { scroll: false });
         return true;
       }
 

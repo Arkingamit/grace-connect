@@ -99,7 +99,7 @@ export function AuthGate({
               "Announcements",
               "Events",
               "Prayer Wall",
-              "Photo Gallery",
+              "Gallery",
               "Notes",
               "Exclusive Sermons",
             ].map((feature) => (

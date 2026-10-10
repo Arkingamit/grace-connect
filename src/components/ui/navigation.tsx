@@ -114,6 +114,7 @@ export const Navigation = () => {
 
   return (
     <header
+      data-no-restore="true"
       className={`fixed top-4 left-0 right-0 mx-auto z-50
                        flex flex-col items-center
                        px-3 sm:px-6 lg:px-10 py-2 sm:py-3 backdrop-blur-md shadow-lg

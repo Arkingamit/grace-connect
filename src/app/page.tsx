@@ -174,7 +174,7 @@ export default function HomePage() {
           </RevealSection>
         </section>
 
-        {/* Photo Gallery */}
+        {/* Gallery */}
         <ParallaxSection id="gallery" speed={0.2} className="bg-transparent py-24 sm:py-32 border-b border-border/50 relative">
           <RevealSection delay={100}>
             <GallerySection />

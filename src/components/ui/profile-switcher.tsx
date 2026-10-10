@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "./avatar";
 import { AvatarGroup } from "./avatar-group";
 import { QrCode, UserPlus, LogOut, User, Shield } from "lucide-react";
@@ -147,72 +147,60 @@ export function ProfileSwitcher({
   return (
     <>
       <div className="relative" ref={rootRef}>
-        <div className={cn("invisible", buttonClasses)} aria-hidden="true">
-          <Avatar className={cn("border border-[#E5D5C5]/60 shadow-sm", variant === "pill" ? "h-7 w-7" : "h-10 w-10")}>
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          className={cn(
+            buttonClasses,
+            isOpen && "ring-2 ring-[#8B2323]/25 bg-[#F3EAE1]"
+          )}
+          aria-label="Open profile menu"
+          aria-expanded={isOpen}
+        >
+          <Avatar className={cn("border border-[#E5D5C5]/60 shadow-sm shrink-0", variant === "pill" ? "h-7 w-7" : "h-10 w-10")}>
             {activePhoto ? <AvatarImage src={activePhoto} alt={displayName} className="object-cover" /> : null}
             <AvatarFallback className={cn("font-bold", variant === "pill" ? "bg-[#F3EAE1] text-[10px] text-[#1A202C]" : "bg-[#721515] text-xs text-white")}>
               {getInitials(displayName) || "??"}
             </AvatarFallback>
           </Avatar>
-          {variant === "pill" && <span className="max-w-[88px] truncate pr-1 text-sm font-medium text-[#1A202C]">{firstName}</span>}
-        </div>
+          {variant === "pill" && (
+            <span className="max-w-[88px] truncate pr-1 text-sm font-medium text-[#1A202C]">
+              {firstName}
+            </span>
+          )}
+        </button>
 
-        <LayoutGroup id="profile-switcher">
-        <AnimatePresence initial={false}>
-          {!isOpen && (
-            <motion.button
-              key="button"
-              layoutId="profile-menu-container"
-              type="button"
-              onClick={() => setIsOpen(true)}
-              className={cn("absolute inset-0 m-0", buttonClasses)}
-              aria-label="Open profile menu"
-              transition={{ type: "spring", stiffness: 460, damping: 36, mass: 0.7 }}
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              key="menu"
+              initial={{ opacity: 0, scale: 0.9, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -4 }}
+              style={{
+                transformOrigin: align === "start" ? "top left" : align === "end" ? "top right" : "top center",
+              }}
+              transition={{ type: "spring", stiffness: 440, damping: 28, mass: 0.6 }}
+              className={cn(
+                "absolute z-50 w-64 rounded-2xl border border-[#E5D5C5] bg-white p-1.5 shadow-2xl flex flex-col overflow-hidden",
+                align === "end" ? "right-0" : align === "start" ? "left-0" : "left-1/2 -translate-x-1/2",
+                "top-0"
+              )}
             >
-              <motion.div layoutId="profile-avatar" className="shrink-0">
-                <Avatar className={cn("border border-[#E5D5C5]/60 shadow-sm", variant === "pill" ? "h-7 w-7" : "h-10 w-10")}>
+              <div className="flex items-center gap-3 px-2 py-2.5">
+                <Avatar className="h-10 w-10 border border-[#E5D5C5]/60 shadow-sm shrink-0">
                   {activePhoto ? <AvatarImage src={activePhoto} alt={displayName} className="object-cover" /> : null}
-                  <AvatarFallback className={cn("font-bold", variant === "pill" ? "bg-[#F3EAE1] text-[10px] text-[#1A202C]" : "bg-[#721515] text-xs text-white")}>
+                  <AvatarFallback className="font-bold bg-[#721515] text-xs text-white">
                     {getInitials(displayName) || "??"}
                   </AvatarFallback>
                 </Avatar>
-              </motion.div>
-              {variant === "pill" && (
-                <motion.span layoutId="profile-name" className="max-w-[88px] truncate pr-1 text-sm font-medium text-[#1A202C]">
-                  {firstName}
-                </motion.span>
-              )}
-            </motion.button>
-          )}
-
-          {isOpen && (
-              <motion.div
-                key="menu"
-                layoutId="profile-menu-container"
-                style={{ originX: align === "start" ? 0 : 1, originY: 0 }}
-                transition={{ type: "spring", stiffness: 460, damping: 36, mass: 0.7 }}
-                className={cn(
-                  "absolute z-50 w-64 rounded-xl border border-[#E5D5C5] bg-white p-1.5 shadow-xl flex flex-col overflow-hidden",
-                  align === "end" ? "right-0" : align === "start" ? "left-0" : "left-1/2 -translate-x-1/2",
-                  "top-0"
-                )}
-              >
-                <div className="flex items-center gap-3 px-2 py-2.5">
-                  <motion.div layoutId="profile-avatar" className="shrink-0">
-                    <Avatar className="h-10 w-10 border border-[#E5D5C5]/60 shadow-sm">
-                      {activePhoto ? <AvatarImage src={activePhoto} alt={displayName} className="object-cover" /> : null}
-                      <AvatarFallback className="font-bold bg-[#721515] text-xs text-white">
-                        {getInitials(displayName) || "??"}
-                      </AvatarFallback>
-                    </Avatar>
-                  </motion.div>
-                  <div className="flex flex-col min-w-0">
-                    <motion.span layoutId="profile-name" className="truncate text-sm font-bold text-[#1A202C]">
-                      {displayName}
-                    </motion.span>
-                    <p className="truncate text-xs text-[#7A6150]">{session.email}</p>
-                  </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="truncate text-sm font-bold text-[#1A202C]">
+                    {displayName}
+                  </span>
+                  <p className="truncate text-xs text-[#7A6150]">{session.email}</p>
                 </div>
+              </div>
 
                 <div className="h-px bg-[#E5D5C5]/60 my-1" />
 
@@ -272,7 +260,6 @@ export function ProfileSwitcher({
               </motion.div>
           )}
         </AnimatePresence>
-        </LayoutGroup>
       </div>
 
       <AddFamilyMemberDialog open={isAdding} onOpenChange={setIsAdding} />

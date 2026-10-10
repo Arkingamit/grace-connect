@@ -246,11 +246,31 @@ export interface GalleryAlbum {
   url: string;
   category: string;
   coverImage?: string;
+  mediaType?: 'both' | 'photos' | 'videos';
+  videoUrl?: string;
   sortOrder?: number;
   targetCampuses?: string[];
   targetGroups?: string[];
   excludeCampuses?: string[];
   excludeGroups?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function getAlbumTimestamp(album: { createdAt?: string | Date; _id?: string; id?: string }): number {
+  if (album.createdAt) {
+    const t = new Date(album.createdAt).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+  const idStr = album._id || album.id;
+  if (idStr && typeof idStr === 'string' && idStr.length >= 8) {
+    const hex = idStr.substring(0, 8);
+    if (/^[0-9a-fA-F]{8}$/.test(hex)) {
+      const t = parseInt(hex, 16) * 1000;
+      if (!isNaN(t) && t > 0) return t;
+    }
+  }
+  return 0;
 }
 
 export interface PrayerRequest {

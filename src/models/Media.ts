@@ -104,6 +104,8 @@ export interface IGalleryAlbum extends Document {
   url: string;
   category: string;
   coverImage?: string;
+  mediaType?: 'both' | 'photos' | 'videos';
+  videoUrl?: string;
   sortOrder: number;
   targetCampuses: string[];
   targetGroups: string[];
@@ -117,6 +119,8 @@ const GalleryAlbumSchema = new Schema<IGalleryAlbum>({
   url: { type: String, required: true },
   category: { type: String, required: true },
   coverImage: { type: String },
+  mediaType: { type: String, enum: ['both', 'photos', 'videos'], default: 'both' },
+  videoUrl: { type: String, default: '' },
   sortOrder: { type: Number, default: 0 },
   targetCampuses: [{ type: String }],
   targetGroups: [{ type: String }],

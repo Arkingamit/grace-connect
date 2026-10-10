@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, Bell, Megaphone, User as UserIcon, Check, X, ShieldAlert, Users, CheckCircle, Link2 } from 'lucide-react';
+import { ChevronLeft, Bell, Megaphone, User as UserIcon, Check, X, ShieldAlert, Users, CheckCircle, Link2, Music, Heart, Calendar } from 'lucide-react';
 import { useAdminData } from '@/lib/admin-data-context';
 import { useAuth } from '@/lib/auth-context';
 import { Card } from '@/components/ui/card';
@@ -36,6 +36,7 @@ export default function NotificationsPage() {
   const { announcements, campuses, groupScopes } = useAdminData();
   const { session } = useAuth();
 
+  const [dbNotifications, setDbNotifications] = useState<any[]>([]);
   const [pendingPrayers, setPendingPrayers] = useState<any[]>([]);
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [usersById, setUsersById] = useState<Record<string, any>>({});
@@ -49,6 +50,12 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     setDismissedIds(readDismissedIds());
+    fetch('/api/notifications')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => {
+        if (Array.isArray(data)) setDbNotifications(data);
+      })
+      .catch(() => {});
   }, []);
 
   const persistDismissed = (idsToAdd: string[]) => {
@@ -285,18 +292,77 @@ export default function NotificationsPage() {
       });
     });
 
+    // Map DB Notifications (worship videos, new prayers, system, etc.)
+    dbNotifications.forEach((n: any) => {
+      if (n.isRead) return;
+      if (n.type === 'new_worship_video') {
+        items.push({
+          id: n._id,
+          sourceId: n.sourceId,
+          type: 'worship',
+          title: n.title || 'New Worship Video',
+          content: n.message || 'A new worship video has been uploaded.',
+          date: new Date(n.createdAt || Date.now()),
+          icon: Music,
+          color: 'text-purple-600',
+          bgColor: 'bg-purple-50',
+          link: '/music',
+        });
+      } else if (n.type === 'new_prayer') {
+        items.push({
+          id: n._id,
+          sourceId: n.sourceId,
+          type: 'prayer',
+          title: n.title || 'New Prayer Request',
+          content: n.message || 'A new prayer request has been shared.',
+          date: new Date(n.createdAt || Date.now()),
+          icon: Heart,
+          color: 'text-rose-600',
+          bgColor: 'bg-rose-50',
+          link: '/prayer-wall',
+        });
+      } else if (n.type !== 'new_announcement' && n.type !== 'recurring_announcement') {
+        items.push({
+          id: n._id,
+          sourceId: n.sourceId,
+          type: 'system',
+          title: n.title || 'Notification',
+          content: n.message,
+          date: new Date(n.createdAt || Date.now()),
+          icon: Bell,
+          color: 'text-[#8B2323]',
+          bgColor: 'bg-[#FBE8E8]',
+          link: n.url || '/',
+        });
+      }
+    });
+
     // Sort by date descending
     return items
       .filter(item => !dismissedIds.includes(item.id))
       .sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [announcements, pendingPrayers, pendingUsers, dismissedIds, usersById]);
+  }, [announcements, pendingPrayers, pendingUsers, dismissedIds, usersById, dbNotifications]);
 
   const handleDismissOne = (id: string) => {
     persistDismissed([id]);
+    fetch('/api/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [id] })
+    }).catch(() => {});
   };
 
   const handleClearAll = () => {
-    persistDismissed(notifications.map((n) => n.id));
+    const ids = notifications.map((n) => n.id);
+    persistDismissed(ids);
+    const dbIds = notifications.filter(n => !n.id.startsWith('ann-') && !n.id.startsWith('pending-')).map(n => n.id);
+    if (dbIds.length > 0) {
+      fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: dbIds })
+      }).catch(() => {});
+    }
   };
 
   return (
@@ -361,7 +427,13 @@ export default function NotificationsPage() {
                     </div>
                     <div className="min-w-0 flex-1 pr-7">
                       <div className="mb-1 flex items-start justify-between gap-2">
-                        <h4 className="truncate pr-2 text-sm font-bold text-[#1A202C]">{notif.title}</h4>
+                        {notif.link ? (
+                          <Link href={notif.link} onClick={() => handleDismissOne(notif.id)} className="truncate pr-2 text-sm font-bold text-[#1A202C] hover:text-[#8B2323] transition-colors">
+                            {notif.title}
+                          </Link>
+                        ) : (
+                          <h4 className="truncate pr-2 text-sm font-bold text-[#1A202C]">{notif.title}</h4>
+                        )}
                         <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-[#7A6150]">
                           {notif.date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                         </span>
@@ -369,6 +441,11 @@ export default function NotificationsPage() {
                       <p className="text-xs text-[#7A6150] leading-relaxed line-clamp-3">
                         {notif.content}
                       </p>
+                      {notif.link && (
+                        <Link href={notif.link} onClick={() => handleDismissOne(notif.id)} className="inline-flex items-center gap-1 text-[11px] font-bold text-[#8B2323] hover:underline mt-2">
+                          View details &rarr;
+                        </Link>
+                      )}
                     </div>
                   </div>
 

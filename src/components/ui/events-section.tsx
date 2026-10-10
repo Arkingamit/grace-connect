@@ -246,8 +246,19 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
 
     const scrollFieldIntoView = (target: HTMLElement) => {
       window.setTimeout(() => {
-        target.scrollIntoView({ block: "center", behavior: "smooth" });
-      }, Capacitor.getPlatform() === "ios" ? 360 : 280);
+        if (!target.isConnected) return;
+        const dialog = target.closest('[role="dialog"]') as HTMLElement | null;
+        if (dialog) {
+          const dialogRect = dialog.getBoundingClientRect();
+          const targetRect = target.getBoundingClientRect();
+          // If the field is already comfortably visible, do not re-scroll or jolt
+          const isVisible =
+            targetRect.top >= dialogRect.top + 24 &&
+            targetRect.bottom <= dialogRect.bottom - 24;
+          if (isVisible) return;
+        }
+        target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }, Capacitor.getPlatform() === "ios" ? 280 : 200);
     };
 
     const onFocusIn = (e: FocusEvent) => {
@@ -864,9 +875,12 @@ function EventsWidgetLayout() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Campuses</SelectItem>
-                  {campuses.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
+                  {campuses.map(c => {
+                    const campusId = c.id || c._id;
+                    return (
+                      <SelectItem key={campusId} value={campusId}>{c.name}</SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

@@ -20,6 +20,14 @@ export default function CheckInPage() {
   const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
+    try {
+      const now = new Date();
+      const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      localStorage.setItem('grace_visited_checkin', todayKey);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
     fetch("/api/attendance/active")
       .then((res) => res.json())
       .then((data) => {

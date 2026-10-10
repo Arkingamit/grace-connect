@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
-import { Search, Bell, Heart, Music, Calendar, BookOpen, Share2, MapPin, Clock, ChevronRight, ChevronLeft, User, Play, Sparkles, ArrowRight, Image as ImageIcon, Megaphone, Radio } from 'lucide-react';
+import { Search, Bell, Heart, Music, Calendar, BookOpen, Share2, MapPin, Clock, ChevronRight, ChevronLeft, User, Play, Sparkles, ArrowRight, Image as ImageIcon, Megaphone, Radio, Film, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -35,6 +35,7 @@ import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
 import { formatDDMMYYYY } from '@/lib/date-utils';
 import { EventRSVPModal } from '@/components/ui/events-section';
 import type { Event as ChurchEvent } from '@/lib/admin-data-context';
+import { getAlbumTimestamp } from '@/lib/types';
 const christianIcons = [
   // Cross
   <svg key="cross" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-primary animate-pulse"><path d="M12 3v18M8 8h8" /></svg>,
@@ -53,6 +54,12 @@ const cardGradients = [
   "from-[#721515]/15 via-white to-[#3A0A0A]/15",
   "from-[#A04A00]/15 via-white to-[#8B2323]/15",
 ];
+
+function truncateText(text?: string, maxLength: number = 18): string {
+  if (!text) return '';
+  const trimmed = text.trim();
+  return trimmed.length > maxLength ? `${trimmed.slice(0, maxLength).trim()}...` : trimmed;
+}
 
 function AnimatedNumber({ end, duration = 2000, delay = 0, suffix = "" }: { end: number, duration?: number, delay?: number, suffix?: string }) {
   const [count, setCount] = React.useState(0);
@@ -508,8 +515,55 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
   }, []);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [pendingPrayerCount, setPendingPrayerCount] = useState(0);
+  const [checkInCount, setCheckInCount] = useState(0);
+  const [worshipNotifCount, setWorshipNotifCount] = useState(0);
+  const [prayerNotifCount, setPrayerNotifCount] = useState(0);
+  const [directAnnouncementNotifCount, setDirectAnnouncementNotifCount] = useState(0);
+  const rawNotifsRef = useRef<any[]>([]);
 
+  // Active check-in sessions
   useEffect(() => {
+    let isMounted = true;
+    const fetchCheckIns = async () => {
+      try {
+        const now = new Date();
+        const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        if (typeof window !== 'undefined' && localStorage.getItem('grace_visited_checkin') === todayKey) {
+          if (isMounted) setCheckInCount(0);
+          return;
+        }
+
+        const res = await fetch('/api/attendance/active?all=true');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && isMounted) {
+            let checkedDates: Record<string, string> = {};
+            try {
+              checkedDates = JSON.parse(localStorage.getItem('grace_checked_sessions') || '{}');
+            } catch {}
+            const pending = data.filter((s: any) => {
+              const sid = String(s._id || s.id);
+              return !checkedDates[`${sid}::${todayKey}`];
+            });
+            setCheckInCount(pending.length);
+          }
+        }
+      } catch {}
+    };
+
+    fetchCheckIns();
+    const handleFocus = () => fetchCheckIns();
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('storage', handleFocus);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('storage', handleFocus);
+    };
+  }, []);
+
+  const refreshNotificationCounts = useCallback((notifsList?: any[]) => {
     let dismissed: string[] = [];
     if (typeof window !== 'undefined') {
       try {
@@ -520,30 +574,200 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
       }
     }
 
+    const notifs = notifsList || rawNotifsRef.current;
+    if (Array.isArray(notifs)) {
+      const unreadWorship = notifs.filter((n: any) =>
+        n.type === 'new_worship_video' &&
+        !n.isRead &&
+        !dismissed.includes(n._id) &&
+        !dismissed.includes(`worship-${n.sourceId}`)
+      ).length;
+      const unreadPrayers = notifs.filter((n: any) =>
+        n.type === 'new_prayer' &&
+        !n.isRead &&
+        !dismissed.includes(n._id) &&
+        !dismissed.includes(`prayer-${n.sourceId}`)
+      ).length;
+      const unreadAnnounces = notifs.filter((n: any) =>
+        (n.type === 'new_announcement' || n.type === 'recurring_announcement') &&
+        !n.isRead &&
+        !dismissed.includes(n._id) &&
+        !dismissed.includes(`ann-${n.sourceId}`)
+      ).length;
+
+      setWorshipNotifCount(unreadWorship);
+      setPrayerNotifCount(unreadPrayers);
+      setDirectAnnouncementNotifCount(unreadAnnounces);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Initial fetch of /api/notifications
+    fetch('/api/notifications')
+      .then(res => res.ok ? res.json() : [])
+      .then((notifs: any[]) => {
+        if (!Array.isArray(notifs)) return;
+        rawNotifsRef.current = notifs;
+        refreshNotificationCounts(notifs);
+      })
+      .catch(() => {});
+
     // Fetch pending counts for admins, skipping items the member already dismissed
     if (session?.role === 'campus_leader' || session?.role === 'admin' || session?.role === 'super_admin') {
+      let dismissed: string[] = [];
+      try {
+        dismissed = JSON.parse(localStorage.getItem('grace_dismissed_notifications') || '[]');
+      } catch {}
       Promise.all([
         fetch('/api/admin/prayers').then(res => res.ok ? res.json() : []),
         fetch('/api/admin/users').then(res => res.ok ? res.json() : [])
       ]).then(([prayers, users]) => {
         let count = 0;
+        let prCount = 0;
         if (Array.isArray(prayers)) {
-          count += prayers.filter((p: any) =>
+          prCount = prayers.filter((p: any) =>
             p.status === 'pending' && !dismissed.includes(`pending-pr-${p._id || p.id}`)
           ).length;
+          count += prCount;
         }
         if (Array.isArray(users)) {
           count += users.filter((u: any) =>
             u.status === 'pending' && !dismissed.includes(`pending-user-${u._id || u.id}`)
           ).length;
         }
+        setPendingPrayerCount(prCount);
         setPendingCount(count);
       }).catch(() => { });
     }
-  }, [session?.role]);
 
-  const unseenCount = (announcements?.filter(a => !dismissedIds.includes(`ann-${a.id}`))?.length || 0) + pendingCount;
+    const onSync = () => refreshNotificationCounts();
+    window.addEventListener('focus', onSync);
+    window.addEventListener('storage', onSync);
+    return () => {
+      window.removeEventListener('focus', onSync);
+      window.removeEventListener('storage', onSync);
+    };
+  }, [session?.role, refreshNotificationCounts]);
+
+  const announcementNotificationCount = React.useMemo(() => {
+    const now = new Date();
+    const activeAnnouncements = (announcements || []).filter(a => {
+      if (dismissedIds.includes(`ann-${a.id}`)) return false;
+      if (a.endDate) {
+        let exp: Date;
+        if (a.endTime) {
+          exp = new Date(`${a.endDate}T${a.endTime}`);
+        } else {
+          exp = new Date(`${a.endDate}T23:59:59`);
+        }
+        if (exp < now) return false;
+      }
+      return true;
+    }).length;
+
+    return Math.max(activeAnnouncements, directAnnouncementNotifCount);
+  }, [announcements, dismissedIds, directAnnouncementNotifCount]);
+
+  // Card badges show ONLY when there are active notifications for them in the notification bar
+  const worshipNotificationCount = React.useMemo(() => {
+    return worshipNotifCount;
+  }, [worshipNotifCount]);
+
+  const prayerNotificationCount = React.useMemo(() => {
+    const adminPending = (session?.role === 'campus_leader' || session?.role === 'admin' || session?.role === 'super_admin') ? pendingPrayerCount : 0;
+    return prayerNotifCount + adminPending;
+  }, [prayerNotifCount, pendingPrayerCount, session?.role]);
+
+  // Notification bar in the header reflects all unread notifications
+  const unseenCount = React.useMemo(() => {
+    const adminUserPending = (session?.role === 'campus_leader' || session?.role === 'admin' || session?.role === 'super_admin') ? (pendingCount - pendingPrayerCount) : 0;
+    return announcementNotificationCount + worshipNotificationCount + prayerNotificationCount + checkInCount + adminUserPending;
+  }, [announcementNotificationCount, worshipNotificationCount, prayerNotificationCount, checkInCount, session?.role, pendingCount, pendingPrayerCount]);
+
+  // Visit handlers that instantly dismiss notifications when user opens a card
+  const handleVisitCheckIn = useCallback(() => {
+    try {
+      const now = new Date();
+      const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      localStorage.setItem('grace_visited_checkin', todayKey);
+      setCheckInCount(0);
+    } catch {}
+  }, []);
+
+  const handleVisitPrayerWall = useCallback(() => {
+    try {
+      const prayerNotifs = rawNotifsRef.current.filter((n: any) => n.type === 'new_prayer');
+      const idsToDismiss = prayerNotifs.flatMap((n: any) => [n._id, n.sourceId ? `prayer-${n.sourceId}` : null]).filter(Boolean) as string[];
+      const current: string[] = JSON.parse(localStorage.getItem('grace_dismissed_notifications') || '[]');
+      const updated = Array.from(new Set([...current, ...idsToDismiss]));
+      localStorage.setItem('grace_dismissed_notifications', JSON.stringify(updated));
+      localStorage.setItem('grace_visited_prayer_wall', String(Date.now()));
+      setDismissedIds(updated);
+      setPrayerNotifCount(0);
+      setPendingPrayerCount(0);
+      const dbIds = prayerNotifs.map((n: any) => n._id).filter(Boolean);
+      if (dbIds.length > 0) {
+        fetch('/api/notifications', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: dbIds })
+        }).catch(() => {});
+      }
+    } catch {}
+  }, []);
+
+  const handleVisitWorship = useCallback(() => {
+    try {
+      const worshipNotifs = rawNotifsRef.current.filter((n: any) => n.type === 'new_worship_video');
+      const idsToDismiss = worshipNotifs.flatMap((n: any) => [n._id, n.sourceId ? `worship-${n.sourceId}` : null]).filter(Boolean) as string[];
+      const current: string[] = JSON.parse(localStorage.getItem('grace_dismissed_notifications') || '[]');
+      const updated = Array.from(new Set([...current, ...idsToDismiss]));
+      localStorage.setItem('grace_dismissed_notifications', JSON.stringify(updated));
+      localStorage.setItem('grace_visited_worship', String(Date.now()));
+      setDismissedIds(updated);
+      setWorshipNotifCount(0);
+      const dbIds = worshipNotifs.map((n: any) => n._id).filter(Boolean);
+      if (dbIds.length > 0) {
+        fetch('/api/notifications', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: dbIds })
+        }).catch(() => {});
+      }
+    } catch {}
+  }, []);
+
+  const handleVisitAnnouncements = useCallback(() => {
+    try {
+      const annNotifs = rawNotifsRef.current.filter((n: any) => n.type === 'new_announcement' || n.type === 'recurring_announcement');
+      const notifIds = annNotifs.flatMap((n: any) => [n._id, n.sourceId ? `ann-${n.sourceId}` : null]).filter(Boolean) as string[];
+      const adminAnnIds = (announcements || []).map(a => `ann-${a.id}`);
+      const current: string[] = JSON.parse(localStorage.getItem('grace_dismissed_notifications') || '[]');
+      const updated = Array.from(new Set([...current, ...notifIds, ...adminAnnIds]));
+      localStorage.setItem('grace_dismissed_notifications', JSON.stringify(updated));
+      localStorage.setItem('grace_visited_announcements', String(Date.now()));
+      setDismissedIds(updated);
+      setDirectAnnouncementNotifCount(0);
+      const dbIds = annNotifs.map((n: any) => n._id).filter(Boolean);
+      if (dbIds.length > 0) {
+        fetch('/api/notifications', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: dbIds })
+        }).catch(() => {});
+      }
+    } catch {}
+  }, [announcements]);
   const [albumCovers, setAlbumCovers] = useState<Record<string, string>>({});
+
+  const sortedGalleryAlbums = useMemo(() => {
+    return [...galleryAlbums].sort((a, b) => {
+      const timeA = getAlbumTimestamp(a);
+      const timeB = getAlbumTimestamp(b);
+      if (timeA !== timeB) return timeB - timeA;
+      return (b.sortOrder ?? 0) - (a.sortOrder ?? 0);
+    });
+  }, [galleryAlbums]);
 
   const fetchedAlbums = React.useRef<Set<string>>(new Set());
 
@@ -553,7 +777,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
       const newCovers: Record<string, string> = {};
 
       // Seed immediately from server-stored covers
-      for (const album of galleryAlbums.slice(0, 5)) {
+      for (const album of sortedGalleryAlbums.slice(0, 6)) {
         if (album.coverImage && !fetchedAlbums.current.has(album.id)) {
           fetchedAlbums.current.add(album.id);
           newCovers[album.id] = album.coverImage;
@@ -562,7 +786,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
       }
 
       // Only scrape Google Photos for albums missing a stored cover, then persist it
-      for (const album of galleryAlbums.slice(0, 5)) {
+      for (const album of sortedGalleryAlbums.slice(0, 6)) {
         if (!fetchedAlbums.current.has(album.id) && album.url && !album.coverImage) {
           fetchedAlbums.current.add(album.id);
           try {
@@ -583,10 +807,10 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
       if (changed) setAlbumCovers(prev => ({ ...prev, ...newCovers }));
     };
 
-    if (galleryAlbums.length > 0) {
+    if (sortedGalleryAlbums.length > 0) {
       fetchCovers();
     }
-  }, [galleryAlbums]);
+  }, [sortedGalleryAlbums]);
 
   const publishedHighlights = contentToHighlightItems({
     events,
@@ -684,13 +908,19 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
           className="h-[calc(4rem+env(safe-area-inset-top))] shrink-0"
           aria-hidden
         />
-        <header
-          className={cn(
-            "fixed inset-x-0 top-0 z-50 border-b border-[#a59d94]/60 bg-[#FAF7F2]/80 px-4 shadow-[0_4px_16px_-2px_rgba(58,45,39,0.12),0_1px_0px_rgba(255,255,255,0.6)_inset] backdrop-blur-md pt-[env(safe-area-inset-top)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            headerVisible ? "translate-y-0" : "-translate-y-full",
-          )}
-        >
-          <div className="flex h-16 items-center justify-between">
+        <header className="fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top)]">
+          {/* Liquid Glass Background Layers */}
+          <div 
+            className="pointer-events-none absolute inset-0 overflow-hidden"
+            style={{ boxShadow: "0 6px 6px rgba(0, 0, 0, 0.2), 0 0 20px rgba(0, 0, 0, 0.1)" }}
+          >
+            {/* Expand the distortion layer outside bounds to prevent edge tearing, then clip it */}
+            <div className="absolute -inset-12 z-0" style={{ backdropFilter: "blur(3px)", filter: "url(#glass-distortion)", isolation: "isolate" }} />
+            <div className="absolute inset-0 z-10" style={{ background: "rgba(255, 255, 255, 0.25)" }} />
+            <div className="absolute inset-0 z-20 overflow-hidden border-b border-white/40" style={{ boxShadow: "inset 2px 2px 1px 0 rgba(255, 255, 255, 0.5), inset -1px -1px 1px 1px rgba(255, 255, 255, 0.5)" }} />
+          </div>
+
+          <div className="relative z-30 flex h-16 items-center justify-between px-4">
           <div className="flex min-w-0 items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -737,9 +967,6 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                 <h2 className="text-5xl font-serif font-bold leading-tight tracking-tight">
                   Grace <br />Community
                 </h2>
-                <p className="text-white/70 text-sm pt-2 leading-relaxed">
-                  Where faith grows, hearts connect,<br />and lives are transformed.
-                </p>
               </div>
 
               <div className="flex gap-3 pt-2">
@@ -787,28 +1014,48 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
 
           {/* 3. Quick Actions */}
           <div className="grid grid-cols-4 gap-2 px-1">
-            <Link href="/check-in" className="flex flex-col items-center gap-2">
-              <div className="w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
+            <Link href="/check-in" onClick={handleVisitCheckIn} className="flex flex-col items-center gap-2">
+              <div className="relative w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
                 <MapPin className="w-6 h-6" />
+                {checkInCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-600 rounded-full border-2 border-[#FAF7F2] flex items-center justify-center px-1 text-[10px] font-bold text-white leading-none shadow-sm animate-in fade-in zoom-in duration-200">
+                    {checkInCount > 99 ? '99+' : checkInCount}
+                  </span>
+                )}
               </div>
-              <span className="text-[10px] font-bold text-[#7A6150]">Check-In</span>
+              <span className="text-[10px] font-bold text-[#7A6150] whitespace-nowrap">Check-In</span>
             </Link>
-            <Link href="/prayer-wall" className="flex flex-col items-center gap-2">
-              <div className="w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
+            <Link href="/prayer-wall" onClick={handleVisitPrayerWall} className="flex flex-col items-center gap-2">
+              <div className="relative w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
                 <Heart className="w-6 h-6" />
+                {prayerNotificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-600 rounded-full border-2 border-[#FAF7F2] flex items-center justify-center px-1 text-[10px] font-bold text-white leading-none shadow-sm animate-in fade-in zoom-in duration-200">
+                    {prayerNotificationCount > 99 ? '99+' : prayerNotificationCount}
+                  </span>
+                )}
               </div>
-              <span className="text-[10px] font-bold text-[#7A6150]">Prayer</span>
+              <span className="text-[10px] font-bold text-[#7A6150] whitespace-nowrap text-center">Prayer Wall</span>
             </Link>
-            <Link href="/music" className="flex flex-col items-center gap-2">
-              <div className="w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
+            <Link href="/music" onClick={handleVisitWorship} className="flex flex-col items-center gap-2">
+              <div className="relative w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
                 <Music className="w-6 h-6" />
+                {worshipNotificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-600 rounded-full border-2 border-[#FAF7F2] flex items-center justify-center px-1 text-[10px] font-bold text-white leading-none shadow-sm animate-in fade-in zoom-in duration-200">
+                    {worshipNotificationCount > 99 ? '99+' : worshipNotificationCount}
+                  </span>
+                )}
               </div>
-              <span className="text-[10px] font-bold text-[#7A6150]">Worship</span>
+              <span className="text-[10px] font-bold text-[#7A6150] whitespace-nowrap">Worship</span>
             </Link>
 
-            <Link href="/announcements" className="flex flex-col items-center gap-2">
-              <div className="w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
+            <Link href="/announcements" onClick={handleVisitAnnouncements} className="flex flex-col items-center gap-2">
+              <div className="relative w-14 h-14 rounded-2xl bg-[#F3EAE1] flex items-center justify-center text-[#8B2323] border border-[#E5D5C5] shadow-sm">
                 <Megaphone className="w-6 h-6" />
+                {announcementNotificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-600 rounded-full border-2 border-[#FAF7F2] flex items-center justify-center px-1 text-[10px] font-bold text-white leading-none shadow-sm animate-in fade-in zoom-in duration-200">
+                    {announcementNotificationCount > 99 ? '99+' : announcementNotificationCount}
+                  </span>
+                )}
               </div>
               <span className="text-[10px] font-bold text-[#7A6150] whitespace-nowrap">Announcements</span>
             </Link>
@@ -982,22 +1229,10 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                             <ExpandableCard
                               className="w-full relative rounded-3xl shadow-sm border transition-colors bg-[#FAF7F2] border-[#E5D5C5]/40"
                               collapsedSize={{ width: 280, height: 96 }}
-                              expandedSize={{ width: 280, height: 180 }}
+                              expandedSize={{ width: 280, height: 200 }}
                               hoverToExpand={false}
                             >
                               <ExpandableCardHeader className={cn("p-4", isExpanded ? "pb-2" : "pb-4")}>
-                                {isExpanded && (
-                                  <button
-                                    type="button"
-                                    className="absolute top-4 right-4 z-10 h-7 flex items-center justify-center text-[11px] rounded-xl px-2.5 bg-[#8B2323] hover:bg-[#721515] text-white font-medium shadow-sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setRsvpEvent(event);
-                                    }}
-                                  >
-                                    RSVP <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                                  </button>
-                                )}
                                 <motion.div layout className={cn("flex", isExpanded ? "flex-col" : "gap-4")}>
                                   {!isExpanded && (
                                     <motion.div layoutId={`date-wrapper-${event.id}`} className="flex flex-col items-center gap-2 shrink-0">
@@ -1015,7 +1250,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                       </p>
                                     </motion.div>
                                   )}
-                                  <motion.div layoutId={`title-container-${event.id}`} className={cn("flex flex-col justify-center pr-16", isExpanded ? "w-full" : "flex-1")}>
+                                  <motion.div layoutId={`title-container-${event.id}`} className={cn("flex flex-col justify-center", isExpanded ? "w-full" : "flex-1 pr-2")}>
                                     <div className="flex items-start justify-between gap-2 mb-1.5">
                                       <motion.h4 layoutId={`title-${event.id}`} className={cn("font-bold text-[#1A202C] leading-snug", isExpanded ? "text-sm" : "line-clamp-1 mb-2")}>{event.title}</motion.h4>
                                     </div>
@@ -1034,7 +1269,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                               </ExpandableCardHeader>
                               <ExpandableContent preset="fade">
                                 <ExpandableCardContent className="p-4 pt-0">
-                                  <div className="mt-2">
+                                  <div className="mt-2 space-y-2.5">
                                     {(() => {
                                       const label = event.location || 'Grace Community';
                                       const mapsOptions = {
@@ -1067,6 +1302,17 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                         </div>
                                       );
                                     })()}
+
+                                    <button
+                                      type="button"
+                                      className="w-full h-8 flex items-center justify-center text-xs rounded-xl bg-[#8B2323] hover:bg-[#721515] text-white font-semibold shadow-sm transition-colors"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setRsvpEvent(event);
+                                      }}
+                                    >
+                                      RSVP <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                                    </button>
                                   </div>
                                 </ExpandableCardContent>
                               </ExpandableContent>
@@ -1098,8 +1344,11 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-red-600/90 backdrop-blur-sm text-white flex items-center justify-center pl-1 shadow-lg">
                             <Play className="w-5 h-5 fill-current" />
                           </div>
-                          <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full self-start mb-2">
-                            {sermon.pastor}
+                          <span
+                            title={sermon.pastor}
+                            className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full self-start mb-2 max-w-[150px] truncate block"
+                          >
+                            {truncateText(sermon.pastor, 18)}
                           </span>
                           <h4 className="text-white font-bold leading-tight line-clamp-1 text-sm">{sermon.title}</h4>
                         </div>
@@ -1139,30 +1388,54 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
 
 
 
-              {/* Photo Gallery */}
-              {galleryAlbums.length > 0 && (
+              {/* Gallery */}
+              {sortedGalleryAlbums.length > 0 && (
                 <div className="mt-8">
-                  <div className="flex justify-between items-end mb-4">
-                    <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">Photo Gallery</h2>
+                  <div className="flex justify-between items-end mb-3">
+                    <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">Gallery</h2>
                     <Link href="/gallery" className="text-[#8B2323] text-sm font-bold flex items-center">
                       See all <ChevronRight className="w-4 h-4 ml-1" />
                     </Link>
                   </div>
 
                   <div className="flex gap-4 overflow-x-auto pb-4 -mr-4 pr-4 snap-x no-scrollbar">
-                    {galleryAlbums.slice(0, 5).map(album => {
+                    {sortedGalleryAlbums.slice(0, 6).map(album => {
                       const cover = album.coverImage || albumCovers[album.id];
+                      const isVideo = album.mediaType === 'videos' || !!album.videoUrl;
+                      const isBoth = !album.mediaType || album.mediaType === 'both';
+
                       return (
                       <Link href="/gallery" key={album.id} className="min-w-[220px] w-[220px] h-[220px] rounded-3xl overflow-hidden relative shadow-sm snap-start group block">
                         {cover ? (
-                          <img src={cover} alt={album.title} className="w-full h-full object-cover" />
+                          <img src={cover} alt={album.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         ) : (
                           <div className="w-full h-full bg-[#E5D5C5] flex items-center justify-center">
-                            <ImageIcon className="w-10 h-10 text-[#7A6150]/30" />
+                            {isVideo ? <Film className="w-10 h-10 text-[#7A6150]/30" /> : <ImageIcon className="w-10 h-10 text-[#7A6150]/30" />}
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
-                          <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full self-start mb-2">
+
+                        {/* Top-right Media Badge */}
+                        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold flex items-center gap-1 shadow-sm">
+                          {isVideo ? (
+                            <>
+                              <Play className="w-2.5 h-2.5 fill-white" />
+                              <span>Video</span>
+                            </>
+                          ) : isBoth ? (
+                            <>
+                              <Film className="w-2.5 h-2.5" />
+                              <span>Photos & Videos</span>
+                            </>
+                          ) : (
+                            <>
+                              <ImageIcon className="w-2.5 h-2.5" />
+                              <span>Photos</span>
+                            </>
+                          )}
+                        </div>
+
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-4">
+                          <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full self-start mb-1.5 max-w-[150px] truncate block">
                             {album.category}
                           </span>
                           <h4 className="text-white font-bold leading-tight line-clamp-2 text-sm">{album.title}</h4>
@@ -1221,8 +1494,11 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-red-600/90 backdrop-blur-sm text-white flex items-center justify-center pl-1 shadow-lg">
                             <Play className="w-5 h-5 fill-current" />
                           </div>
-                          <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full self-start mb-2">
-                            {sermon.pastor}
+                          <span
+                            title={sermon.pastor}
+                            className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full self-start mb-2 max-w-[150px] truncate block"
+                          >
+                            {truncateText(sermon.pastor, 18)}
                           </span>
                           <h4 className="text-white font-bold leading-tight line-clamp-1 text-sm">{sermon.title}</h4>
                         </div>
@@ -1325,22 +1601,10 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                   <ExpandableCard
                                     className="w-full relative rounded-3xl shadow-sm border transition-colors bg-[#FAF7F2] border-[#E5D5C5]/40"
                                     collapsedSize={{ width: 280, height: 96 }}
-                                    expandedSize={{ width: 280, height: 196 }}
+                                    expandedSize={{ width: 280, height: 216 }}
                                     hoverToExpand={false}
                                   >
                                     <ExpandableCardHeader className={cn("p-4", isExpanded ? "pb-2" : "pb-4")}>
-                                      {isExpanded && (
-                                        <button
-                                          type="button"
-                                          className="absolute top-4 right-4 z-10 h-7 flex items-center justify-center text-[11px] rounded-xl px-2.5 bg-[#8B2323] hover:bg-[#721515] text-white font-medium shadow-sm"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setRsvpEvent(event);
-                                          }}
-                                        >
-                                          RSVP <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                                        </button>
-                                      )}
                                       <div className={cn("flex", isExpanded ? "flex-col" : "gap-4")}>
                                         {!isExpanded && (
                                           <motion.div layoutId={`date-block-${event.id}`} className="flex flex-col items-center gap-2 shrink-0">
@@ -1357,7 +1621,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                             </p>
                                           </motion.div>
                                         )}
-                                        <motion.div layoutId={`title-container-${event.id}`} className={cn("flex flex-col justify-center pr-16", isExpanded ? "w-full" : "flex-1")}>
+                                        <motion.div layoutId={`title-container-${event.id}`} className={cn("flex flex-col justify-center", isExpanded ? "w-full" : "flex-1 pr-2")}>
                                           <div className="flex items-start justify-between gap-2 mb-1.5">
                                             <h4 className={cn("font-bold text-[#1A202C] leading-snug", isExpanded ? "text-sm" : "line-clamp-1 mb-2")}>{event.title}</h4>
                                             {isExpanded && (
@@ -1387,7 +1651,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                     </ExpandableCardHeader>
                                     <ExpandableContent preset="fade">
                                       <ExpandableCardContent className="p-4 pt-0">
-                                        <div className="mt-2">
+                                        <div className="mt-2 space-y-2.5">
                                           {(() => {
                                             const label = event.location || 'Grace Community';
                                             const mapsOptions = {
@@ -1415,6 +1679,17 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                               </div>
                                             );
                                           })()}
+
+                                          <button
+                                            type="button"
+                                            className="w-full h-8 flex items-center justify-center text-xs rounded-xl bg-[#8B2323] hover:bg-[#721515] text-white font-semibold shadow-sm transition-colors"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setRsvpEvent(event);
+                                            }}
+                                          >
+                                            RSVP <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                                          </button>
                                         </div>
                                       </ExpandableCardContent>
                                     </ExpandableContent>
@@ -1486,31 +1761,55 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                     </div>
 
 
-                    {/* 7. Photo Gallery */}
-                    {galleryAlbums.length > 0 && (
+                    {/* 7. Gallery */}
+                    {sortedGalleryAlbums.length > 0 && (
                       <div className="mt-8">
 
-                        <div className="flex justify-between items-end mb-4">
-                          <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">Photo Gallery</h2>
+                        <div className="flex justify-between items-end mb-3">
+                          <h2 className="text-2xl font-serif font-bold text-[#1A202C] border-l-4 border-[#8B2323] pl-3 py-0.5 leading-none">Gallery</h2>
                           <Link href="/gallery" className="text-[#8B2323] text-sm font-bold flex items-center">
                             See all <ChevronRight className="w-4 h-4 ml-1" />
                           </Link>
                         </div>
 
                         <div className="flex gap-4 overflow-x-auto pb-4 -mr-4 pr-4 snap-x no-scrollbar">
-                          {galleryAlbums.slice(0, 5).map(album => {
+                          {sortedGalleryAlbums.slice(0, 6).map(album => {
                             const cover = album.coverImage || albumCovers[album.id];
+                            const isVideo = album.mediaType === 'videos' || !!album.videoUrl;
+                            const isBoth = !album.mediaType || album.mediaType === 'both';
+
                             return (
                             <Link href="/gallery" key={album.id} className="min-w-[220px] w-[220px] h-[220px] rounded-3xl overflow-hidden relative shadow-sm snap-start group block">
                               {cover ? (
-                                <img src={cover} alt={album.title} className="w-full h-full object-cover" />
+                                <img src={cover} alt={album.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                               ) : (
                                 <div className="w-full h-full bg-[#E5D5C5] flex items-center justify-center">
-                                  <ImageIcon className="w-10 h-10 text-[#7A6150]/30" />
+                                  {isVideo ? <Film className="w-10 h-10 text-[#7A6150]/30" /> : <ImageIcon className="w-10 h-10 text-[#7A6150]/30" />}
                                 </div>
                               )}
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
-                                <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full self-start mb-2">
+
+                              {/* Top-right Media Badge */}
+                              <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold flex items-center gap-1 shadow-sm">
+                                {isVideo ? (
+                                  <>
+                                    <Play className="w-2.5 h-2.5 fill-white" />
+                                    <span>Video</span>
+                                  </>
+                                ) : isBoth ? (
+                                  <>
+                                    <Film className="w-2.5 h-2.5" />
+                                    <span>Photos & Videos</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <ImageIcon className="w-2.5 h-2.5" />
+                                    <span>Photos</span>
+                                  </>
+                                )}
+                              </div>
+
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-4">
+                                <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full self-start mb-1.5 max-w-[150px] truncate block">
                                   {album.category}
                                 </span>
                                 <h4 className="text-white font-bold leading-tight line-clamp-2 text-sm">{album.title}</h4>

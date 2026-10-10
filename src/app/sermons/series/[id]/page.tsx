@@ -204,10 +204,10 @@ export default function SeriesDetailPage() {
                             <div className="w-5 h-5 rounded-full bg-[#8B2323]/10 flex items-center justify-center shrink-0">
                               <User className="w-3 h-3 text-[#8B2323]" />
                             </div>
-                            <div className="flex items-baseline gap-1.5 leading-none">
-                              <span className="text-[10px] uppercase font-bold text-[#7A6150] tracking-wider">Pastor</span>
-                              <span className="text-xs sm:text-sm font-bold text-[#1A202C]">{sermon.pastor || 'Pastor Geo'}</span>
-                            </div>
+                              <div className="flex items-baseline gap-1.5 leading-none">
+                                <span className="text-[10px] uppercase font-bold text-[#7A6150] tracking-wider">Pastor</span>
+                                <span className="text-xs sm:text-sm font-bold text-[#1A202C] max-w-[180px] sm:max-w-[220px] truncate" title={sermon.pastor}>{sermon.pastor || 'Pastor Geo'}</span>
+                              </div>
                           </div>
                           
                           <div className="flex items-center gap-2.5 text-xs text-[#7A6150] font-medium flex-wrap">
