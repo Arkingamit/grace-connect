@@ -167,7 +167,7 @@ export default function SeriesDetailPage() {
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ type: "spring", stiffness: 180, damping: 24 }}
                   key={sermon.id} 
-                  className={`group overflow-hidden cursor-pointer rounded-2xl ${
+                  className={`group overflow-hidden cursor-pointer rounded-xl ${
                     isActive 
                     ? 'bg-white shadow-xl border border-[#E5D5C5]/60 p-3 sm:p-5' 
                     : 'bg-white border border-[#E5D5C5]/50 hover:bg-white/80 p-2.5 sm:p-3 shadow-xs'
@@ -179,7 +179,7 @@ export default function SeriesDetailPage() {
                 >
                   {isActive ? (
                     <motion.div layout className="space-y-4 sm:space-y-5 cursor-default">
-                      <motion.div layoutId={`media-${sermon.id}`} transition={{ type: "spring", stiffness: 180, damping: 24 }} style={{ zIndex: 10 }} className="aspect-video rounded-xl sm:rounded-2xl overflow-hidden shadow-sm bg-black relative">
+                      <motion.div layoutId={`media-${sermon.id}`} transition={{ type: "spring", stiffness: 180, damping: 24 }} style={{ zIndex: 10 }} className="aspect-video rounded-lg sm:rounded-xl overflow-hidden shadow-sm bg-black relative">
                         <iframe
                           className="w-full h-full"
                           src={`https://www.youtube.com/embed/${sermon.videoId}?autoplay=1`}
@@ -239,7 +239,7 @@ export default function SeriesDetailPage() {
                         </div>
 
                         {sermon.description && (
-                          <div className="bg-[#FAF7F5] rounded-xl p-3 sm:p-3.5 border border-[#E5D5C5]/40 mt-1">
+                          <div className="bg-[#FAF7F5] rounded-lg p-3 sm:p-3.5 border border-[#E5D5C5]/40 mt-1">
                             <p className={`text-xs sm:text-sm text-[#7A6150] leading-relaxed font-normal transition-all duration-300 ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}>
                               {sermon.description}
                             </p>
@@ -296,7 +296,7 @@ export default function SeriesDetailPage() {
                         layoutId={`media-${sermon.id}`} 
                         transition={{ type: "spring", stiffness: 180, damping: 24 }} 
                         style={{ zIndex: 10 }} 
-                        className="relative w-[110px] sm:w-[140px] aspect-video shrink-0 overflow-hidden rounded-xl bg-muted"
+                        className="relative w-[110px] sm:w-[140px] aspect-video shrink-0 overflow-hidden rounded-lg bg-muted"
                       >
                         <img 
                           src={`https://img.youtube.com/vi/${sermon.videoId}/mqdefault.jpg`}

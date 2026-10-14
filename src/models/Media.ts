@@ -66,7 +66,10 @@ const SermonSchema = new Schema<ISermon>({
   highlightExpiresAt: { type: String, default: null },
 }, { timestamps: true });
 
-export const Sermon: Model<ISermon> = mongoose.models.Sermon || mongoose.model<ISermon>('Sermon', SermonSchema);
+if (mongoose.models.Sermon) {
+  delete (mongoose.models as any).Sermon;
+}
+export const Sermon: Model<ISermon> = mongoose.model<ISermon>('Sermon', SermonSchema);
 
 // ── Worship Video ──────────────────────────────────────────────
 export interface IWorshipVideo extends Document {
@@ -95,40 +98,58 @@ const WorshipVideoSchema = new Schema<IWorshipVideo>({
   highlightExpiresAt: { type: String, default: null },
 }, { timestamps: true });
 
-export const WorshipVideo: Model<IWorshipVideo> = mongoose.models.WorshipVideo || mongoose.model<IWorshipVideo>('WorshipVideo', WorshipVideoSchema);
+if (mongoose.models.WorshipVideo) {
+  delete (mongoose.models as any).WorshipVideo;
+}
+export const WorshipVideo: Model<IWorshipVideo> = mongoose.model<IWorshipVideo>('WorshipVideo', WorshipVideoSchema);
 
 // ── Gallery Album ──────────────────────────────────────────────
 export interface IGalleryAlbum extends Document {
   title: string;
   description: string;
   url: string;
-  category: string;
+  category?: string;
   coverImage?: string;
   mediaType?: 'both' | 'photos' | 'videos';
   videoUrl?: string;
+  duration?: string;
+  viewCount?: string;
+  date?: string;
   sortOrder: number;
   targetCampuses: string[];
   targetGroups: string[];
   excludeCampuses?: string[];
   excludeGroups?: string[];
+  showOnHighlight?: boolean;
+  highlightDurationHours?: number;
+  highlightExpiresAt?: string | null;
 }
 
 const GalleryAlbumSchema = new Schema<IGalleryAlbum>({
   title: { type: String, required: true },
   description: { type: String, default: '' },
   url: { type: String, required: true },
-  category: { type: String, required: true },
+  category: { type: String, default: 'General' },
   coverImage: { type: String },
   mediaType: { type: String, enum: ['both', 'photos', 'videos'], default: 'both' },
   videoUrl: { type: String, default: '' },
+  duration: { type: String, default: '' },
+  viewCount: { type: String, default: '' },
+  date: { type: String, default: '' },
   sortOrder: { type: Number, default: 0 },
   targetCampuses: [{ type: String }],
   targetGroups: [{ type: String }],
   excludeCampuses: [{ type: String }],
   excludeGroups: [{ type: String }],
+  showOnHighlight: { type: Boolean, default: false },
+  highlightDurationHours: { type: Number, default: 24 },
+  highlightExpiresAt: { type: String, default: null },
 }, { timestamps: true });
 
-export const GalleryAlbum: Model<IGalleryAlbum> = mongoose.models.GalleryAlbum || mongoose.model<IGalleryAlbum>('GalleryAlbum', GalleryAlbumSchema);
+if (mongoose.models.GalleryAlbum) {
+  delete (mongoose.models as any).GalleryAlbum;
+}
+export const GalleryAlbum: Model<IGalleryAlbum> = mongoose.model<IGalleryAlbum>('GalleryAlbum', GalleryAlbumSchema);
 
 // ── Live Stream ────────────────────────────────────────────────
 export interface ILiveAutoChecker {

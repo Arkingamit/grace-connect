@@ -147,9 +147,12 @@ export default function WorshipManagementPage() {
     setDialogOpen(false);
   };
 
-  const filtered = worshipVideos.filter(v => 
-    v.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = worshipVideos.filter(v => {
+    const q = (search || '').toLowerCase().trim();
+    if (!q) return true;
+    return (v.title?.toLowerCase() || '').includes(q) ||
+      (v.artist?.toLowerCase() || '').includes(q);
+  });
 
   const featuredCount = worshipVideos.filter(v => v.isFeatured).length;
   const isMinRequirementMet = featuredCount >= 10;

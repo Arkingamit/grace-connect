@@ -218,8 +218,11 @@ export default function EventsPage() {
   const canAllCampuses = canPublishAllCampuses(currentUser.role);
 
   const filtered = events.filter(e => {
-    const matchesSearch = e.title.toLowerCase().includes(search.toLowerCase()) ||
-      e.category.toLowerCase().includes(search.toLowerCase());
+    const q = (search || '').toLowerCase().trim();
+    const matchesSearch = !q ||
+      (e.title?.toLowerCase() || '').includes(q) ||
+      (e.category?.toLowerCase() || '').includes(q) ||
+      (e.description?.toLowerCase() || '').includes(q);
     
     // Group leaders only see events targeted at their groups
     if (isGroupLeader) {

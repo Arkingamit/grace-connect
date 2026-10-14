@@ -107,8 +107,10 @@ export default function AnnouncementsPage() {
   const canAllCampusesScope = hasGlobalScope(currentUser, 'announcements');
 
   const filtered = announcements.filter(a => {
-    const matchesSearch = a.title.toLowerCase().includes(search.toLowerCase()) ||
-      a.content.toLowerCase().includes(search.toLowerCase());
+    const q = (search || '').toLowerCase().trim();
+    const matchesSearch = !q ||
+      (a.title?.toLowerCase() || '').includes(q) ||
+      (a.content?.toLowerCase() || '').includes(q);
       
     if (isGroupLeader) {
       const aGroups = a.targetGroups ?? ['all'];

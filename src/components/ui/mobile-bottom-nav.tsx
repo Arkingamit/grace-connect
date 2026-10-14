@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, PlayCircle, CalendarHeart, FileText } from "lucide-react";
+import { Home, PlayCircle, CalendarHeart, FileText, Search } from "lucide-react";
 import { animate, motion, useMotionValue } from "framer-motion";
 import { useKeyboardOpen } from "@/hooks/useKeyboardInset";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ const PILL_MOVE = { type: "tween" as const, duration: 0.28, ease: [0.22, 1, 0.36
 const NAV_ITEMS: NavItem[] = [
   { label: "Home", href: "/", icon: Home, exact: true },
   { label: "Sermons", href: "/sermons", icon: PlayCircle },
+  { label: "Search", href: "/search", icon: Search },
   { label: "Notes", href: "/broadcasts", icon: FileText },
   { label: "Events", href: "/events", icon: CalendarHeart },
 ];
@@ -470,7 +471,7 @@ export function MobileBottomNav() {
       <div
         className={cn(
           "pointer-events-auto mx-auto origin-bottom transition-[max-width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          compact ? "max-w-[19rem]" : "max-w-[22rem]",
+          compact ? "max-w-[21rem]" : "max-w-[24.5rem]",
         )}
       >
         <div
@@ -494,12 +495,12 @@ export function MobileBottomNav() {
             className="pointer-events-none absolute z-[1] rounded-full overflow-hidden will-change-[left,width]"
             style={{ 
               left: pillX, top: pillY, width: pillW, height: pillH,
-              boxShadow: "0 8px 16px rgba(0, 0, 0, 0.15), 0 0 10px rgba(0, 0, 0, 0.05)"
+              boxShadow: "0 6px 16px rgba(139, 35, 35, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08)"
             }}
           >
             <div className="absolute -inset-4 z-0" style={{ backdropFilter: "blur(6px)", filter: "url(#glass-distortion)", isolation: "isolate" }} />
-            <div className="absolute inset-0 z-10 rounded-[inherit]" style={{ background: "rgba(255, 255, 255, 0.15)" }} />
-            <div className="absolute inset-0 z-20 rounded-[inherit] overflow-hidden" style={{ boxShadow: "inset 4px 4px 4px 0 rgba(255, 255, 255, 0.95), inset -2px -2px 4px 0 rgba(220, 180, 180, 0.4), inset 0 -4px 10px rgba(255, 255, 255, 0.4)" }} />
+            <div className="absolute inset-0 z-10 rounded-[inherit]" style={{ background: "linear-gradient(135deg, rgba(251, 232, 232, 0.88) 0%, rgba(247, 216, 216, 0.78) 100%)" }} />
+            <div className="absolute inset-0 z-20 rounded-[inherit] overflow-hidden border border-[#8B2323]/20" style={{ boxShadow: "inset 2px 2px 3px 0 rgba(255, 255, 255, 0.95), inset -2px -2px 4px 0 rgba(139, 35, 35, 0.25), inset 0 0 8px rgba(139, 35, 35, 0.08)" }} />
           </motion.span>
           {NAV_ITEMS.map((item, index) => {
             const Icon = item.icon;

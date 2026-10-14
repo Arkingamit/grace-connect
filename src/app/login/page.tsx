@@ -7,7 +7,7 @@ import { Capacitor } from "@capacitor/core";
 import { useGoogleLogin } from "@react-oauth/google";
 import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
-import { signInWithGoogleNative, googleNativeSignInError, isGoogleSignInCanceled } from "@/lib/grace-google-auth";
+import { signInWithGoogleNative, googleNativeSignInError, isGoogleSignInCanceled, extractSha1 } from "@/lib/grace-google-auth";
 import { SignInCanceledDialog } from "@/components/ui/sign-in-canceled-dialog";
 import { startAppleBrowserFlow, waitForAppleFlow } from "@/lib/apple-browser-flow";
 import { appleWebStartHref } from "@/lib/apple-web-config";
@@ -54,6 +54,7 @@ export default function LoginPage() {
   const [verifying, setVerifying] = useState(false);
   const [canceledOpen, setCanceledOpen] = useState(false);
   const [canceledProvider, setCanceledProvider] = useState("Google");
+  const [canceledSha1, setCanceledSha1] = useState("");
 
   // Store the credential and provider after verification so registration can use it
   const [pendingCredential, setPendingCredential] = useState<{
@@ -237,6 +238,7 @@ export default function LoginPage() {
       setNotice("");
       console.error(err);
       if (isGoogleSignInCanceled(err)) {
+        setCanceledSha1(extractSha1(err) || "");
         setCanceledProvider("Google");
         setCanceledOpen(true);
         return;
@@ -503,6 +505,7 @@ export default function LoginPage() {
         open={canceledOpen}
         onOpenChange={setCanceledOpen}
         provider={canceledProvider}
+        sha1={canceledSha1}
       />
     </>
   );

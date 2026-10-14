@@ -7,6 +7,7 @@ import { fetchGooglePhotosCover } from '@/lib/google-photos';
 import { notifyLiveIfNeeded, takeSendNotificationFlag } from '@/lib/notify-members';
 import { lockLiveFrequency } from '@/lib/live-auto-checkers';
 import { applySeriesGuestVisibility, inheritSeriesGuestVisibility } from '@/lib/sermon-visibility';
+import { extractYoutubeVideoId, youtubeThumbnailUrl } from '@/lib/youtube';
 
 const models: any = {
   sermons: Sermon,
@@ -62,13 +63,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ type: st
       }
     }
 
-    // Auto-fetch cover when missing or when album URL changed
-    if (type === 'gallery' && body.url && (!body.coverImage || body.url !== existingItem.url)) {
-      try {
-        const cover = await fetchGooglePhotosCover(body.url);
-        if (cover) body.coverImage = cover;
-      } catch (e) {
-        console.warn('Could not auto-fetch gallery cover on update:', e);
+    // Auto-fetch cover when missing or when album URL / video URL changed
+    if (type === 'gallery' && (!body.coverImage || body.url !== existingItem.url || body.videoUrl !== existingItem.videoUrl)) {
+      const ytId = extractYoutubeVideoId(body.videoUrl || body.url || '');
+      if (ytId) {
+        body.coverImage = youtubeThumbnailUrl(ytId);
+      } else if (body.url) {
+        try {
+          const cover = await fetchGooglePhotosCover(body.url);
+          if (cover) body.coverImage = cover;
+        } catch (e) {
+          console.warn('Could not auto-fetch gallery cover on update:', e);
+        }
       }
     }
 

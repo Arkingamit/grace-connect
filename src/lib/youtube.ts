@@ -1,4 +1,5 @@
-export function extractYoutubeVideoId(input: string): string | null {
+export function extractYoutubeVideoId(input?: string | null): string | null {
+  if (!input || typeof input !== "string") return null;
   const raw = input.trim();
   if (!raw) return null;
   if (/^[a-zA-Z0-9_-]{11}$/.test(raw)) return raw;
@@ -76,6 +77,7 @@ export function shortYoutubeDescription(raw?: string) {
   return `${text.slice(0, 177).trimEnd()}…`;
 }
 
-export function youtubeThumbnailUrl(videoId: string) {
-  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+export function youtubeThumbnailUrl(videoId?: string | null) {
+  if (!videoId || typeof videoId !== "string") return "";
+  return `https://img.youtube.com/vi/${videoId.trim()}/hqdefault.jpg`;
 }

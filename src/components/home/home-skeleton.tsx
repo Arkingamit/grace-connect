@@ -12,13 +12,10 @@ export function MobileHomeSkeleton({ forceVisible = false }: { forceVisible?: bo
   return (
     <div className={`${forceVisible ? 'flex' : 'desktop:hidden flex'} flex-col min-h-screen bg-[#FAF7F2]`}>
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-[#FAF7F2]/90 backdrop-blur-md px-4 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-[#FAF7F2]/90 backdrop-blur-md px-4 py-3 flex items-center justify-between relative">
         <Skeleton className="w-10 h-10 rounded-full" />
-        <div className="flex gap-3">
-          <Skeleton className="w-10 h-10 rounded-full" />
-          <Skeleton className="w-10 h-10 rounded-full" />
-          <Skeleton className="w-10 h-10 rounded-full" />
-        </div>
+        <Skeleton className="w-36 h-8 rounded-md absolute left-1/2 -translate-x-1/2" />
+        <Skeleton className="w-10 h-10 rounded-full" />
       </header>
 
       <div className="px-4 pt-4 space-y-8">

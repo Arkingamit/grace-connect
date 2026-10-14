@@ -63,6 +63,13 @@ export function isGoogleSignInCanceled(err: unknown): boolean {
   return code === 'SIGN_IN_CANCELED' || /cancel/i.test(message);
 }
 
+export function extractSha1(err: unknown): string | null {
+  const anyErr = err as { message?: string; errorMessage?: string } | null;
+  const msg = String(anyErr?.message || anyErr?.errorMessage || '');
+  const match = msg.match(/SHA-1=([0-9A-Fa-f:]{20,})/);
+  return match ? match[1] : null;
+}
+
 /** Map native / Capacitor Google errors to a member-safe message. Never expose keys. */
 export function googleNativeSignInError(err: unknown): string {
   const anyErr = err as { message?: string; errorMessage?: string; code?: string } | null;

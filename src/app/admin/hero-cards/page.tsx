@@ -88,6 +88,7 @@ export default function HeroCardsManagementPage() {
     campuses,
     groups,
     groupScopes,
+    galleryAlbums,
   } = useAdminData();
 
   const [items, setItems] = useState<FlipCardItem[]>([]);
@@ -174,6 +175,8 @@ export default function HeroCardsManagementPage() {
       return worshipVideos.find((w) => w.id === item.itemId)?.title || 'Worship Video';
     if (item.type === 'prayer')
       return prayerRequests.find((p) => p.id === item.itemId)?.title || 'Prayer';
+    if (item.type === 'gallery')
+      return galleryAlbums.find((g) => g.id === item.itemId)?.title || 'Gallery';
     return item.title || 'Highlight';
   };
 
@@ -358,6 +361,7 @@ export default function HeroCardsManagementPage() {
                         <SelectItem value="announcement">Announcement</SelectItem>
                         <SelectItem value="sermon">Sermon</SelectItem>
                         <SelectItem value="worship_video">Worship Video</SelectItem>
+                        <SelectItem value="gallery">Gallery (Video or Photos)</SelectItem>
                         <SelectItem value="prayer">Prayer Request</SelectItem>
                       </SelectContent>
                     </Select>
@@ -459,6 +463,26 @@ export default function HeroCardsManagementPage() {
                                   {p.title}
                                 </SelectItem>
                               ))}
+                          {form.type === 'gallery' &&
+                            galleryAlbums
+                              .filter(
+                                (g) =>
+                                  form.itemId === g.id ||
+                                  !items.some(
+                                    (i, idx) =>
+                                      idx !== editingIndex &&
+                                      i.type === 'gallery' &&
+                                      i.itemId === g.id,
+                                  ),
+                              )
+                              .map((g) => {
+                                const isVid = g.mediaType === 'videos' || Boolean(g.videoUrl);
+                                return (
+                                  <SelectItem key={g.id} value={g.id}>
+                                    {g.title} ({isVid ? 'Video' : 'Photos'})
+                                  </SelectItem>
+                                );
+                              })}
                         </SelectContent>
                       </Select>
                     </div>

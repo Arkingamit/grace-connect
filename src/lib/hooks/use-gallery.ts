@@ -7,24 +7,36 @@ export function useGallery() {
   const [galleryAlbumUrl, setGalleryAlbumUrlState] = useState('');
 
   const addGalleryAlbum = useCallback(async (a: Omit<GalleryAlbum, 'id'>) => {
-    const res = await fetch('/api/admin/media/gallery', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(a),
-    });
-    if (res.ok) {
-      const created = await res.json();
-      setGalleryAlbums(prev => [...prev, mapId(created)]);
+    try {
+      const res = await fetch('/api/admin/media/gallery', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(a),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setGalleryAlbums(prev => [...prev, mapId(created)]);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
     }
   }, []);
 
   const updateGalleryAlbum = useCallback(async (id: string, a: Partial<GalleryAlbum>) => {
-    const res = await fetch(`/api/admin/media/gallery/${id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(a),
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      setGalleryAlbums(prev => prev.map(album => album.id === id ? mapId(updated) : album));
+    try {
+      const res = await fetch(`/api/admin/media/gallery/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(a),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setGalleryAlbums(prev => prev.map(album => album.id === id ? mapId(updated) : album));
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
     }
   }, []);
 

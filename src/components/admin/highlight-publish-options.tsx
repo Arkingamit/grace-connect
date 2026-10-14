@@ -51,14 +51,17 @@ export function HighlightPublishOptions({
           onCheckedChange={(checked) => onShowChange(checked === true)}
           className="mt-0.5"
         />
-        <div className="space-y-0.5 min-w-0 flex-1">
-          <Label
-            htmlFor="show-on-highlight"
-            className="text-sm font-bold text-[#1A202C] flex items-center gap-2 cursor-pointer"
-          >
+        <div
+          onClick={(e) => {
+            e.preventDefault();
+            onShowChange(!showOnHighlight);
+          }}
+          className="space-y-0.5 min-w-0 flex-1 cursor-pointer select-none"
+        >
+          <span className="text-sm font-bold text-[#1A202C] flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#8B2323]" />
             Show on Highlights
-          </Label>
+          </span>
           <p className="text-xs text-[#7A6150]">
             Optional — feature this on the home Highlights card stack for a limited time.
           </p>

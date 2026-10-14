@@ -8,6 +8,7 @@ import { notifyLiveIfNeeded, notifyMembers, takeSendNotificationFlag } from '@/l
 import { lockLiveFrequency } from '@/lib/live-auto-checkers';
 import { isPublicSermon } from '@/lib/highlight-utils';
 import { applySeriesGuestVisibility, inheritSeriesGuestVisibility } from '@/lib/sermon-visibility';
+import { extractYoutubeVideoId, youtubeThumbnailUrl } from '@/lib/youtube';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ const models: any = {
   livestreams: LiveStream,
 };
 
-const PUBLIC_MEDIA_TYPES = new Set(['worship-videos', 'sermons', 'sermon-series']);
+const PUBLIC_MEDIA_TYPES = new Set(['worship-videos', 'sermons', 'sermon-series', 'gallery', 'livestreams']);
 
 export async function GET(req: Request, { params }: { params: Promise<{ type: string }> }) {
   const { type } = await params;
@@ -98,12 +99,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
     }
 
     // Auto-fetch and store cover image so clients can show it immediately
-    if (type === 'gallery' && body.url && !body.coverImage) {
-      try {
-        const cover = await fetchGooglePhotosCover(body.url);
-        if (cover) body.coverImage = cover;
-      } catch (e) {
-        console.warn('Could not auto-fetch gallery cover on create:', e);
+    if (type === 'gallery' && !body.coverImage) {
+      const ytId = extractYoutubeVideoId(body.videoUrl || body.url || '');
+      if (ytId) {
+        body.coverImage = youtubeThumbnailUrl(ytId);
+      } else if (body.url) {
+        try {
+          const cover = await fetchGooglePhotosCover(body.url);
+          if (cover) body.coverImage = cover;
+        } catch (e) {
+          console.warn('Could not auto-fetch gallery cover on create:', e);
+        }
       }
     }
 
@@ -133,9 +139,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
           targetGroups: [],
         });
       } else if (type === 'gallery') {
+        const isVideo = item.mediaType === 'videos' || Boolean(item.videoUrl);
         await notifyMembers({
-          title: `New Photos: ${item.title}`,
-          message: item.description || 'New photos have been added to the gallery.',
+          title: isVideo ? `New Video: ${item.title}` : `New Photos: ${item.title}`,
+          message: item.description || (isVideo ? 'A new video has been added to the gallery.' : 'New photos have been added to the gallery.'),
           type: 'new_gallery',
           sourceId: item._id.toString(),
           targetCampuses: item.targetCampuses || ['all'],

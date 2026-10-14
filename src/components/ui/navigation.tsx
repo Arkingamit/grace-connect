@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
+import { Search } from 'lucide-react';
 import { ProfileSwitcher } from './profile-switcher';
 
 const AnimatedNavLink = ({ href, children }: { href: string; children: React.ReactNode }) => {
@@ -138,7 +139,16 @@ export const Navigation = () => {
           ))}
         </nav>
 
-        <div className="hidden md:flex items-center gap-4 ml-auto">
+        <div className="hidden md:flex items-center gap-3 ml-auto">
+          <Link
+            href="/search"
+            className="w-9 h-9 rounded-full bg-secondary/10 hover:bg-secondary/20 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+            title="Search"
+            aria-label="Search"
+          >
+            <Search className="w-4 h-4" />
+          </Link>
+
           {session ? (
             <ProfileSwitcher variant="pill" />
           ) : (

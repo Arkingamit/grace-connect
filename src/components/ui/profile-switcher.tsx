@@ -187,20 +187,24 @@ export function ProfileSwitcher({
                 "top-0"
               )}
             >
-              <div className="flex items-center gap-3 px-2 py-2.5">
-                <Avatar className="h-10 w-10 border border-[#E5D5C5]/60 shadow-sm shrink-0">
+              <Link
+                href="/profile"
+                onClick={closeMenu}
+                className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-black/5 active:bg-black/10 transition-colors cursor-pointer group"
+              >
+                <Avatar className="h-10 w-10 border border-[#E5D5C5]/60 shadow-sm shrink-0 transition-transform group-hover:scale-105">
                   {activePhoto ? <AvatarImage src={activePhoto} alt={displayName} className="object-cover" /> : null}
                   <AvatarFallback className="font-bold bg-[#721515] text-xs text-white">
                     {getInitials(displayName) || "??"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col min-w-0">
-                  <span className="truncate text-sm font-bold text-[#1A202C]">
+                  <span className="truncate text-sm font-bold text-[#1A202C] group-hover:text-[#8B2323] transition-colors">
                     {displayName}
                   </span>
                   <p className="truncate text-xs text-[#7A6150]">{session.email}</p>
                 </div>
-              </div>
+              </Link>
 
                 <div className="h-px bg-[#E5D5C5]/60 my-1" />
 

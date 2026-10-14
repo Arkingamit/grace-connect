@@ -272,8 +272,8 @@ interface AdminDataContextType {
   updateLiveStream: (campusId: string, updates: Partial<LiveStream>) => void;
 
   // Gallery CRUD
-  addGalleryAlbum: (album: Omit<GalleryAlbum, 'id'>) => void;
-  updateGalleryAlbum: (id: string, album: Partial<GalleryAlbum>) => void;
+  addGalleryAlbum: (album: Omit<GalleryAlbum, 'id'>) => Promise<boolean>;
+  updateGalleryAlbum: (id: string, album: Partial<GalleryAlbum>) => Promise<boolean>;
   deleteGalleryAlbum: (id: string) => void;
   reorderGalleryAlbums: (albums: GalleryAlbum[]) => void;
 

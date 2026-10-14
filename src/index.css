@@ -561,5 +561,18 @@
       border-radius: inherit;
     }
   }
+
+  /* iOS-only extra blur for the top mobile header bar */
+  @supports (-webkit-touch-callout: none) {
+    .ios-liquid-glass-distortion {
+      -webkit-backdrop-filter: blur(25px) !important;
+      backdrop-filter: blur(25px) !important;
+    }
+    .ios-liquid-glass-tint {
+      -webkit-backdrop-filter: blur(25px) !important;
+      backdrop-filter: blur(25px) !important;
+      background: rgba(255, 255, 255, 0.35) !important;
+    }
+  }
 }
 

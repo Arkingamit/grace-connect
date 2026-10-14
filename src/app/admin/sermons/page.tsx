@@ -427,14 +427,20 @@ export default function SermonManagementPage() {
     setSeriesDialogOpen(true);
   };
 
-  const filteredSermons = sermons.filter(s => 
-    s.title.toLowerCase().includes(search.toLowerCase()) ||
-    s.pastor.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredSermons = sermons.filter(s => {
+    const q = (search || '').toLowerCase().trim();
+    if (!q) return true;
+    return (s.title?.toLowerCase() || '').includes(q) ||
+      (s.pastor?.toLowerCase() || '').includes(q) ||
+      (s.description?.toLowerCase() || '').includes(q);
+  });
 
-  const filteredSeries = sermonSeries.filter(s => 
-    s.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredSeries = sermonSeries.filter(s => {
+    const q = (search || '').toLowerCase().trim();
+    if (!q) return true;
+    return (s.title?.toLowerCase() || '').includes(q) ||
+      (s.description?.toLowerCase() || '').includes(q);
+  });
 
   // Drag and Drop Handlers
   const handleSermonDragStart = (e: React.DragEvent, sermon: Sermon) => {

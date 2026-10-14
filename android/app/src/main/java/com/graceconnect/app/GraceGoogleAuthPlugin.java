@@ -85,12 +85,13 @@ public class GraceGoogleAuthPlugin extends Plugin {
                         new Handler(Looper.getMainLooper()).post(() -> trySignIn(call, true));
                         return;
                     }
+                    String sha = signingSha1();
                     if (e instanceof GetCredentialCancellationException) {
-                        Log.w(TAG, "Google sign-in canceled by user. SHA-1=" + signingSha1());
-                        call.reject("Google sign-in was canceled.", "SIGN_IN_CANCELED");
+                        Log.w(TAG, "Google sign-in canceled by user. SHA-1=" + sha);
+                        call.reject("Google sign-in was canceled. SHA-1=" + sha, "SIGN_IN_CANCELED");
                         return;
                     }
-                    Log.e(TAG, "Google sign-in failed. SHA-1=" + signingSha1(), e);
+                    Log.e(TAG, "Google sign-in failed. SHA-1=" + sha, e);
                     String detail = e.getClass().getSimpleName();
                     if (e.getMessage() != null && !e.getMessage().isEmpty()) {
                         detail += ": " + e.getMessage();

@@ -1,10 +1,30 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Heart, Download, Volume2, Search, Filter, MoreVertical, ChevronLeft } from "lucide-react";
+import {
+  Play,
+  Heart,
+  Download,
+  Volume2,
+  Search,
+  Filter,
+  MoreVertical,
+  ChevronLeft,
+  ExternalLink,
+  Copy,
+  Check,
+  Share2,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import {
@@ -60,8 +80,9 @@ const formatTimeAgo = (dateString: string) => {
   return 'just now';
 };
 
-export default function MusicPage() {
+function MusicContent() {
   const { worshipVideos } = useAdminData();
+  const searchParams = useSearchParams();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [fullscreenVideo, setFullscreenVideo] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
@@ -69,6 +90,15 @@ export default function MusicPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [youtubeStats, setYoutubeStats] = useState<Record<string, { viewCount: string; publishedAt: string; title?: string; artist?: string }>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Auto-play / open video if linked directly via ?v= or ?video=
+  useEffect(() => {
+    const v = searchParams.get('v') || searchParams.get('video') || searchParams.get('videoId');
+    if (v) {
+      setFullscreenVideo(v);
+    }
+  }, [searchParams]);
 
   // Mark worship notifications as visited when user views this page
   useEffect(() => {
@@ -272,8 +302,8 @@ export default function MusicPage() {
                         <img src="/avatar-icon.png" alt="Grace Connect Logo" className="w-full h-full object-cover" />
                       </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-[15px] text-[#1A202C] leading-tight line-clamp-2">
+                    <div className="min-w-0 flex-1 cursor-pointer" onClick={() => handlePlay(video.videoId)}>
+                      <h3 className="font-semibold text-[15px] text-[#1A202C] leading-tight line-clamp-2 hover:text-[#8B2323] transition-colors">
                         {youtubeStats[video.videoId]?.title || video.title}
                       </h3>
                       <div className="text-[#7A6150] text-[13px] mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
@@ -287,10 +317,66 @@ export default function MusicPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex-shrink-0">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-[#7A6150] hover:bg-[#E5D5C5]/50 hover:text-[#1A202C]">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
+                    <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-[#7A6150] hover:bg-[#E5D5C5]/50 hover:text-[#1A202C] rounded-full focus-visible:ring-1 focus-visible:ring-[#8B2323]"
+                            aria-label="Options"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-52 bg-white/95 backdrop-blur-md border border-[#E5D5C5] shadow-xl rounded-2xl p-1.5 z-50">
+                          <DropdownMenuItem
+                            onClick={() => window.open(`https://www.youtube.com/watch?v=${video.videoId}`, '_blank', 'noopener,noreferrer')}
+                            className="flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-[#1A202C] hover:bg-[#FFF5F5] hover:text-[#8B2323] cursor-pointer rounded-xl transition-colors"
+                          >
+                            <svg className="w-4 h-4 text-red-600 fill-current shrink-0" viewBox="0 0 24 24">
+                              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                            </svg>
+                            <span className="flex-1">Open in YouTube</span>
+                            <ExternalLink className="w-3.5 h-3.5 text-[#7A6150]/60 shrink-0" />
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              const ytUrl = `https://www.youtube.com/watch?v=${video.videoId}`;
+                              navigator.clipboard?.writeText(ytUrl);
+                              setCopiedId(video.videoId);
+                              setTimeout(() => setCopiedId(null), 2000);
+                            }}
+                            className="flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-[#7A6150] hover:bg-[#FAF7F2] hover:text-[#1A202C] cursor-pointer rounded-xl transition-colors"
+                          >
+                            {copiedId === video.videoId ? (
+                              <>
+                                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span className="text-emerald-700 font-semibold">Link copied!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-4 h-4 shrink-0 text-[#7A6150]" />
+                                <span>Copy YouTube link</span>
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                navigator.share({
+                                  title: video.title,
+                                  url: `https://www.youtube.com/watch?v=${video.videoId}`,
+                                }).catch(() => {});
+                              }}
+                              className="flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-[#7A6150] hover:bg-[#FAF7F2] hover:text-[#1A202C] cursor-pointer rounded-xl transition-colors"
+                            >
+                              <Share2 className="w-4 h-4 shrink-0 text-[#7A6150]" />
+                              <span>Share</span>
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </div>
@@ -346,5 +432,13 @@ export default function MusicPage() {
         </div>
       )}
     </section>
+  );
+}
+
+export default function MusicPage() {
+  return (
+    <Suspense fallback={null}>
+      <MusicContent />
+    </Suspense>
   );
 }

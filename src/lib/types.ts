@@ -217,7 +217,7 @@ export interface SermonSeries {
 
 export interface FlipCardItem {
   id: string;
-  type: 'event' | 'announcement' | 'prayer' | 'sermon' | 'worship_video' | 'note' | 'custom';
+  type: 'event' | 'announcement' | 'prayer' | 'sermon' | 'worship_video' | 'note' | 'custom' | 'gallery';
   itemId?: string;
   title?: string;
   description?: string;
@@ -244,15 +244,21 @@ export interface GalleryAlbum {
   title: string;
   description: string;
   url: string;
-  category: string;
+  category?: string;
   coverImage?: string;
   mediaType?: 'both' | 'photos' | 'videos';
   videoUrl?: string;
+  duration?: string;
+  viewCount?: string;
+  date?: string;
   sortOrder?: number;
   targetCampuses?: string[];
   targetGroups?: string[];
   excludeCampuses?: string[];
   excludeGroups?: string[];
+  showOnHighlight?: boolean;
+  highlightDurationHours?: number;
+  highlightExpiresAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

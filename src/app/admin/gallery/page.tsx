@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAdminData, canPublishAllCampuses, getGroupsForCampus, getAllowedCampuses, getAllowedGroups, hasGlobalScope, isCoreTeamLeader, isFasLeader, GalleryAlbum } from '@/lib/admin-data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,11 @@ import {
   Film,
   Play,
   Video,
+  Clock,
+  Eye,
+  Calendar,
+  Sparkles,
+  Pencil,
 } from 'lucide-react';
 import {
   Select,
@@ -47,31 +52,99 @@ import * as XLSX from 'xlsx';
 import { Badge } from '@/components/ui/badge';
 import { CompactStackedList, mapUsersToStackedMembers } from '@/components/ui/stacked-list';
 import { SendNotificationOption } from '@/components/admin/send-notification-option';
+import { HighlightPublishOptions } from '@/components/admin/highlight-publish-options';
+import { withHighlightExpiry } from '@/lib/highlight-utils';
+import { extractYoutubeVideoId, youtubeThumbnailUrl } from '@/lib/youtube';
+
+function formatViews(views?: string | number): string {
+  if (!views) return '';
+  const num = typeof views === 'string' ? parseInt(views.replace(/,/g, ''), 10) : views;
+  if (isNaN(num)) return String(views);
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1).replace(/\.0$/, '')}M views`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1).replace(/\.0$/, '')}K views`;
+  return `${num.toLocaleString()} views`;
+}
 
 export default function GalleryManagementPage() {
   const { galleryAlbums, addGalleryAlbum, updateGalleryAlbum, deleteGalleryAlbum, reorderGalleryAlbums, campuses, groups, groupScopes, currentUser, users } = useAdminData();
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [albumFormStep, setAlbumFormStep] = useState<'basics' | 'audience'>('basics');
+  const [uploadType, setUploadType] = useState<'album' | 'video'>('album');
   const [search, setSearch] = useState('');
   const [draggedItem, setDraggedItem] = useState<GalleryAlbum | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [showBroadcastList, setShowBroadcastList] = useState(false);
   const [sendNotification, setSendNotification] = useState(false);
 
+  const [fetchingYoutube, setFetchingYoutube] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const youtubeFetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFetchedVideoId = useRef<string | null>(null);
+
   const [form, setForm] = useState<Omit<GalleryAlbum, 'id'>>({
     title: '',
     description: '',
     url: '',
     coverImage: '',
-    category: 'Worship',
+    category: 'General',
     mediaType: 'both',
     videoUrl: '',
+    duration: '',
+    viewCount: '',
+    date: '',
     targetCampuses: ['all'],
     targetGroups: ['all'],
     excludeCampuses: [],
     excludeGroups: [],
+    showOnHighlight: false,
+    highlightDurationHours: 24,
+    highlightExpiresAt: null,
   });
+
+  const applyYoutubeMetadata = async (videoId: string) => {
+    if (lastFetchedVideoId.current === videoId) return;
+    setFetchingYoutube(true);
+    try {
+      const res = await fetch(`/api/youtube/stats?ids=${encodeURIComponent(videoId)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const meta = data.stats?.[videoId];
+      if (!meta?.title && !meta?.durationLabel && !meta?.dateLabel) return;
+      lastFetchedVideoId.current = videoId;
+      setForm((prev) => ({
+        ...prev,
+        title: meta.title || prev.title,
+        description: meta.description || prev.description,
+        duration: meta.durationLabel || prev.duration,
+        viewCount: meta.viewCount || prev.viewCount,
+        date: meta.dateLabel || prev.date,
+        coverImage: prev.coverImage || youtubeThumbnailUrl(videoId),
+        videoUrl: prev.videoUrl || `https://www.youtube.com/watch?v=${videoId}`,
+        url: prev.url || `https://www.youtube.com/watch?v=${videoId}`,
+      }));
+    } catch (err) {
+      console.error("Failed to auto-fetch video details from YouTube:", err);
+    } finally {
+      setFetchingYoutube(false);
+    }
+  };
+
+  const handleYoutubeUrlChange = (url: string) => {
+    const videoId = extractYoutubeVideoId(url);
+    if (videoId !== lastFetchedVideoId.current) lastFetchedVideoId.current = null;
+    setForm((prev) => ({
+      ...prev,
+      url,
+      videoUrl: url,
+      coverImage: videoId ? youtubeThumbnailUrl(videoId) : prev.coverImage,
+    }));
+    if (youtubeFetchTimer.current) clearTimeout(youtubeFetchTimer.current);
+    if (!videoId) return;
+    youtubeFetchTimer.current = setTimeout(() => {
+      void applyYoutubeMetadata(videoId);
+    }, 350);
+  };
 
   const categories = ['Worship', 'Youth', 'Fellowship', 'Outreach', 'Baptism', 'Group', 'Event'];
 
@@ -191,8 +264,12 @@ export default function GalleryManagementPage() {
   };
 
   const filteredAlbums = galleryAlbums.filter(album => {
-    const matchesSearch = album.title.toLowerCase().includes(search.toLowerCase()) ||
-      album.description.toLowerCase().includes(search.toLowerCase());
+    const q = (search || '').toLowerCase().trim();
+    if (!q) return true;
+    const matchesSearch =
+      Boolean(album.title && album.title.toLowerCase().includes(q)) ||
+      Boolean(album.description && album.description.toLowerCase().includes(q)) ||
+      Boolean(album.category && album.category.toLowerCase().includes(q));
 
     // Group leaders only see albums targeted at their groups
     if (isGroupLeader) {
@@ -204,34 +281,113 @@ export default function GalleryManagementPage() {
     return matchesSearch;
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.url.startsWith('https://photos.app.goo.gl/') && !form.url.startsWith('https://photos.google.com/')) {
-      import('sonner').then(({ toast }) => toast.error('Please enter a valid Google Photos album URL (e.g. https://photos.app.goo.gl/...).'));
-      return;
-    }
-    
-    if (editingId !== null) {
-      updateGalleryAlbum(editingId, form);
-      setEditingId(null);
-    } else {
-      addGalleryAlbum({ ...form, sendNotification } as Omit<GalleryAlbum, 'id'>);
-      setIsAdding(false);
-    }
+  const resetFormState = () => {
+    setIsAdding(false);
+    setEditingId(null);
     setAlbumFormStep('basics');
     setSendNotification(false);
-    setForm({ title: '', description: '', url: '', coverImage: '', category: 'Worship', mediaType: 'both', videoUrl: '', targetCampuses: ['all'], targetGroups: ['all'], excludeCampuses: [], excludeGroups: [] });
+    setUploadType('album');
+    lastFetchedVideoId.current = null;
+    if (youtubeFetchTimer.current) clearTimeout(youtubeFetchTimer.current);
+    setForm({
+      title: '',
+      description: '',
+      url: '',
+      coverImage: '',
+      category: 'General',
+      mediaType: 'both',
+      videoUrl: '',
+      duration: '',
+      viewCount: '',
+      date: '',
+      targetCampuses: ['all'],
+      targetGroups: ['all'],
+      excludeCampuses: [],
+      excludeGroups: [],
+      showOnHighlight: false,
+      highlightDurationHours: 24,
+      highlightExpiresAt: null,
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    let finalForm = { ...form };
+
+    if (uploadType === 'video' || form.mediaType === 'videos') {
+      const ytUrl = (form.videoUrl || form.url || '').trim();
+      const ytId = extractYoutubeVideoId(ytUrl);
+      if (!ytId) {
+        import('sonner').then(({ toast }) => toast.error('Please enter a valid YouTube video URL (e.g. https://www.youtube.com/watch?v=... or https://youtu.be/...).'));
+        return;
+      }
+      finalForm = {
+        ...form,
+        url: ytUrl,
+        videoUrl: ytUrl,
+        mediaType: 'videos',
+        coverImage: form.coverImage?.trim() || youtubeThumbnailUrl(ytId),
+      };
+    } else {
+      if (!form.url.startsWith('https://photos.app.goo.gl/') && !form.url.startsWith('https://photos.google.com/')) {
+        import('sonner').then(({ toast }) => toast.error('Please enter a valid Google Photos album URL (e.g. https://photos.app.goo.gl/...).'));
+        return;
+      }
+    }
+    
+    const highlightPayload = {
+      ...finalForm,
+      showOnHighlight: Boolean(finalForm.showOnHighlight),
+      highlightDurationHours: Number(finalForm.highlightDurationHours || 24),
+    };
+    const withExpiry = withHighlightExpiry(highlightPayload);
+
+    setIsSubmitting(true);
+    try {
+      if (editingId !== null) {
+        const ok = await updateGalleryAlbum(editingId, { ...finalForm, ...withExpiry });
+        if (ok) {
+          import('sonner').then(({ toast }) => toast.success('Album updated successfully!'));
+          resetFormState();
+        } else {
+          import('sonner').then(({ toast }) => toast.error('Failed to update album. Please try again.'));
+        }
+      } else {
+        const ok = await addGalleryAlbum({ ...finalForm, ...withExpiry, sendNotification } as Omit<GalleryAlbum, 'id'>);
+        if (ok) {
+          import('sonner').then(({ toast }) => toast.success('Album created successfully!'));
+          resetFormState();
+        } else {
+          import('sonner').then(({ toast }) => toast.error('Failed to create album. Please try again.'));
+        }
+      }
+    } catch (err) {
+      console.error('Error saving gallery item:', err);
+      import('sonner').then(({ toast }) => toast.error('An unexpected error occurred while saving.'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEdit = (album: GalleryAlbum) => {
+    const ytId = extractYoutubeVideoId(album.videoUrl || album.url);
+    const isVideo = album.mediaType === 'videos' || Boolean(ytId);
+    lastFetchedVideoId.current = ytId || null;
+    if (youtubeFetchTimer.current) clearTimeout(youtubeFetchTimer.current);
+    setUploadType(isVideo ? 'video' : 'album');
     setForm({
       title: album.title,
       description: album.description,
       url: album.url,
       coverImage: album.coverImage || '',
-      category: album.category,
-      mediaType: album.mediaType || 'both',
-      videoUrl: album.videoUrl || '',
+      category: album.category || 'General',
+      mediaType: album.mediaType || (isVideo ? 'videos' : 'both'),
+      videoUrl: album.videoUrl || (isVideo ? album.url : ''),
+      duration: album.duration || '',
+      viewCount: album.viewCount || '',
+      date: album.date || '',
       targetCampuses: album.targetCampuses || ['all'],
       targetGroups: isFas
         ? (album.targetGroups || []).includes('all')
@@ -240,11 +396,17 @@ export default function GalleryManagementPage() {
         : (album.targetGroups || ['all']),
       excludeCampuses: campusLocked ? [] : (album.excludeCampuses || []),
       excludeGroups: album.excludeGroups || [],
+      showOnHighlight: !!album.showOnHighlight,
+      highlightDurationHours: album.highlightDurationHours ?? 24,
+      highlightExpiresAt: album.highlightExpiresAt || null,
     });
     setEditingId(album.id);
     setAlbumFormStep('basics');
     setSendNotification(false);
     setIsAdding(true);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   // Drag and Drop Handlers
@@ -280,24 +442,61 @@ export default function GalleryManagementPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
           <h1 className="text-4xl font-bold tracking-tight">Gallery Management</h1>
-          <p className="text-muted-foreground italic">Manage church photo albums from Google Photos</p>
+          <p className="text-muted-foreground italic">Manage church photo albums & individual YouTube videos</p>
         </div>
         {!isAdding && (
-          <Button onClick={() => {
-            setForm({
-              title: '', description: '', url: '', coverImage: '', category: 'Worship',
-              targetCampuses: campusLocked ? [currentUser.campusId] : ['all'],
-              targetGroups: isGroupLeader ? [...currentUser.groups] : ['all'],
-              excludeCampuses: [],
-              excludeGroups: [],
-            });
-            setEditingId(null);
-            setAlbumFormStep('basics');
-            setSendNotification(false);
-            setIsAdding(true);
-          }} className="w-full sm:w-auto rounded-full px-6 hover-lift bg-[#8B2323] hover:bg-[#721515] text-white">
-            <Plus className="w-4 h-4 mr-2" /> New Album
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={() => {
+                lastFetchedVideoId.current = null;
+                if (youtubeFetchTimer.current) clearTimeout(youtubeFetchTimer.current);
+                setForm({
+                  title: '', description: '', url: '', coverImage: '', category: 'General',
+                  mediaType: 'videos', videoUrl: '', duration: '', viewCount: '', date: '',
+                  targetCampuses: campusLocked ? [currentUser.campusId] : ['all'],
+                  targetGroups: isGroupLeader ? [...currentUser.groups] : ['all'],
+                  excludeCampuses: [],
+                  excludeGroups: [],
+                  showOnHighlight: false,
+                  highlightDurationHours: 24,
+                  highlightExpiresAt: null,
+                });
+                setUploadType('video');
+                setEditingId(null);
+                setAlbumFormStep('basics');
+                setSendNotification(false);
+                setIsAdding(true);
+              }}
+              className="w-full sm:w-auto rounded-full px-5 hover-lift bg-rose-700 hover:bg-rose-800 text-white shadow-sm"
+            >
+              <Play className="w-4 h-4 mr-2 fill-current" /> Upload YouTube Video
+            </Button>
+            <Button
+              onClick={() => {
+                lastFetchedVideoId.current = null;
+                if (youtubeFetchTimer.current) clearTimeout(youtubeFetchTimer.current);
+                setForm({
+                  title: '', description: '', url: '', coverImage: '', category: 'General',
+                  mediaType: 'both', videoUrl: '', duration: '', viewCount: '', date: '',
+                  targetCampuses: campusLocked ? [currentUser.campusId] : ['all'],
+                  targetGroups: isGroupLeader ? [...currentUser.groups] : ['all'],
+                  excludeCampuses: [],
+                  excludeGroups: [],
+                  showOnHighlight: false,
+                  highlightDurationHours: 24,
+                  highlightExpiresAt: null,
+                });
+                setUploadType('album');
+                setEditingId(null);
+                setAlbumFormStep('basics');
+                setSendNotification(false);
+                setIsAdding(true);
+              }}
+              className="w-full sm:w-auto rounded-full px-5 hover-lift bg-[#8B2323] hover:bg-[#721515] text-white shadow-sm"
+            >
+              <Plus className="w-4 h-4 mr-2" /> New Photo Album
+            </Button>
+          </div>
         )}
       </div>
 
@@ -306,8 +505,16 @@ export default function GalleryManagementPage() {
           <CardHeader className="border-b border-[#E5D5C5]/60 bg-primary/5 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-2xl italic">{editingId ? 'Edit Album' : 'Create New Album'}</CardTitle>
-                <CardDescription>Enter the Google Photos album details below</CardDescription>
+                <CardTitle className="text-2xl italic">
+                  {editingId 
+                    ? (uploadType === 'video' ? 'Edit YouTube Video' : 'Edit Album') 
+                    : (uploadType === 'video' ? 'Upload YouTube Video' : 'Create New Album')}
+                </CardTitle>
+                <CardDescription>
+                  {uploadType === 'video'
+                    ? 'Enter the YouTube video details to showcase in the church gallery'
+                    : 'Enter the Google Photos album details below'}
+                </CardDescription>
               </div>
               <Button variant="ghost" size="icon" onClick={() => { setIsAdding(false); setEditingId(null); setAlbumFormStep('basics'); }} className="rounded-full">
                 <X className="w-5 h-5" />
@@ -315,7 +522,7 @@ export default function GalleryManagementPage() {
             </div>
             <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
               {([
-                { id: 'basics' as const, label: 'Basics', icon: ImageIcon },
+                { id: 'basics' as const, label: 'Basics', icon: uploadType === 'video' ? Play : ImageIcon },
                 { id: 'audience' as const, label: 'Audience', icon: Users },
               ]).map((step, idx) => {
                 const active = albumFormStep === step.id;
@@ -348,106 +555,313 @@ export default function GalleryManagementPage() {
                 {/* ── Step 1: Basics ── */}
                 {albumFormStep === 'basics' && (
                   <div className="space-y-5 max-w-xl mx-auto">
+                    {/* Media Type Toggle Selector */}
+                    {!editingId && (
+                      <div className="flex items-center gap-2 p-1.5 bg-[#FAF7F2] border border-[#E5D5C5]/60 rounded-2xl">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUploadType('video');
+                            setForm(f => ({ ...f, mediaType: 'videos', videoUrl: f.videoUrl || f.url }));
+                          }}
+                          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                            uploadType === 'video'
+                              ? 'bg-[#8B2323] text-white shadow-sm'
+                              : 'text-[#7A6150] hover:bg-white/60'
+                          }`}
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" /> YouTube Video
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUploadType('album');
+                            setForm(f => ({ ...f, mediaType: f.mediaType === 'videos' ? 'both' : f.mediaType }));
+                          }}
+                          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                            uploadType === 'album'
+                              ? 'bg-[#8B2323] text-white shadow-sm'
+                              : 'text-[#7A6150] hover:bg-white/60'
+                          }`}
+                        >
+                          <ImageIcon className="w-3.5 h-3.5" /> Google Photos Album
+                        </button>
+                      </div>
+                    )}
+
                     <div className="rounded-2xl border border-[#E5D5C5]/60 bg-white p-4 space-y-4 shadow-sm">
                       <h3 className="text-sm font-bold text-[#1A202C] flex items-center gap-2">
-                        <ImageIcon className="w-4 h-4 text-[#8B2323]" /> Album Details
+                        {uploadType === 'video' ? (
+                          <>
+                            <Play className="w-4 h-4 text-[#8B2323] fill-current" /> Video Details
+                          </>
+                        ) : (
+                          <>
+                            <ImageIcon className="w-4 h-4 text-[#8B2323]" /> Album Details
+                          </>
+                        )}
                       </h3>
-                      <div className="space-y-2">
-                        <Label htmlFor="title" className="text-[#3A2D27] font-semibold">Album Title *</Label>
-                        <Input
-                          id="title"
-                          value={form.title}
-                          onChange={e => setForm({ ...form, title: e.target.value })}
-                          placeholder="e.g. Youth Camp 2024"
-                          required
-                          className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="url" className="text-[#3A2D27] font-semibold">Google Photos URL *</Label>
-                        <div className="relative">
-                          <Input
-                            id="url"
-                            value={form.url}
-                            onChange={e => setForm({ ...form, url: e.target.value })}
-                            placeholder="https://photos.app.goo.gl/..."
-                            required
-                            className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 pl-10"
-                          />
-                          <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <p className="text-xs text-muted-foreground italic flex items-center gap-1.5 mt-1">
-                          <AlertCircle className="w-3 h-3" /> Make sure the album is shared and anyone with the link can view it.
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="coverImage" className="text-[#3A2D27] font-semibold">Thumbnail Image URL (Optional)</Label>
-                        <div className="relative">
-                          <Input
-                            id="coverImage"
-                            value={form.coverImage || ''}
-                            onChange={e => setForm({ ...form, coverImage: e.target.value })}
-                            placeholder="https://... (Leave blank to auto-save first photo)"
-                            className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 pl-10"
-                          />
-                          <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <p className="text-xs text-muted-foreground italic">
-                          Leave blank to fetch and store the first album photo as the cover on the server.
-                        </p>
-                      </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-[#3A2D27] font-semibold">Media Content Type *</Label>
-                          <Select
-                            value={form.mediaType || 'both'}
-                            onValueChange={(val: any) => setForm({ ...form, mediaType: val })}
-                          >
-                            <SelectTrigger className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60">
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="both">🎞️ Both (Photos & Videos)</SelectItem>
-                              <SelectItem value="photos">📸 Photos Only</SelectItem>
-                              <SelectItem value="videos">🎬 Videos Only</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-[#3A2D27] font-semibold">Category</Label>
-                          <Select
-                            value={form.category || 'Worship'}
-                            onValueChange={val => setForm({ ...form, category: val })}
-                          >
-                            <SelectTrigger className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60">
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {categories.map(c => (
-                                <SelectItem key={c} value={c}>{c}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
+                      {uploadType === 'video' ? (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="url" className="text-[#3A2D27] font-semibold">YouTube Video URL *</Label>
+                            <div className="relative">
+                              <Input
+                                id="url"
+                                value={form.videoUrl || form.url}
+                                onChange={e => handleYoutubeUrlChange(e.target.value)}
+                                onBlur={e => {
+                                  const videoId = extractYoutubeVideoId(e.target.value);
+                                  if (videoId) void applyYoutubeMetadata(videoId);
+                                }}
+                                placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                                required
+                                className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 pl-10"
+                              />
+                              <Play className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-600 fill-rose-600" />
+                            </div>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+                              {fetchingYoutube ? (
+                                <span className="text-[#8B2323] font-medium flex items-center gap-1.5">
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  Fetching title, duration, view count, and description from YouTube…
+                                </span>
+                              ) : (
+                                <>
+                                  <AlertCircle className="w-3 h-3 text-rose-500" />
+                                  <span>Supports any YouTube video link, shorts, or youtu.be share link.</span>
+                                </>
+                              )}
+                            </p>
+                          </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="videoUrl" className="text-[#3A2D27] font-semibold">Featured Video Link (Optional YouTube / MP4)</Label>
-                        <div className="relative">
-                          <Input
-                            id="videoUrl"
-                            value={form.videoUrl || ''}
-                            onChange={e => setForm({ ...form, videoUrl: e.target.value })}
-                            placeholder="https://youtube.com/watch?v=... or direct video link"
-                            className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 pl-10"
-                          />
-                          <Play className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <p className="text-xs text-muted-foreground italic">
-                          If this album features a specific video, add the link here to enable in-app streaming.
-                        </p>
-                      </div>
+                          {/* Live YouTube Preview Card */}
+                          {(() => {
+                            const liveId = extractYoutubeVideoId(form.videoUrl || form.url);
+                            if (!liveId) return null;
+                            return (
+                              <div className="rounded-2xl border border-rose-200/80 bg-rose-50/40 p-3 flex items-center gap-3.5 animate-in fade-in zoom-in-95 duration-200 shadow-xs">
+                                <div className="relative w-28 aspect-video rounded-xl overflow-hidden shrink-0 bg-black/10 border border-black/5 shadow-xs">
+                                  <img 
+                                    src={youtubeThumbnailUrl(liveId)} 
+                                    alt="YouTube Thumbnail" 
+                                    className="w-full h-full object-cover" 
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="w-6 h-6 rounded-full bg-rose-600/90 text-white flex items-center justify-center shadow-md">
+                                      <Play className="w-3 h-3 fill-current ml-0.5" />
+                                    </div>
+                                  </div>
+                                  {form.duration && (
+                                    <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-white text-[9px] font-semibold flex items-center gap-0.5">
+                                      <Clock className="w-2.5 h-2.5 text-rose-400" />
+                                      <span>{form.duration}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1 space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs font-bold text-[#1A202C] truncate">
+                                      {form.title || (fetchingYoutube ? "Fetching details from YouTube..." : "YouTube Video Connected")}
+                                    </p>
+                                    {fetchingYoutube && <Loader2 className="w-3 h-3 animate-spin text-[#8B2323] shrink-0" />}
+                                  </div>
+                                  <div className="flex items-center gap-2.5 flex-wrap text-[11px] text-[#7A6150]">
+                                    {form.duration && (
+                                      <span className="flex items-center gap-1 font-medium">
+                                        <Clock className="w-3 h-3 text-[#8B2323]" />
+                                        {form.duration}
+                                      </span>
+                                    )}
+                                    {form.viewCount && (
+                                      <span className="flex items-center gap-1 font-medium">
+                                        <Eye className="w-3 h-3 text-[#8B2323]" />
+                                        {formatViews(form.viewCount)}
+                                      </span>
+                                    )}
+                                    {form.date && (
+                                      <span className="flex items-center gap-1 font-medium">
+                                        <Calendar className="w-3 h-3 text-[#8B2323]" />
+                                        {form.date}
+                                      </span>
+                                    )}
+                                    {!form.duration && !form.viewCount && !fetchingYoutube && (
+                                      <span className="text-[11px] text-rose-700/80">Cover thumbnail will be set automatically</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          <div className="space-y-2">
+                            <Label htmlFor="title" className="text-[#3A2D27] font-semibold">Video Title *</Label>
+                            <div className="relative">
+                              <Input
+                                id="title"
+                                value={form.title}
+                                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                                placeholder="e.g. Sunday Worship Highlights"
+                                required
+                                className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 pr-9"
+                              />
+                              {fetchingYoutube && (
+                                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-[#8B2323]" />
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="duration" className="text-xs font-semibold text-[#3A2D27] flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-[#8B2323]" /> Duration
+                              </Label>
+                              <Input
+                                id="duration"
+                                value={form.duration || ''}
+                                onChange={e => setForm(f => ({ ...f, duration: e.target.value }))}
+                                placeholder="e.g. 4:32"
+                                className="h-10 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 text-xs"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="viewCount" className="text-xs font-semibold text-[#3A2D27] flex items-center gap-1">
+                                <Eye className="w-3.5 h-3.5 text-[#8B2323]" /> Views
+                              </Label>
+                              <Input
+                                id="viewCount"
+                                value={form.viewCount || ''}
+                                onChange={e => setForm(f => ({ ...f, viewCount: e.target.value }))}
+                                placeholder="e.g. 12,450"
+                                className="h-10 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 text-xs"
+                              />
+                            </div>
+                            <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                              <Label htmlFor="date" className="text-xs font-semibold text-[#3A2D27] flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5 text-[#8B2323]" /> Date
+                              </Label>
+                              <Input
+                                id="date"
+                                value={form.date || ''}
+                                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                                placeholder="e.g. 12 May 2024"
+                                className="h-10 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 text-xs"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="description" className="text-[#3A2D27] font-semibold">Description (Optional)</Label>
+                            <Textarea
+                              id="description"
+                              value={form.description || ''}
+                              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                              placeholder="Brief notes or description about this video moment..."
+                              className="rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 min-h-[70px]"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="coverImage" className="text-[#3A2D27] font-semibold">Custom Thumbnail (Optional)</Label>
+                            <Input
+                              id="coverImage"
+                              value={form.coverImage || ''}
+                              onChange={e => setForm(f => ({ ...f, coverImage: e.target.value }))}
+                              placeholder="Leave blank to use YouTube thumbnail"
+                              className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60"
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="title" className="text-[#3A2D27] font-semibold">Album Title *</Label>
+                            <Input
+                              id="title"
+                              value={form.title}
+                              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                              placeholder="e.g. Youth Camp 2024"
+                              required
+                              className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="url" className="text-[#3A2D27] font-semibold">Google Photos URL *</Label>
+                            <div className="relative">
+                              <Input
+                                id="url"
+                                value={form.url}
+                                onChange={e => setForm(f => ({ ...f, url: e.target.value }))}
+                                placeholder="https://photos.app.goo.gl/..."
+                                required
+                                className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 pl-10"
+                              />
+                              <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            </div>
+                            <p className="text-xs text-muted-foreground italic flex items-center gap-1.5 mt-1">
+                              <AlertCircle className="w-3 h-3" /> Make sure the album is shared and anyone with the link can view it.
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="coverImage" className="text-[#3A2D27] font-semibold">Thumbnail Image URL (Optional)</Label>
+                            <div className="relative">
+                              <Input
+                                id="coverImage"
+                                value={form.coverImage || ''}
+                                onChange={e => setForm(f => ({ ...f, coverImage: e.target.value }))}
+                                placeholder="https://... (Leave blank to auto-save first photo)"
+                                className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 pl-10"
+                              />
+                              <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            </div>
+                            <p className="text-xs text-muted-foreground italic">
+                              Leave blank to fetch and store the first album photo as the cover on the server.
+                            </p>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-[#3A2D27] font-semibold">Media Content Type *</Label>
+                            <Select
+                              value={form.mediaType || 'both'}
+                              onValueChange={(val: any) => setForm(f => ({ ...f, mediaType: val }))}
+                            >
+                              <SelectTrigger className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60">
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="both">🎞️ Both (Photos & Videos)</SelectItem>
+                                <SelectItem value="photos">📸 Photos Only</SelectItem>
+                                <SelectItem value="videos">🎬 Videos Only</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="videoUrl" className="text-[#3A2D27] font-semibold">Featured Video Link (Optional YouTube / MP4)</Label>
+                            <div className="relative">
+                              <Input
+                                id="videoUrl"
+                                value={form.videoUrl || ''}
+                                onChange={e => setForm(f => ({ ...f, videoUrl: e.target.value }))}
+                                placeholder="https://youtube.com/watch?v=... or direct video link"
+                                className="h-11 rounded-xl bg-[#FAF7F2] border-[#E5D5C5]/60 pl-10"
+                              />
+                              <Play className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            </div>
+                            <p className="text-xs text-muted-foreground italic">
+                              If this album features a specific video, add the link here to enable in-app streaming.
+                            </p>
+                          </div>
+                        </>
+                      )}
+
+                      <HighlightPublishOptions
+                        showOnHighlight={form.showOnHighlight}
+                        highlightDurationHours={form.highlightDurationHours}
+                        onShowChange={(show) => setForm(f => ({ ...f, showOnHighlight: show }))}
+                        onDurationChange={(hours) => setForm(f => ({ ...f, highlightDurationHours: hours }))}
+                      />
                     </div>
                   </div>
                 )}
@@ -731,12 +1145,21 @@ export default function GalleryManagementPage() {
                   )}
                   <Button
                     type="submit"
-                    className="rounded-xl bg-[#8B2323] hover:bg-[#721515] w-full sm:w-auto min-w-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    disabled={isSubmitting}
+                    className="rounded-xl bg-[#8B2323] hover:bg-[#721515] w-full sm:w-auto min-w-0 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-50"
                     onClick={(e) => {
                       (e.currentTarget as HTMLButtonElement).blur();
                     }}
                   >
-                    <Save className="w-4 h-4 mr-2" /> {editingId ? 'Update Album' : 'Create Album'}
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" /> {editingId ? 'Updating Album...' : 'Creating Album...'}
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" /> {editingId ? 'Update Album' : 'Create Album'}
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -776,14 +1199,35 @@ export default function GalleryManagementPage() {
                   <div className="absolute top-4 right-4 z-20 cursor-move opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-black/50 rounded-lg text-white">
                     <GripVertical className="w-5 h-5" />
                   </div>
-                  <ImageIcon className="w-12 h-12 text-primary/10 group-hover:scale-125 transition-transform duration-700" />
+                  {(() => {
+                    const cover = album.coverImage || (extractYoutubeVideoId(album.videoUrl || album.url) ? youtubeThumbnailUrl(extractYoutubeVideoId(album.videoUrl || album.url)!) : null);
+                    if (cover) {
+                      return (
+                        <img 
+                          src={cover} 
+                          alt={album.title} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                        />
+                      );
+                    }
+                    return <ImageIcon className="w-12 h-12 text-primary/10 group-hover:scale-125 transition-transform duration-700" />;
+                  })()}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute top-4 left-4 flex gap-2">
-                    <Badge className="bg-primary text-primary-foreground border-0">
-                      {album.category}
-                    </Badge>
+                  {album.mediaType === 'videos' && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md text-white flex items-center justify-center border border-white/20 shadow-md group-hover:scale-110 transition-transform">
+                        <Play className="w-4 h-4 fill-white ml-0.5" />
+                      </div>
+                    </div>
+                  )}
 
-                  </div>
+                  {album.duration && (
+                    <div className="absolute top-3 left-3 z-10 px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-xs text-white text-[10px] font-semibold flex items-center gap-1 shadow-sm">
+                      <Clock className="w-2.5 h-2.5 text-rose-400" />
+                      <span>{album.duration}</span>
+                    </div>
+                  )}
+
                   <div className="absolute bottom-4 left-4 right-4">
                     <h3 className="text-lg font-bold text-white line-clamp-1 italic">{album.title}</h3>
                   </div>
@@ -804,6 +1248,16 @@ export default function GalleryManagementPage() {
                     ) : (
                       <Badge variant="outline" className="text-[9px] gap-1 border-purple-500/30 text-purple-600 bg-purple-50/50">
                         <Film className="w-2.5 h-2.5" /> Photos & Videos
+                      </Badge>
+                    )}
+                    {album.viewCount && (
+                      <Badge variant="outline" className="text-[9px] gap-1 border-stone-400/40 text-stone-700 bg-stone-100/70">
+                        <Eye className="w-2.5 h-2.5" /> {formatViews(album.viewCount)}
+                      </Badge>
+                    )}
+                    {album.date && (
+                      <Badge variant="outline" className="text-[9px] gap-1 border-stone-400/40 text-stone-700 bg-stone-100/70">
+                        <Calendar className="w-2.5 h-2.5" /> {album.date}
                       </Badge>
                     )}
                     {(album.targetCampuses ?? ['all']).includes('all') ? (
@@ -835,10 +1289,11 @@ export default function GalleryManagementPage() {
                       <Button
                         variant="glass"
                         size="icon"
+                        title="Edit Album"
                         className="h-9 w-9 rounded-xl hover:bg-primary/20 hover:text-primary transition-colors"
                         onClick={() => handleEdit(album)}
                       >
-                        <ImageIcon className="w-4 h-4" />
+                        <Pencil className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="glass"
@@ -849,9 +1304,9 @@ export default function GalleryManagementPage() {
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
-                    <a href={album.url} target="_blank" rel="noopener noreferrer">
+                    <a href={album.videoUrl || album.url} target="_blank" rel="noopener noreferrer">
                       <Button variant="ghost" size="sm" className="h-9 group/btn px-2 hover:bg-transparent text-primary">
-                        Link <ExternalLink className="w-3.5 h-3.5 ml-1.5 opacity-50 group-hover/btn:opacity-100 transition-opacity" />
+                        {album.mediaType === 'videos' ? 'Watch' : 'Link'} <ExternalLink className="w-3.5 h-3.5 ml-1.5 opacity-50 group-hover/btn:opacity-100 transition-opacity" />
                       </Button>
                     </a>
                   </div>

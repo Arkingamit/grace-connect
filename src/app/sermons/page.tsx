@@ -106,9 +106,11 @@ export default function SermonsPage() {
 
   const filteredSeries = sermonSeries.filter(series => {
     const seriesSermons = visibleSermons.filter(s => s.seriesId === series.id);
-    const matchesSearch = series.title.toLowerCase().includes(search.toLowerCase()) || 
-                         series.description.toLowerCase().includes(search.toLowerCase()) ||
-                         seriesSermons.some(s => s.pastor?.toLowerCase().includes(search.toLowerCase()));
+    const q = (search || '').toLowerCase().trim();
+    const matchesSearch = !q ||
+                         (series.title?.toLowerCase() || '').includes(q) || 
+                         (series.description?.toLowerCase() || '').includes(q) ||
+                         seriesSermons.some(s => (s.pastor?.toLowerCase() || '').includes(q));
     
     const matchesPastor = activePastor === 'All' || seriesSermons.some(s => sermonHasPastor(s.pastor, activePastor));
     
@@ -116,13 +118,13 @@ export default function SermonsPage() {
   });
 
   const filteredSermons = visibleSermons.filter(sermon => {
-    const matchesSearch = sermon.title.toLowerCase().includes(search.toLowerCase()) || 
-                         sermon.description?.toLowerCase().includes(search.toLowerCase());
+    const q = (search || '').toLowerCase().trim();
+    const matchesSearch = !q ||
+                         (sermon.title?.toLowerCase() || '').includes(q) || 
+                         (sermon.description?.toLowerCase() || '').includes(q);
     const matchesPastor = sermonHasPastor(sermon.pastor, activePastor);
     return matchesSearch && matchesPastor;
   });
-
-  const standaloneSermons = filteredSermons.filter(s => !s.seriesId);
 
   React.useEffect(() => {
     if (!deepSermonId) return;
@@ -254,50 +256,6 @@ export default function SermonsPage() {
                 </Link>
               );
             })}
-            {standaloneSermons.map((sermon) => (
-              <Link href={sermonWatchHref(sermon)} key={sermon.id} className="group">
-                <Card className="glass-card h-full overflow-hidden border-0 hover-lift transition-all duration-500">
-                  <div className="aspect-[16/9] relative overflow-hidden bg-muted">
-                    <img
-                      src={`https://img.youtube.com/vi/${sermon.videoId}/hqdefault.jpg`}
-                      alt={sermon.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                    />
-                    <div className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded flex items-center justify-center text-[10px] font-semibold text-white tracking-wider z-10">
-                      {videoStats[sermon.videoId]?.duration ? formatDuration(videoStats[sermon.videoId].duration) : sermon.duration || '0:00'}
-                    </div>
-                    <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground border-0">
-                      Individual
-                    </Badge>
-                  </div>
-                  <CardContent className="p-6">
-                    <h4 className="font-bold text-lg mb-2 line-clamp-2 group-hover:text-primary transition-colors">{sermon.title}</h4>
-                    <p className="text-[12px] text-muted-foreground font-medium tracking-wide mb-3">
-                      {videoStats[sermon.videoId]?.viewCount && (
-                        <span>{formatViews(videoStats[sermon.videoId].viewCount)} • </span>
-                      )}
-                      {videoStats[sermon.videoId]?.publishedAt ? formatDate(videoStats[sermon.videoId].publishedAt) : sermon.date}
-                    </p>
-                    {sermon.description && (
-                      <p className="text-muted-foreground text-sm line-clamp-2 mb-6 min-h-[40px]">
-                        {sermon.description}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between pt-4 border-t border-border/50">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <User className="w-4 h-4 text-primary" />
-                        </div>
-                        <span className="text-xs font-medium max-w-[140px] truncate" title={sermon.pastor}>{sermon.pastor || 'Pastor Geo'}</span>
-                      </div>
-                      <span className="inline-flex items-center h-8 text-xs font-semibold text-primary group/btn">
-                        Watch <ChevronRight className="w-4 h-4 ml-1 group-hover/btn:translate-x-1 transition-transform" />
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
           </div>
         ) : (
           <div className="space-y-4 max-w-4xl mx-auto">
@@ -314,7 +272,7 @@ export default function SermonsPage() {
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ type: "spring", stiffness: 180, damping: 24 }}
                     key={sermon.id} 
-                    className={`group overflow-hidden cursor-pointer rounded-2xl ${
+                    className={`group overflow-hidden cursor-pointer rounded-xl ${
                       isActive 
                       ? 'bg-white shadow-xl border border-[#E5D5C5]/60 p-3 sm:p-5' 
                       : 'bg-white border border-[#E5D5C5]/50 hover:bg-white/80 p-2.5 sm:p-3 shadow-xs'
@@ -326,7 +284,7 @@ export default function SermonsPage() {
                   >
                     {isActive ? (
                       <motion.div layout className="space-y-4 sm:space-y-5 cursor-default">
-                        <motion.div layoutId={`media-${sermon.id}`} transition={{ type: "spring", stiffness: 180, damping: 24 }} style={{ zIndex: 10 }} className="aspect-video rounded-xl sm:rounded-2xl overflow-hidden shadow-sm bg-black relative">
+                        <motion.div layoutId={`media-${sermon.id}`} transition={{ type: "spring", stiffness: 180, damping: 24 }} style={{ zIndex: 10 }} className="aspect-video rounded-lg sm:rounded-xl overflow-hidden shadow-sm bg-black relative">
                           <iframe
                             className="w-full h-full"
                             src={`https://www.youtube.com/embed/${sermon.videoId}?autoplay=1`}
@@ -386,7 +344,7 @@ export default function SermonsPage() {
                           </div>
 
                           {sermon.description && (
-                            <div className="bg-[#FAF7F5] rounded-xl p-3 sm:p-3.5 border border-[#E5D5C5]/40 mt-1">
+                            <div className="bg-[#FAF7F5] rounded-lg p-3 sm:p-3.5 border border-[#E5D5C5]/40 mt-1">
                               <p className={`text-xs sm:text-sm text-[#7A6150] leading-relaxed font-normal transition-all duration-300 ${isDescriptionExpanded ? '' : 'line-clamp-2'}`}>
                                 {sermon.description}
                               </p>
@@ -443,7 +401,7 @@ export default function SermonsPage() {
                           layoutId={`media-${sermon.id}`} 
                           transition={{ type: "spring", stiffness: 180, damping: 24 }} 
                           style={{ zIndex: 10 }} 
-                          className="relative w-[110px] sm:w-[140px] aspect-video shrink-0 overflow-hidden rounded-xl bg-muted"
+                          className="relative w-[110px] sm:w-[140px] aspect-video shrink-0 overflow-hidden rounded-lg bg-muted"
                         >
                           <img 
                             src={`https://img.youtube.com/vi/${sermon.videoId}/mqdefault.jpg`}
@@ -487,7 +445,7 @@ export default function SermonsPage() {
           </div>
         )}
 
-        {((viewMode === 'series' && filteredSeries.length === 0 && standaloneSermons.length === 0) || (viewMode === 'sermons' && filteredSermons.length === 0)) && (
+        {((viewMode === 'series' && filteredSeries.length === 0) || (viewMode === 'sermons' && filteredSermons.length === 0)) && (
           <div className="text-center py-32 glass-card rounded-3xl border-0">
             <Tv className="w-20 h-20 text-muted-foreground/20 mx-auto mb-6" />
             <h3 className="text-2xl font-bold mb-2">No {viewMode === 'series' ? 'Series' : 'Sermons'} Found</h3>

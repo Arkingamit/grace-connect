@@ -73,6 +73,7 @@ export function contentToHighlightItems(args: {
   sermons?: HighlightSource[];
   worshipVideos?: HighlightSource[];
   notes?: HighlightSource[];
+  galleryAlbums?: HighlightSource[];
 }): FlipCardItem[] {
   const items: FlipCardItem[] = [];
 
@@ -153,6 +154,21 @@ export function contentToHighlightItems(args: {
       buttonText: 'Open Note',
       buttonLink: '/#notes',
       ...audienceOf(note),
+    });
+  }
+
+  for (const album of args.galleryAlbums || []) {
+    if (!isHighlightActive(album)) continue;
+    const isVideo = (album as any).mediaType === 'videos' || Boolean((album as any).videoUrl);
+    items.push({
+      id: `pub-gallery-${album.id}`,
+      type: 'gallery',
+      itemId: album.id,
+      title: album.title,
+      description: album.description || (isVideo ? 'Watch video in gallery' : 'View photos in gallery'),
+      buttonText: isVideo ? 'Watch Video' : 'View Album',
+      buttonLink: `/gallery?album=${album.id}`,
+      ...audienceOf(album),
     });
   }
 

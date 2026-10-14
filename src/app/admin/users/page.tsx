@@ -192,8 +192,10 @@ export default function UsersPage() {
   });
 
   const filtered = scopedUsers.filter(u => {
-    const matchesSearch = u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase());
+    const q = (search || '').toLowerCase().trim();
+    const matchesSearch = !q ||
+      (u.name?.toLowerCase() || '').includes(q) ||
+      (u.email?.toLowerCase() || '').includes(q);
     if (visitorFilter) {
       return matchesSearch && (u as any).status === 'pending';
     }

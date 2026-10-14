@@ -29,9 +29,14 @@ export default function Error({
         <h2 className="mb-2 text-xl font-bold tracking-tight text-[#1A202C]">
           We&apos;re updating the app
         </h2>
-        <p className="mb-6 text-sm leading-relaxed text-[#5B6470]">
+        <p className="mb-4 text-sm leading-relaxed text-[#5B6470]">
           Grace Connect hit a snag. Try again after sometime.
         </p>
+        {process.env.NODE_ENV !== 'production' && error?.message && (
+          <p className="mb-4 text-[11px] font-mono text-red-600 bg-red-50 p-2.5 rounded-xl text-left border border-red-200/60 overflow-auto max-h-24 break-words">
+            {error.message}
+          </p>
+        )}
         <Button onClick={() => reset()} className="h-11 w-full rounded-full gap-2 bg-[#810008] hover:bg-[#721515]">
           <RefreshCcw className="w-4 h-4" /> Try again
         </Button>

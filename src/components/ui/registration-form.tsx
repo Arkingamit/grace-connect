@@ -27,7 +27,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
-import { signInWithGoogleNative, googleNativeSignInError, isGoogleSignInCanceled } from '@/lib/grace-google-auth';
+import { signInWithGoogleNative, googleNativeSignInError, isGoogleSignInCanceled, extractSha1 } from '@/lib/grace-google-auth';
 import { SignInCanceledDialog } from '@/components/ui/sign-in-canceled-dialog';
 import { startAppleBrowserFlow, waitForAppleFlow } from '@/lib/apple-browser-flow';
 import { appleWebStartHref } from '@/lib/apple-web-config';
@@ -87,6 +87,7 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
   const [appleWaiting, setAppleWaiting] = useState(false);
   const [canceledOpen, setCanceledOpen] = useState(false);
   const [canceledProvider, setCanceledProvider] = useState('Google');
+  const [canceledSha1, setCanceledSha1] = useState('');
 
   // Resolve pre-verified credentials: props take priority, then sessionStorage
   const [resolvedCredential, setResolvedCredential] = useState(preVerifiedCredential || '');
@@ -340,6 +341,7 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
     } catch (err: any) {
       console.error(err);
       if (isGoogleSignInCanceled(err)) {
+        setCanceledSha1(extractSha1(err) || '');
         setCanceledProvider('Google');
         setCanceledOpen(true);
         return;
@@ -1131,6 +1133,7 @@ export function RegistrationForm({ lockedCampusId, preVerifiedCredential, preVer
         open={canceledOpen}
         onOpenChange={setCanceledOpen}
         provider={canceledProvider}
+        sha1={canceledSha1}
       />
     </AuthPageShell>
   );

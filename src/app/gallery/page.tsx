@@ -26,7 +26,9 @@ export default function GalleryPage() {
       </div>
       <div className="container mx-auto px-4 sm:px-6">
         <AuthGate title="Gallery" showBack={false}>
-          <GallerySection variant="page" />
+          <React.Suspense fallback={null}>
+            <GallerySection variant="page" />
+          </React.Suspense>
         </AuthGate>
       </div>
     </div>

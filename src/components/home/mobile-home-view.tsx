@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
+import { Capacitor } from '@capacitor/core';
 import { Search, Bell, Heart, Music, Calendar, BookOpen, Share2, MapPin, Clock, ChevronRight, ChevronLeft, User, Play, Sparkles, ArrowRight, Image as ImageIcon, Megaphone, Radio, Film, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -36,6 +37,7 @@ import { formatDDMMYYYY } from '@/lib/date-utils';
 import { EventRSVPModal } from '@/components/ui/events-section';
 import type { Event as ChurchEvent } from '@/lib/admin-data-context';
 import { getAlbumTimestamp } from '@/lib/types';
+import { extractYoutubeVideoId, youtubeThumbnailUrl } from '@/lib/youtube';
 const christianIcons = [
   // Cross
   <svg key="cross" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-primary animate-pulse"><path d="M12 3v18M8 8h8" /></svg>,
@@ -59,6 +61,24 @@ function truncateText(text?: string, maxLength: number = 18): string {
   if (!text) return '';
   const trimmed = text.trim();
   return trimmed.length > maxLength ? `${trimmed.slice(0, maxLength).trim()}...` : trimmed;
+}
+
+function checkIsIOS(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (typeof Capacitor !== 'undefined' && typeof Capacitor.getPlatform === 'function') {
+      const p = Capacitor.getPlatform();
+      if (p === 'ios') return true;
+      if (p === 'android') return false;
+    }
+  } catch {}
+
+  if (typeof navigator !== 'undefined') {
+    const ua = navigator.userAgent || '';
+    if (/iPad|iPhone|iPod/i.test(ua)) return true;
+    if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+  }
+  return false;
 }
 
 function AnimatedNumber({ end, duration = 2000, delay = 0, suffix = "" }: { end: number, duration?: number, delay?: number, suffix?: string }) {
@@ -102,7 +122,15 @@ interface HighlightsCardStackProps {
   setActiveIdx: React.Dispatch<React.SetStateAction<number>>;
   verse: { text: string; reference: string };
   christianIcons: React.ReactNode[];
-  getDisplayDetails: (item: any) => { displayTitle: string; displayDesc: string; displayBtn: string; displayLink: string };
+  getDisplayDetails: (item: any) => {
+    displayTitle: string;
+    displayDesc: string;
+    displayBtn: string;
+    displayLink: string;
+    thumbnail?: string;
+    isVideo?: boolean;
+    mediaType?: 'video' | 'photo' | 'event' | undefined;
+  };
 }
 
 function HighlightsCardStack({
@@ -308,21 +336,116 @@ function HighlightsCardStack({
     }
 
     // Admin card
-    const { displayTitle, displayDesc, displayBtn, displayLink } = getDisplayDetails(item.data);
+    const { displayTitle, displayDesc, displayBtn, displayLink, thumbnail, isVideo, mediaType } = getDisplayDetails(item.data);
     const cardIdx = String(originalIndex + 1).padStart(2, '0');
 
+    // If card has a thumbnail (photo album, video, event image), let it cover the entire card fully
+    if (thumbnail) {
+      return (
+        <Card className={`highlights-stack-card ${isTop ? 'is-top' : ''} p-5 w-full h-full border border-white/15 flex flex-col justify-between rounded-3xl overflow-hidden relative shadow-md text-white group/card`}>
+          {/* Full-bleed background cover image */}
+          <img
+            src={thumbnail}
+            alt={displayTitle}
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover/card:scale-105"
+          />
+
+          {/* Ambient Gradient Overlay for text & badge contrast */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/60 pointer-events-none" />
+
+          <span className={`highlights-accent-bar ${isTop ? 'is-active' : ''}`} />
+
+          {/* Top Badges */}
+          <div className="flex items-center justify-between w-full relative z-10">
+            <div className="flex items-center gap-1.5">
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-black/50 backdrop-blur-md text-white border border-white/20 shadow-xs">
+                {item.tag}
+              </span>
+              {isVideo && (
+                <span className="px-2 py-0.5 rounded-full bg-red-600/85 backdrop-blur-md text-white text-[10px] font-bold flex items-center gap-1 shadow-xs border border-white/20">
+                  <Play className="w-2.5 h-2.5 fill-current" /> Video
+                </span>
+              )}
+            </div>
+
+            {!isVideo && mediaType === 'photo' && (
+              <div className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-[11px] font-bold flex items-center gap-1.5 shadow-xs">
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>Photos</span>
+              </div>
+            )}
+          </div>
+
+          {/* Center: Video Play Icon (if video) */}
+          {isVideo ? (
+            <div className="relative z-10 flex-1 flex items-center justify-center my-auto">
+              <a
+                href={displayLink}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="w-12 h-12 rounded-full bg-red-600/90 hover:bg-red-600 text-white flex items-center justify-center pl-0.5 shadow-xl backdrop-blur-xs transition-transform group-hover/card:scale-110"
+                aria-label="Play video"
+              >
+                <Play className="w-5 h-5 fill-white" />
+              </a>
+            </div>
+          ) : (
+            <div className="flex-1" />
+          )}
+
+          {/* Bottom Content: Title, Description & Action Button */}
+          <div className="relative z-10 mt-auto pt-2">
+            <h3 className="font-serif text-xl font-bold text-white leading-snug drop-shadow-md line-clamp-2">
+              {displayTitle}
+            </h3>
+            {displayDesc && (
+              <p className="text-xs text-white/80 line-clamp-1 mt-1 drop-shadow-xs font-medium">
+                {displayDesc}
+              </p>
+            )}
+
+            <div className="shrink-0 mt-3">
+              <Button
+                className="w-full bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl py-4.5 font-semibold text-xs group/btn shadow-lg border border-white/10"
+                asChild
+              >
+                <a href={displayLink} onPointerDown={(e) => e.stopPropagation()}>
+                  {displayBtn}
+                  <ArrowRight className="w-3.5 h-3.5 ml-2 group-hover/btn:translate-x-1 transition-transform" />
+                </a>
+              </Button>
+            </div>
+          </div>
+        </Card>
+      );
+    }
+
+    // Default card without thumbnail (clean token-based surface)
     return (
-      <Card className={`highlights-stack-card ${isTop ? 'is-top' : ''} p-6 w-full h-full border border-border flex flex-col justify-between bg-card bg-gradient-to-br ${gradientClass} rounded-3xl overflow-hidden relative`}>
+      <Card className={`highlights-stack-card ${isTop ? 'is-top' : ''} p-5 w-full h-full border border-border flex flex-col justify-between bg-card bg-gradient-to-br ${gradientClass} rounded-3xl overflow-hidden relative shadow-xs`}>
         <span className={`highlights-accent-bar ${isTop ? 'is-active' : ''}`} />
         <span className="highlights-watermark">{cardIdx}</span>
 
-        <div className="flex items-start gap-3 relative z-10">
-          <div className="highlights-icon-tile">
-            {christianIcons[originalIndex % christianIcons.length]}
+        {/* Top Header */}
+        <div className="flex items-start gap-2.5 relative z-10">
+          <div className="highlights-icon-tile shrink-0">
+            {isVideo ? (
+              <Film className="w-4 h-4 text-[#8B2323]" />
+            ) : mediaType === 'photo' ? (
+              <ImageIcon className="w-4 h-4 text-[#8B2323]" />
+            ) : (
+              christianIcons[originalIndex % christianIcons.length]
+            )}
           </div>
           <div className="flex-1 min-w-0">
-            <span className="highlights-tag">{item.tag}</span>
-            <h3 className="font-serif text-xl mt-1.5 leading-tight font-bold text-foreground line-clamp-2">
+            <div className="flex items-center gap-1.5">
+              <span className="highlights-tag">{item.tag}</span>
+              {isVideo && (
+                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-red-600/10 text-red-700 font-bold flex items-center gap-0.5">
+                  <Play className="w-2 h-2 fill-current" /> Video
+                </span>
+              )}
+            </div>
+            <h3 className="font-serif text-lg mt-0.5 leading-snug font-bold text-foreground line-clamp-1">
               {displayTitle}
             </h3>
           </div>
@@ -332,14 +455,15 @@ function HighlightsCardStack({
           {displayDesc}
         </p>
 
-        <div className="shrink-0 relative z-10">
+        {/* Action Button */}
+        <div className="shrink-0 relative z-10 mt-auto">
           <Button
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl py-5 font-semibold text-sm group/btn"
+            className="w-full bg-[#8B2323] hover:bg-[#721515] text-white rounded-xl py-4.5 font-semibold text-xs group/btn shadow-xs"
             asChild
           >
             <a href={displayLink} onPointerDown={(e) => e.stopPropagation()}>
               {displayBtn}
-              <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
+              <ArrowRight className="w-3.5 h-3.5 ml-2 group-hover/btn:translate-x-1 transition-transform" />
             </a>
           </Button>
         </div>
@@ -475,7 +599,12 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
   const [rsvpEvent, setRsvpEvent] = useState<ChurchEvent | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const [headerVisible, setHeaderVisible] = useState(true);
+  const [isIOS, setIsIOS] = useState(false);
   const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    setIsIOS(checkIsIOS());
+  }, []);
 
   useEffect(() => {
     const readY = (target: EventTarget | null) => {
@@ -776,18 +905,27 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
       let changed = false;
       const newCovers: Record<string, string> = {};
 
-      // Seed immediately from server-stored covers
+      // Seed immediately from server-stored covers or YouTube video thumbnails
       for (const album of sortedGalleryAlbums.slice(0, 6)) {
         if (album.coverImage && !fetchedAlbums.current.has(album.id)) {
           fetchedAlbums.current.add(album.id);
           newCovers[album.id] = album.coverImage;
           changed = true;
+        } else if (!album.coverImage && !fetchedAlbums.current.has(album.id)) {
+          const ytId = extractYoutubeVideoId(album.videoUrl || album.url);
+          if (ytId) {
+            fetchedAlbums.current.add(album.id);
+            newCovers[album.id] = youtubeThumbnailUrl(ytId);
+            changed = true;
+          }
         }
       }
 
       // Only scrape Google Photos for albums missing a stored cover, then persist it
       for (const album of sortedGalleryAlbums.slice(0, 6)) {
         if (!fetchedAlbums.current.has(album.id) && album.url && !album.coverImage) {
+          const ytId = extractYoutubeVideoId(album.videoUrl || album.url);
+          if (ytId) continue;
           fetchedAlbums.current.add(album.id);
           try {
             const res = await fetch(
@@ -818,6 +956,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
     sermons,
     worshipVideos,
     notes: broadcasts || [],
+    galleryAlbums,
   });
   const campusId = sessionMember?.campusId || 'main';
   const role = session?.role;
@@ -830,6 +969,9 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
     let displayDesc = item.description || '';
     let displayBtn = item.buttonText || 'Read More';
     let displayLink = item.buttonLink || '#';
+    let thumbnail: string | undefined = undefined;
+    let isVideo = false;
+    let mediaType: 'video' | 'photo' | 'event' | undefined = undefined;
 
     if (item.type === 'event') {
       const event = events.find(e => e.id === item.itemId);
@@ -838,14 +980,17 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
         displayDesc = event.description || '';
         displayLink = `/events`;
         displayBtn = 'View Event';
+        thumbnail = event.image || undefined;
+        mediaType = 'event';
       }
     } else if (item.type === 'announcement') {
       const ann = announcements.find(a => a.id === item.itemId);
       if (ann) {
         displayTitle = ann.title;
         displayDesc = ann.content;
-        displayLink = `/`;
+        displayLink = `/announcements`;
         displayBtn = 'Read Announcement';
+        thumbnail = ann.image || undefined;
       }
     } else if (item.type === 'sermon') {
       const sermon = sermons.find(s => s.id === item.itemId);
@@ -854,21 +999,44 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
         displayDesc = `${sermon.pastor} - ${new Date(sermon.date).toLocaleDateString()}`;
         displayLink = sermonWatchHref(sermon);
         displayBtn = 'Watch Sermon';
+        if (sermon.videoId) {
+          thumbnail = youtubeThumbnailUrl(sermon.videoId);
+          isVideo = true;
+          mediaType = 'video';
+        }
       }
     } else if (item.type === 'worship_video') {
       const video = worshipVideos.find(v => v.id === item.itemId);
       if (video) {
         displayTitle = video.title;
-        displayDesc = 'Join us in worship';
+        displayDesc = video.artist ? `By ${video.artist}` : 'Join us in worship';
         displayLink = `https://youtube.com/watch?v=${video.videoId}`;
         displayBtn = 'Watch Video';
+        if (video.videoId) {
+          thumbnail = youtubeThumbnailUrl(video.videoId);
+          isVideo = true;
+          mediaType = 'video';
+        }
+      }
+    } else if (item.type === 'gallery') {
+      const album = (sortedGalleryAlbums || []).find(a => a.id === item.itemId || a._id === item.itemId);
+      if (album) {
+        const ytId = extractYoutubeVideoId(album.videoUrl || album.url);
+        const albumIsVideo = album.mediaType === 'videos' || Boolean(album.videoUrl) || Boolean(ytId);
+        displayTitle = album.title;
+        displayDesc = album.description || (albumIsVideo ? 'Watch video in gallery' : 'View photos in gallery');
+        displayLink = `/gallery?album=${album.id}`;
+        displayBtn = albumIsVideo ? 'Watch Video' : 'View Photos';
+        thumbnail = album.coverImage || albumCovers[album.id] || (ytId ? youtubeThumbnailUrl(ytId) : undefined);
+        isVideo = albumIsVideo;
+        mediaType = albumIsVideo ? 'video' : 'photo';
       }
     } else if (item.type === 'note') {
       const note = (broadcasts || []).find((b: any) => b.id === item.itemId);
       if (note) {
         displayTitle = note.title;
         displayDesc = note.description || '';
-        displayLink = `/#notes`;
+        displayLink = `/broadcasts`;
         displayBtn = 'Open Note';
       }
     } else if (item.type === 'prayer') {
@@ -879,9 +1047,34 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
         displayLink = `/prayer-wall`;
         displayBtn = 'Pray With Us';
       }
+    } else if (item.type === 'custom') {
+      if (item.buttonLink?.includes('/gallery')) {
+        const albumMatch = item.buttonLink.match(/album=([^&]+)/);
+        const albumId = albumMatch?.[1];
+        if (albumId) {
+          const album = (sortedGalleryAlbums || []).find(a => a.id === albumId || a._id === albumId);
+          if (album) {
+            const ytId = extractYoutubeVideoId(album.videoUrl || album.url);
+            isVideo = album.mediaType === 'videos' || Boolean(album.videoUrl) || Boolean(ytId);
+            thumbnail = album.coverImage || albumCovers[album.id] || (ytId ? youtubeThumbnailUrl(ytId) : undefined);
+            mediaType = isVideo ? 'video' : 'photo';
+          }
+        }
+      } else if (item.buttonLink?.includes('/sermon')) {
+        const sermonMatch = item.buttonLink.match(/sermon=([^&]+)/);
+        const sermonId = sermonMatch?.[1];
+        if (sermonId) {
+          const sermon = sermons.find(s => s.id === sermonId);
+          if (sermon?.videoId) {
+            thumbnail = youtubeThumbnailUrl(sermon.videoId);
+            isVideo = true;
+            mediaType = 'video';
+          }
+        }
+      }
     }
 
-    return { displayTitle, displayDesc, displayBtn, displayLink };
+    return { displayTitle, displayDesc, displayBtn, displayLink, thumbnail, isVideo, mediaType };
   };
 
   const getInitials = (name: string) => {
@@ -915,26 +1108,32 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
             style={{ boxShadow: "0 6px 6px rgba(0, 0, 0, 0.2), 0 0 20px rgba(0, 0, 0, 0.1)" }}
           >
             {/* Expand the distortion layer outside bounds to prevent edge tearing, then clip it */}
-            <div className="absolute -inset-12 z-0" style={{ backdropFilter: "blur(3px)", filter: "url(#glass-distortion)", isolation: "isolate" }} />
-            <div className="absolute inset-0 z-10" style={{ background: "rgba(255, 255, 255, 0.25)" }} />
+            <div 
+              className="absolute -inset-12 z-0 ios-liquid-glass-distortion" 
+              style={{ 
+                backdropFilter: isIOS ? "blur(25px)" : "blur(3px)", 
+                WebkitBackdropFilter: isIOS ? "blur(25px)" : "blur(3px)", 
+                filter: "url(#glass-distortion)", 
+                isolation: "isolate" 
+              }} 
+            />
+            <div 
+              className="absolute inset-0 z-10 ios-liquid-glass-tint" 
+              style={{ 
+                background: isIOS ? "rgba(255, 255, 255, 0.35)" : "rgba(255, 255, 255, 0.25)",
+                backdropFilter: isIOS ? "blur(25px)" : undefined,
+                WebkitBackdropFilter: isIOS ? "blur(25px)" : undefined,
+              }} 
+            />
             <div className="absolute inset-0 z-20 overflow-hidden border-b border-white/40" style={{ boxShadow: "inset 2px 2px 1px 0 rgba(255, 255, 255, 0.5), inset -1px -1px 1px 1px rgba(255, 255, 255, 0.5)" }} />
           </div>
 
           <div className="relative z-30 flex h-16 items-center justify-between px-4">
-          <div className="flex min-w-0 items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo2.png"
-              alt="Grace Ahmedabad"
-              className="h-16 w-auto max-w-[min(58vw,240px)] object-contain object-left"
-            />
-          </div>
-
-          <div className="flex shrink-0 items-center gap-3">
-            <Link href="/search" className="w-10 h-10 rounded-full bg-[#FAF7F2] border border-[#E5D5C5]/60 flex items-center justify-center text-[#8B2323] shadow-sm">
-              <Search className="w-5 h-5" />
-            </Link>
-            <Link href="/notifications" className="relative w-10 h-10 rounded-full bg-[#FAF7F2] border border-[#E5D5C5]/60 flex items-center justify-center text-[#8B2323] shadow-sm">
+            <Link
+              href="/notifications"
+              className="relative w-10 h-10 rounded-full bg-[#FAF7F2] border border-[#E5D5C5]/60 flex items-center justify-center text-[#8B2323] shadow-sm shrink-0"
+              aria-label="Notifications"
+            >
               <Bell className={`w-5 h-5 ${unseenCount > 0 ? 'animate-jiggle origin-top' : ''}`} />
               {unseenCount > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-4 h-4 bg-red-600 rounded-full border border-white flex items-center justify-center px-1 text-[9px] font-bold text-white leading-none">
@@ -942,14 +1141,32 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                 </span>
               )}
             </Link>
+
+            {/* Center Wordmark Typography */}
+            <Link
+              href="/"
+              className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center active:opacity-75 transition-opacity"
+              aria-label="Grace Connect"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/Grace_Connect_Minimalist_Wordmark-removebg-preview.png"
+                alt="Grace Connect"
+                className="h-12 w-auto max-w-[210px] object-contain dark:invert"
+              />
+            </Link>
+
             {session ? (
-              <ProfileSwitcher variant="pill" />
+              <ProfileSwitcher variant="avatar" className="shrink-0" />
             ) : (
-              <Link href="/login" className="w-10 h-10 rounded-full bg-[#721515] flex items-center justify-center text-white border border-[#E5D5C5]/60 shadow-sm">
-                <span className="text-xs font-bold">DA</span>
+              <Link
+                href="/login"
+                className="w-10 h-10 rounded-full bg-[#721515] flex items-center justify-center text-white border border-[#E5D5C5]/60 shadow-sm shrink-0"
+                aria-label="Log In"
+              >
+                <User className="w-5 h-5" />
               </Link>
             )}
-          </div>
           </div>
         </header>
 
@@ -1074,13 +1291,19 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
               flipItems.forEach((item, idx) => {
                 const tagMap: Record<string, string> = {
                   event: 'Event', announcement: 'News', sermon: 'Sermon',
-                  worship_video: 'Worship', prayer: 'Prayer', note: 'Note', custom: 'Featured'
+                  worship_video: 'Worship', prayer: 'Prayer', note: 'Note', custom: 'Featured',
+                  gallery: 'Gallery',
                 };
+                const details = getDisplayDetails(item);
+                let tag = tagMap[item.type] || 'Highlight';
+                if (item.type === 'gallery') {
+                  tag = details.isVideo ? 'Video' : 'Photos';
+                }
                 allCards.push({
                   type: 'admin',
                   id: item.id || `admin-${idx}`,
                   data: item,
-                  tag: tagMap[item.type] || 'Highlight'
+                  tag,
                 });
               });
             } else if (!isApprovedMember) {
@@ -1091,11 +1314,13 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                 tag: 'Featured'
               });
               flipItems.filter(isGuestSermonHighlight).forEach((item, idx) => {
+                const details = getDisplayDetails(item);
+                const tag = item.type === 'gallery' ? (details.isVideo ? 'Video' : 'Photos') : 'Sermon';
                 allCards.push({
                   type: 'admin',
-                  id: item.id || `guest-sermon-${idx}`,
+                  id: item.id || `guest-${idx}`,
                   data: item,
-                  tag: 'Sermon',
+                  tag,
                 });
               });
             }
@@ -1400,12 +1625,12 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
 
                   <div className="flex gap-4 overflow-x-auto pb-4 -mr-4 pr-4 snap-x no-scrollbar">
                     {sortedGalleryAlbums.slice(0, 6).map(album => {
-                      const cover = album.coverImage || albumCovers[album.id];
-                      const isVideo = album.mediaType === 'videos' || !!album.videoUrl;
-                      const isBoth = !album.mediaType || album.mediaType === 'both';
+                      const ytId = extractYoutubeVideoId(album.videoUrl || album.url);
+                      const cover = album.coverImage || albumCovers[album.id] || (ytId ? youtubeThumbnailUrl(ytId) : undefined);
+                      const isVideo = album.mediaType === 'videos' || !!album.videoUrl || Boolean(ytId);
 
                       return (
-                      <Link href="/gallery" key={album.id} className="min-w-[220px] w-[220px] h-[220px] rounded-3xl overflow-hidden relative shadow-sm snap-start group block">
+                      <Link href={`/gallery?album=${album.id}`} key={album.id} className="min-w-[220px] w-[220px] h-[220px] rounded-3xl overflow-hidden relative shadow-sm snap-start group block">
                         {cover ? (
                           <img src={cover} alt={album.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         ) : (
@@ -1414,30 +1639,15 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                           </div>
                         )}
 
-                        {/* Top-right Media Badge */}
-                        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold flex items-center gap-1 shadow-sm">
-                          {isVideo ? (
-                            <>
-                              <Play className="w-2.5 h-2.5 fill-white" />
-                              <span>Video</span>
-                            </>
-                          ) : isBoth ? (
-                            <>
-                              <Film className="w-2.5 h-2.5" />
-                              <span>Photos & Videos</span>
-                            </>
-                          ) : (
-                            <>
-                              <ImageIcon className="w-2.5 h-2.5" />
-                              <span>Photos</span>
-                            </>
-                          )}
-                        </div>
+                        {/* Top-right Media Badge (only for videos) */}
+                        {isVideo && (
+                          <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold flex items-center gap-1 shadow-sm">
+                            <Play className="w-2.5 h-2.5 fill-white" />
+                            <span>Video</span>
+                          </div>
+                        )}
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-4">
-                          <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full self-start mb-1.5 max-w-[150px] truncate block">
-                            {album.category}
-                          </span>
                           <h4 className="text-white font-bold leading-tight line-clamp-2 text-sm">{album.title}</h4>
                         </div>
                       </Link>
@@ -1774,12 +1984,12 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
 
                         <div className="flex gap-4 overflow-x-auto pb-4 -mr-4 pr-4 snap-x no-scrollbar">
                           {sortedGalleryAlbums.slice(0, 6).map(album => {
-                            const cover = album.coverImage || albumCovers[album.id];
-                            const isVideo = album.mediaType === 'videos' || !!album.videoUrl;
-                            const isBoth = !album.mediaType || album.mediaType === 'both';
+                            const ytId = extractYoutubeVideoId(album.videoUrl || album.url);
+                            const cover = album.coverImage || albumCovers[album.id] || (ytId ? youtubeThumbnailUrl(ytId) : undefined);
+                            const isVideo = album.mediaType === 'videos' || !!album.videoUrl || Boolean(ytId);
 
                             return (
-                            <Link href="/gallery" key={album.id} className="min-w-[220px] w-[220px] h-[220px] rounded-3xl overflow-hidden relative shadow-sm snap-start group block">
+                            <Link href={`/gallery?album=${album.id}`} key={album.id} className="min-w-[220px] w-[220px] h-[220px] rounded-3xl overflow-hidden relative shadow-sm snap-start group block">
                               {cover ? (
                                 <img src={cover} alt={album.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                               ) : (
@@ -1788,30 +1998,15 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
                                 </div>
                               )}
 
-                              {/* Top-right Media Badge */}
-                              <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold flex items-center gap-1 shadow-sm">
-                                {isVideo ? (
-                                  <>
-                                    <Play className="w-2.5 h-2.5 fill-white" />
-                                    <span>Video</span>
-                                  </>
-                                ) : isBoth ? (
-                                  <>
-                                    <Film className="w-2.5 h-2.5" />
-                                    <span>Photos & Videos</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <ImageIcon className="w-2.5 h-2.5" />
-                                    <span>Photos</span>
-                                  </>
-                                )}
-                              </div>
+                              {/* Top-right Media Badge (only for videos) */}
+                              {isVideo && (
+                                <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold flex items-center gap-1 shadow-sm">
+                                  <Play className="w-2.5 h-2.5 fill-white" />
+                                  <span>Video</span>
+                                </div>
+                              )}
 
                               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-4">
-                                <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full self-start mb-1.5 max-w-[150px] truncate block">
-                                  {album.category}
-                                </span>
                                 <h4 className="text-white font-bold leading-tight line-clamp-2 text-sm">{album.title}</h4>
                               </div>
                             </Link>

@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { BookOpen, Calendar, Clock, Heart, MapPin, Sparkles, Users, ArrowRight, Bell, Radio } from 'lucide-react';
+import { BookOpen, Calendar, Clock, Heart, MapPin, Sparkles, Users, ArrowRight, Bell, Radio, Play, Film, Image as ImageIcon } from 'lucide-react';
 import { useAdminData, type FlipCardItem } from '@/lib/admin-data-context';
 import { useAuth } from '@/lib/auth-context';
 import { GUEST_HIGHLIGHT_CARD } from '@/lib/hooks/use-system';
 import { contentToHighlightItems, mergeHighlightItems, isGuestSermonHighlight, isManualHighlightVisible } from '@/lib/highlight-utils';
 import Link from 'next/link';
 import { sermonWatchHref } from '@/lib/sermon-utils';
+import { extractYoutubeVideoId, youtubeThumbnailUrl } from '@/lib/youtube';
 
 const christianIcons = [
   // Cross
@@ -33,7 +34,7 @@ const cardGradients = [
 ];
 
 export const HeroSection = () => {
-  const { flipCardConfig, events, announcements, sermons, worshipVideos, prayerRequests, liveStreams, broadcasts } = useAdminData();
+  const { flipCardConfig, events, announcements, sermons, worshipVideos, prayerRequests, liveStreams, broadcasts, galleryAlbums } = useAdminData();
   const { session, getSessionMember, getEffectiveGroups } = useAuth();
   const sessionMember = getSessionMember();
   const effectiveGroups = sessionMember ? getEffectiveGroups(sessionMember) : [];
@@ -45,6 +46,9 @@ export const HeroSection = () => {
     let displayDesc = item.description || '';
     let displayBtn = item.buttonText || 'Read More';
     let displayLink = item.buttonLink || '#';
+    let thumbnail: string | undefined = undefined;
+    let isVideo = false;
+    let mediaType: 'video' | 'photo' | 'event' | undefined = undefined;
 
     if (item.type === 'event') {
       const event = events.find(e => e.id === item.itemId);
@@ -53,14 +57,17 @@ export const HeroSection = () => {
         displayDesc = event.description || '';
         displayLink = `/events`;
         displayBtn = 'View Event';
+        thumbnail = event.image || undefined;
+        mediaType = 'event';
       }
     } else if (item.type === 'announcement') {
       const ann = announcements.find(a => a.id === item.itemId);
       if (ann) {
         displayTitle = ann.title;
         displayDesc = ann.content;
-        displayLink = `/`;
+        displayLink = `/announcements`;
         displayBtn = 'Read Announcement';
+        thumbnail = ann.image || undefined;
       }
     } else if (item.type === 'sermon') {
       const sermon = sermons.find(s => s.id === item.itemId);
@@ -69,21 +76,44 @@ export const HeroSection = () => {
         displayDesc = `${sermon.pastor} - ${new Date(sermon.date).toLocaleDateString()}`;
         displayLink = sermonWatchHref(sermon);
         displayBtn = 'Watch Sermon';
+        if (sermon.videoId) {
+          thumbnail = youtubeThumbnailUrl(sermon.videoId);
+          isVideo = true;
+          mediaType = 'video';
+        }
       }
     } else if (item.type === 'worship_video') {
       const video = worshipVideos.find(v => v.id === item.itemId);
       if (video) {
         displayTitle = video.title;
-        displayDesc = 'Join us in worship';
+        displayDesc = video.artist ? `By ${video.artist}` : 'Join us in worship';
         displayLink = `https://youtube.com/watch?v=${video.videoId}`;
         displayBtn = 'Watch Video';
+        if (video.videoId) {
+          thumbnail = youtubeThumbnailUrl(video.videoId);
+          isVideo = true;
+          mediaType = 'video';
+        }
+      }
+    } else if (item.type === 'gallery') {
+      const album = (galleryAlbums || []).find(a => a.id === item.itemId || a._id === item.itemId);
+      if (album) {
+        const ytId = extractYoutubeVideoId(album.videoUrl || album.url);
+        const albumIsVideo = album.mediaType === 'videos' || Boolean(album.videoUrl) || Boolean(ytId);
+        displayTitle = album.title;
+        displayDesc = album.description || (albumIsVideo ? 'Watch video in gallery' : 'View photos in gallery');
+        displayLink = `/gallery?album=${album.id}`;
+        displayBtn = albumIsVideo ? 'Watch Video' : 'View Photos';
+        thumbnail = album.coverImage || (ytId ? youtubeThumbnailUrl(ytId) : undefined);
+        isVideo = albumIsVideo;
+        mediaType = albumIsVideo ? 'video' : 'photo';
       }
     } else if (item.type === 'note') {
       const note = (broadcasts || []).find((b: any) => b.id === item.itemId);
       if (note) {
         displayTitle = note.title;
         displayDesc = note.description || '';
-        displayLink = `/#notes`;
+        displayLink = `/broadcasts`;
         displayBtn = 'Open Note';
       }
     } else if (item.type === 'prayer') {
@@ -94,9 +124,34 @@ export const HeroSection = () => {
         displayLink = `/prayer-wall`;
         displayBtn = 'Pray With Us';
       }
+    } else if (item.type === 'custom') {
+      if (item.buttonLink?.includes('/gallery')) {
+        const albumMatch = item.buttonLink.match(/album=([^&]+)/);
+        const albumId = albumMatch?.[1];
+        if (albumId) {
+          const album = (galleryAlbums || []).find(a => a.id === albumId || a._id === albumId);
+          if (album) {
+            const ytId = extractYoutubeVideoId(album.videoUrl || album.url);
+            isVideo = album.mediaType === 'videos' || Boolean(album.videoUrl) || Boolean(ytId);
+            thumbnail = album.coverImage || (ytId ? youtubeThumbnailUrl(ytId) : undefined);
+            mediaType = isVideo ? 'video' : 'photo';
+          }
+        }
+      } else if (item.buttonLink?.includes('/sermon')) {
+        const sermonMatch = item.buttonLink.match(/sermon=([^&]+)/);
+        const sermonId = sermonMatch?.[1];
+        if (sermonId) {
+          const sermon = sermons.find(s => s.id === sermonId);
+          if (sermon?.videoId) {
+            thumbnail = youtubeThumbnailUrl(sermon.videoId);
+            isVideo = true;
+            mediaType = 'video';
+          }
+        }
+      }
     }
 
-    return { displayTitle, displayDesc, displayBtn, displayLink };
+    return { displayTitle, displayDesc, displayBtn, displayLink, thumbnail, isVideo, mediaType };
   };
 
   const [verse, setVerse] = useState({
@@ -135,6 +190,7 @@ export const HeroSection = () => {
     sermons,
     worshipVideos,
     notes: broadcasts || [],
+    galleryAlbums,
   });
   const campusId = sessionMember?.campusId || 'main';
   const allHighlightItems = mergeHighlightItems(flipCardConfig.items || [], publishedHighlights);
@@ -277,34 +333,52 @@ export const HeroSection = () => {
                   >
                     <div className="relative w-full h-full flex items-center justify-center">
                       {orderedStack.map(({ item, originalIndex, stackPos }) => {
-                        const { displayTitle, displayDesc, displayBtn, displayLink } = getDisplayDetails(item);
+                        const { displayTitle, displayDesc, displayBtn, displayLink, thumbnail, isVideo, mediaType } = getDisplayDetails(item);
                         return (
                           <div
                             key={item.id || originalIndex}
                             className={`absolute inset-0 transition-all duration-500 ease-out ${stackRotations[stackPos]} ${stackScales[stackPos]} ${stackTranslateY[stackPos]} ${stackZIndex[stackPos]} ${stackOpacity[stackPos]}`}
                           >
-                            <Card className={`p-8 w-full h-full shadow-2xl border-2 ${borderColors[originalIndex % borderColors.length]} flex flex-col justify-center items-center text-center bg-gradient-to-br ${cardGradients[originalIndex % cardGradients.length]} backdrop-blur-md rounded-2xl`}>
-                              <div className="space-y-5 w-full">
-                                <div className="mx-auto w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
-                                  {christianIcons[originalIndex % christianIcons.length]}
-                                </div>
+                            <Card className={`p-6 w-full h-full shadow-2xl border-2 ${borderColors[originalIndex % borderColors.length]} flex flex-col justify-between items-center text-center bg-gradient-to-br ${cardGradients[originalIndex % cardGradients.length]} backdrop-blur-md rounded-2xl`}>
+                              <div className="space-y-3.5 w-full">
+                                {thumbnail ? (
+                                  <div className="relative w-full h-36 rounded-xl overflow-hidden shadow-md bg-black/20 group/thumb">
+                                    <img src={thumbnail} alt={displayTitle} className="w-full h-full object-cover transition-transform duration-500 group-hover/thumb:scale-105" />
+                                    {isVideo && (
+                                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                                        <div className="w-11 h-11 rounded-full bg-red-600 text-white flex items-center justify-center pl-0.5 shadow-lg">
+                                          <Play className="w-5 h-5 fill-white" />
+                                        </div>
+                                      </div>
+                                    )}
+                                    {!isVideo && mediaType === 'photo' && (
+                                      <div className="absolute top-2 right-2 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-xs font-bold flex items-center gap-1 shadow-sm">
+                                        <ImageIcon className="w-3.5 h-3.5" /> Photos
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="mx-auto w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center">
+                                    {christianIcons[originalIndex % christianIcons.length]}
+                                  </div>
+                                )}
 
-                                <h3 className="text-2xl sm:text-3xl font-bold text-foreground line-clamp-2">
+                                <h3 className="text-xl sm:text-2xl font-bold text-foreground line-clamp-1">
                                   {displayTitle}
                                 </h3>
 
-                                <p className="text-muted-foreground text-base px-2 line-clamp-3">
+                                <p className="text-muted-foreground text-xs sm:text-sm px-2 line-clamp-2">
                                   {displayDesc}
                                 </p>
+                              </div>
 
-                                <div className="pt-4">
-                                  <Button variant="gradient" size="lg" className="w-full hover-lift shadow-lg group/btn" asChild>
-                                    <Link href={displayLink} onClick={(e) => e.stopPropagation()}>
-                                      {displayBtn}
-                                      <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
-                                    </Link>
-                                  </Button>
-                                </div>
+                              <div className="pt-2 w-full">
+                                <Button variant="gradient" size="lg" className="w-full hover-lift shadow-lg group/btn" asChild>
+                                  <Link href={displayLink} onClick={(e) => e.stopPropagation()}>
+                                    {displayBtn}
+                                    <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
+                                  </Link>
+                                </Button>
                               </div>
                             </Card>
                           </div>
