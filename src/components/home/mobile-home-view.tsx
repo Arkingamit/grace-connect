@@ -33,7 +33,7 @@ import { ProfileSwitcher } from '@/components/ui/profile-switcher';
 import { ViewRegistrationPassButton, PendingMemberEpass } from '@/components/ui/registration-pass-dialog';
 import { getMapsUrl, onOpenMaps } from '@/lib/maps';
 import { MapsPinIcon } from '@/components/ui/maps-pin-icon';
-import { formatDDMMYYYY } from '@/lib/date-utils';
+import { formatDDMMYYYY, formatDateMonthTime } from '@/lib/date-utils';
 import { EventRSVPModal } from '@/components/ui/events-section';
 import type { Event as ChurchEvent } from '@/lib/admin-data-context';
 import { getAlbumTimestamp } from '@/lib/types';
@@ -61,24 +61,6 @@ function truncateText(text?: string, maxLength: number = 18): string {
   if (!text) return '';
   const trimmed = text.trim();
   return trimmed.length > maxLength ? `${trimmed.slice(0, maxLength).trim()}...` : trimmed;
-}
-
-function checkIsIOS(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    if (typeof Capacitor !== 'undefined' && typeof Capacitor.getPlatform === 'function') {
-      const p = Capacitor.getPlatform();
-      if (p === 'ios') return true;
-      if (p === 'android') return false;
-    }
-  } catch {}
-
-  if (typeof navigator !== 'undefined') {
-    const ua = navigator.userAgent || '';
-    if (/iPad|iPhone|iPod/i.test(ua)) return true;
-    if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
-  }
-  return false;
 }
 
 function AnimatedNumber({ end, duration = 2000, delay = 0, suffix = "" }: { end: number, duration?: number, delay?: number, suffix?: string }) {
@@ -599,12 +581,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
   const [rsvpEvent, setRsvpEvent] = useState<ChurchEvent | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const [headerVisible, setHeaderVisible] = useState(true);
-  const [isIOS, setIsIOS] = useState(false);
   const lastScrollY = useRef(0);
-
-  useEffect(() => {
-    setIsIOS(checkIsIOS());
-  }, []);
 
   useEffect(() => {
     const readY = (target: EventTarget | null) => {
@@ -1111,8 +1088,8 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
             <div 
               className="absolute -inset-12 z-0 ios-liquid-glass-distortion" 
               style={{ 
-                backdropFilter: isIOS ? "blur(25px)" : "blur(3px)", 
-                WebkitBackdropFilter: isIOS ? "blur(25px)" : "blur(3px)", 
+                backdropFilter: "blur(25px)", 
+                WebkitBackdropFilter: "blur(25px)", 
                 filter: "url(#glass-distortion)", 
                 isolation: "isolate" 
               }} 
@@ -1120,9 +1097,9 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
             <div 
               className="absolute inset-0 z-10 ios-liquid-glass-tint" 
               style={{ 
-                background: isIOS ? "rgba(255, 255, 255, 0.35)" : "rgba(255, 255, 255, 0.25)",
-                backdropFilter: isIOS ? "blur(25px)" : undefined,
-                WebkitBackdropFilter: isIOS ? "blur(25px)" : undefined,
+                background: "rgba(255, 255, 255, 0.35)",
+                backdropFilter: "blur(25px)",
+                WebkitBackdropFilter: "blur(25px)",
               }} 
             />
             <div className="absolute inset-0 z-20 overflow-hidden border-b border-white/40" style={{ boxShadow: "inset 2px 2px 1px 0 rgba(255, 255, 255, 0.5), inset -1px -1px 1px 1px rgba(255, 255, 255, 0.5)" }} />
@@ -2078,7 +2055,7 @@ function PrayerCard({ prayer, session }: { prayer: any, session: any }) {
       <div className="flex justify-between items-start mb-2">
         <h4 className="font-bold text-[#1A202C] leading-tight">{prayer.title}</h4>
         <span className="text-[10px] text-[#7A6150] font-medium bg-[#F1E8DC] px-2 py-1 rounded-full whitespace-nowrap ml-2">
-          {formatDDMMYYYY(prayer.createdAt || Date.now())}
+          {formatDateMonthTime(prayer.createdAt || Date.now())}
         </span>
       </div>
       <p className="text-[#7A6150] text-sm line-clamp-2 mb-3">{prayer.content}</p>

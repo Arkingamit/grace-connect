@@ -58,7 +58,7 @@ const POPULAR_SUGGESTIONS = [
 type CategoryFilter = 'all' | 'live' | SearchItemType;
 
 const CATEGORY_TABS: { id: CategoryFilter; label: string }[] = [
-  { id: 'all', label: 'All Feed' },
+  { id: 'all', label: 'All' },
   { id: 'live', label: 'Live' },
   { id: 'sermon', label: 'Sermons' },
   { id: 'worship', label: 'Worship' },
@@ -1167,7 +1167,7 @@ export default function SearchPage() {
                   <SearchIcon className="w-6 h-6" />
                 </div>
                 <h4 className="text-sm font-bold text-[#3A2D27]">No posts in this category</h4>
-                <p className="text-xs text-[#7A6150] mt-1">Check back later or browse All Feed.</p>
+                <p className="text-xs text-[#7A6150] mt-1">Check back later or browse All.</p>
               </div>
             ) : (
               <div className="space-y-2.5">

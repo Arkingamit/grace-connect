@@ -54,17 +54,14 @@ public class MaintenanceWebViewClient extends BridgeWebViewClient {
                 Network network = cm.getActiveNetwork();
                 if (network == null) return false;
                 NetworkCapabilities caps = cm.getNetworkCapabilities(network);
-                return caps != null && (
-                    caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-                    || caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
-                    || caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
-                    || caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
-                );
+                if (caps == null) return false;
+                return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
             }
             android.net.NetworkInfo info = cm.getActiveNetworkInfo();
             return info != null && info.isConnected();
         } catch (Exception e) {
-            return true;
+            return false;
         }
     }
 
@@ -98,7 +95,9 @@ public class MaintenanceWebViewClient extends BridgeWebViewClient {
         }
         super.onReceivedError(view, request, error);
         if (request.isForMainFrame()) {
-            showMaintenance(view, request, isOfflineError() ? "offline" : "maintenance");
+            // Main-frame connection failure (socket, DNS host lookup, timeout)
+            // means user cannot reach the network — show "Connect to the internet".
+            showMaintenance(view, request, "offline");
         }
     }
 
@@ -110,6 +109,8 @@ public class MaintenanceWebViewClient extends BridgeWebViewClient {
         }
         super.onReceivedHttpError(view, request, errorResponse);
         if (request.isForMainFrame() && status >= 500) {
+            // Only show maintenance if an HTTP 502/503 response was returned from the server
+            // AND the user has validated internet connectivity.
             showMaintenance(view, request, isNetworkAvailable() ? "maintenance" : "offline");
         }
     }
@@ -121,7 +122,7 @@ public class MaintenanceWebViewClient extends BridgeWebViewClient {
             ((MainActivity) view.getContext()).onWebViewReady();
         }
         if (isMaintenanceUrl(url)) {
-            String reason = lastReason != null ? lastReason : "maintenance";
+            String reason = lastReason != null ? lastReason : "offline";
             view.evaluateJavascript("window.__GRACE_FAIL_REASON='" + reason + "';", null);
             if (lastFailedUrl != null) {
                 String escaped = lastFailedUrl.replace("\\", "\\\\").replace("'", "\\'");

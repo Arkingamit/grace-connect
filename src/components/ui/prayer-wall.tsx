@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useAdminData } from "@/lib/admin-data-context";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion, AnimatePresence } from "framer-motion";
-import { formatDDMMYYYY } from '@/lib/date-utils';
+import { formatDDMMYYYY, formatDateMonthTime } from '@/lib/date-utils';
 import { PRAYER_FIELD_LIMITS } from '@/lib/field-limits';
 
 interface PrayerRequest {
@@ -280,7 +280,7 @@ function PrayerWallWidgetLayout() {
                           <span>By {request.authorName || 'Anonymous'}</span>
                           <div className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            <span>{formatDDMMYYYY(request.createdAt)}</span>
+                            <span>{formatDateMonthTime(request.createdAt)}</span>
                           </div>
                         </div>
                       </div>
@@ -535,7 +535,7 @@ function PrayerPageCard({ prayer, session }: { prayer: any, session: any }) {
     >
       <div className="flex justify-between items-start mb-2">
         <span className="text-[10px] font-bold text-[#8B2323] tracking-wider uppercase bg-[#FBE8E8] px-2 py-1 rounded-sm">
-          {formatDDMMYYYY(prayer.createdAt || Date.now())}
+          {formatDateMonthTime(prayer.createdAt || Date.now())}
         </span>
       </div>
       <p className="text-[#3A2D27] leading-relaxed mb-4 whitespace-pre-wrap">{prayer.content}</p>

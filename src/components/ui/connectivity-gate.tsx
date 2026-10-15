@@ -50,12 +50,19 @@ export function ConnectivityGate() {
         </p>
         <button
           type="button"
-          className="mt-6 h-11 w-full rounded-full bg-gradient-to-r from-[#810008] to-[#A3161E] text-sm font-semibold text-white"
+          className="mt-6 h-11 w-full rounded-full bg-gradient-to-r from-[#810008] to-[#A3161E] text-sm font-semibold text-white active:opacity-90"
           onClick={() => {
-            if (navigator.onLine) {
-              setOffline(false);
-              window.location.reload();
-            }
+            fetch("/logo.svg?t=" + Date.now())
+              .then(() => {
+                setOffline(false);
+                window.location.reload();
+              })
+              .catch(() => {
+                if (typeof navigator !== "undefined" && navigator.onLine) {
+                  setOffline(false);
+                  window.location.reload();
+                }
+              });
           }}
         >
           Try again

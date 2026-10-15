@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Calendar, Pin, Building2, Users, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
-import { formatDDMMYYYY } from '@/lib/date-utils';
+import { formatDDMMYYYY, formatDateMonthTime } from '@/lib/date-utils';
 
 export const AnnouncementsSection = ({ preview = false }: { preview?: boolean }) => {
   const { announcements, campuses, groups, getVisibleAnnouncements } = useAdminData();
@@ -90,8 +90,8 @@ export const AnnouncementsSection = ({ preview = false }: { preview?: boolean })
                         <Calendar className="w-3 h-3 text-[#8B2323]" />
                         <span>
                           {announcement.reminderDate
-                            ? `${formatDDMMYYYY(announcement.reminderDate)}${announcement.reminderTime ? ` at ${announcement.reminderTime}` : ''}`
-                            : formatDDMMYYYY(announcement.createdAt)}
+                            ? formatDateMonthTime(announcement.reminderDate, announcement.reminderTime)
+                            : formatDateMonthTime(announcement.createdAt)}
                         </span>
                       </div>
                     )}

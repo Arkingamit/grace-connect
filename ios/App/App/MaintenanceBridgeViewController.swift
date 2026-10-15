@@ -91,7 +91,7 @@ final class MaintenanceNavigationProxy: NSObject, WKNavigationDelegate {
 
         lastFailedURL = (nsError.userInfo[NSURLErrorFailingURLStringErrorKey] as? String)
             ?? webView.url?.absoluteString
-        lastReason = isOfflineError(nsError) || !networkSatisfied ? "offline" : "maintenance"
+        lastReason = "offline"
         loadMaintenance(in: webView)
         return true
     }
@@ -112,15 +112,18 @@ final class MaintenanceNavigationProxy: NSObject, WKNavigationDelegate {
     }
 
     private func isOfflineError(_ error: NSError) -> Bool {
-        guard error.domain == NSURLErrorDomain else { return !networkSatisfied }
+        guard error.domain == NSURLErrorDomain else { return true }
         switch error.code {
         case NSURLErrorNotConnectedToInternet,
              NSURLErrorNetworkConnectionLost,
              NSURLErrorInternationalRoamingOff,
-             NSURLErrorDataNotAllowed:
+             NSURLErrorDataNotAllowed,
+             NSURLErrorCannotFindHost,
+             NSURLErrorCannotConnectToHost,
+             NSURLErrorTimedOut:
             return true
         default:
-            return !networkSatisfied
+            return true
         }
     }
 

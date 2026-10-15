@@ -6,7 +6,7 @@
       name="viewport"
       content="viewport-fit=cover, width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Grace Connect — Maintenance</title>
+    <title>Grace Connect — Connect to the internet</title>
     <style>
       :root {
         color-scheme: light;
@@ -101,6 +101,14 @@
         opacity: 0.6;
         cursor: wait;
       }
+      button.secondary {
+        background: #fff;
+        border: 1px solid #e5d5c5;
+        color: #1a202c;
+      }
+      button.secondary:disabled {
+        opacity: 0.6;
+      }
       .status {
         margin-top: 0.9rem;
         font-size: 0.75rem;
@@ -126,24 +134,25 @@
   <body>
     <div class="card" role="dialog" aria-labelledby="title">
       <div class="icon" aria-hidden="true">
-        <svg id="iconMaintenance" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-        </svg>
-        <svg id="iconOffline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+        <svg id="iconOffline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M2 8.82A15 15 0 0 1 12 5c3.1 0 6 .9 8.4 2.4" />
           <path d="M5.5 12.5A10 10 0 0 1 12 10c1.9 0 3.7.5 5.2 1.4" />
           <path d="M9 16a5 5 0 0 1 6 0" />
           <line x1="2" y1="2" x2="22" y2="22" />
           <circle cx="12" cy="20" r="1" fill="currentColor" stroke="none" />
         </svg>
+        <svg id="iconMaintenance" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+        </svg>
       </div>
       <p class="brand">Grace Connect</p>
-      <h1 id="title">We're updating the app</h1>
+      <h1 id="title">Connect to the internet</h1>
       <p id="message">
-        Grace Connect is under maintenance right now. Try again after sometime.
+        You're offline. Turn on Wi-Fi or mobile data, then tap Try again.
       </p>
       <div class="actions">
         <button type="button" class="primary" id="retryBtn">Try again</button>
+        <button type="button" class="secondary" id="settingsBtn">Open settings</button>
       </div>
       <div class="status" id="status" aria-live="polite"></div>
     </div>
@@ -154,6 +163,7 @@
         var PROBE_PATH = "/logo.svg";
 
         var retryBtn = document.getElementById("retryBtn");
+        var settingsBtn = document.getElementById("settingsBtn");
         var statusEl = document.getElementById("status");
         var titleEl = document.getElementById("title");
         var messageEl = document.getElementById("message");
@@ -176,28 +186,35 @@
           try {
             var params = new URLSearchParams(window.location.search || "");
             var q = params.get("reason");
-            if (q === "offline" || q === "maintenance") return q;
+            if (q === "maintenance") return "maintenance";
+            if (q === "offline") return "offline";
           } catch (e) {}
-          if (window.__GRACE_FAIL_REASON === "offline" || window.__GRACE_FAIL_REASON === "maintenance") {
-            return window.__GRACE_FAIL_REASON;
+          if (window.__GRACE_FAIL_REASON === "maintenance") {
+            return "maintenance";
           }
-          return navigator.onLine === false ? "offline" : "maintenance";
+          if (window.__GRACE_FAIL_REASON === "offline") {
+            return "offline";
+          }
+          // Default to offline when not explicitly maintenance!
+          return "offline";
         }
 
         function renderMode() {
-          var offline = failReason() === "offline" || navigator.onLine === false;
-          iconMaintenance.style.display = offline ? "none" : "";
-          iconOffline.style.display = offline ? "" : "none";
-          if (offline) {
-            titleEl.textContent = "Connect to the internet";
-            messageEl.textContent =
-              "You're offline. Turn on Wi-Fi or mobile data, then tap Try again.";
-            retryBtn.textContent = "Try again";
-          } else {
+          var isMaintenance = failReason() === "maintenance";
+          iconMaintenance.style.display = isMaintenance ? "" : "none";
+          iconOffline.style.display = isMaintenance ? "none" : "";
+          if (isMaintenance) {
             titleEl.textContent = "We're updating the app";
             messageEl.textContent =
               "Grace Connect is under maintenance right now. Try again after sometime.";
             retryBtn.textContent = "Try again";
+            if (settingsBtn) settingsBtn.style.display = "none";
+          } else {
+            titleEl.textContent = "Connect to the internet";
+            messageEl.textContent =
+              "You're offline. Turn on Wi-Fi or mobile data, then tap Try again.";
+            retryBtn.textContent = "Try again";
+            if (settingsBtn) settingsBtn.style.display = "";
           }
         }
 
@@ -212,6 +229,20 @@
             navigating = false;
             retryBtn.disabled = false;
           }
+        }
+
+        async function openSettings() {
+          try {
+            var C = window.Capacitor;
+            if (C && C.Plugins && C.Plugins.NativeSettings) {
+              await C.Plugins.NativeSettings.open({
+                optionAndroid: "wireless",
+                optionIOS: "wifi",
+              });
+              return;
+            }
+          } catch (_) {}
+          setStatus("Open device Settings to turn on Wi-Fi or mobile data.");
         }
 
         // A cross-origin <img> only fires onload for a 2xx response, so this
@@ -256,9 +287,9 @@
           renderMode();
           if (manual) {
             setStatus(
-              failReason() === "offline" || navigator.onLine === false
-                ? "Still offline. Turn on Wi-Fi or mobile data."
-                : "Still updating. Try again after sometime."
+              failReason() === "maintenance"
+                ? "Still updating. Try again after sometime."
+                : "Still offline. Turn on Wi-Fi or mobile data."
             );
           }
         }
@@ -266,6 +297,10 @@
         retryBtn.addEventListener("click", function () {
           probe(true);
         });
+        if (settingsBtn) {
+          settingsBtn.addEventListener("click", openSettings);
+        }
+
         window.addEventListener("online", function () {
           renderMode();
           probe(false);
