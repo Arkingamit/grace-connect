@@ -506,14 +506,14 @@ function scrollToTop() {
     >
       <div
         className={cn(
-          "pointer-events-auto mx-auto origin-bottom transition-[max-width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "pointer-events-auto mx-auto origin-bottom transition-[max-width] duration-300 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]",
           compact ? "max-w-[20rem]" : "max-w-[22.5rem]",
         )}
       >
         <div
           ref={barRef}
           className={cn(
-            "relative flex touch-none items-center gap-0.5 rounded-full transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            "relative flex touch-none items-center gap-0.5 rounded-full transition-[padding] duration-300 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]",
             compact ? "px-1 py-1" : "px-1.5 py-1",
           )}
           onPointerDown={onNavPointerDown}
