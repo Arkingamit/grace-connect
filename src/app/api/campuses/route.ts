@@ -10,7 +10,7 @@ export async function GET() {
     // Return only public information
     const campuses = await Campus.find(
       {},
-      'name pastor address city zipCode phone email serviceTimes latitude longitude',
+      'name pastor address city zipCode phone email serviceTimes latitude longitude prayerBroadcastLevel',
     )
       .sort({ createdAt: 1 })
       .lean();

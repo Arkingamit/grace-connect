@@ -6,11 +6,13 @@ export interface INotification extends Document {
   message: string;
   type: 'recurring_announcement' | 'event_reminder' | 'system' | 'new_event' | 'new_announcement' | 'new_prayer' | 'new_sermon' | 'new_worship_video' | 'new_note' | 'new_gallery' | 'live_now' | 'greeting' | 'attendance';
   sourceId?: string; // the announcement/event _id that generated this
+  url?: string;
   isRead: boolean;
   targetCampuses: string[];
   targetGroups: string[];
   excludeCampuses?: string[];
   excludeGroups?: string[];
+  readBy?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,7 +24,9 @@ const NotificationSchema = new Schema<INotification>(
     message: { type: String, required: true },
     type: { type: String, required: true, default: 'system' },
     sourceId: { type: String },
+    url: { type: String },
     isRead: { type: Boolean, default: false },
+    readBy: [{ type: String }],
     targetCampuses: [{ type: String }],
     targetGroups: [{ type: String }],
     excludeCampuses: [{ type: String }],

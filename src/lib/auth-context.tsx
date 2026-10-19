@@ -21,6 +21,7 @@ export interface VerifyOrLoginResult {
 
 interface AuthContextType {
   session: AuthSession | null;
+  sessionMember: ChurchMember | null;
   members: ChurchMember[];
   isLoading: boolean;
   register: (data: Partial<ChurchMember> & { credential?: string; appleState?: string; provider?: 'google' | 'apple' }) => Promise<{ success: boolean; error?: string; userId?: string; qrCode?: string; email?: string }>;
@@ -112,6 +113,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: formattedMember.name || `${formattedMember.firstName} ${formattedMember.lastName}`,
       role: formattedMember.role || 'member',
       avatar: formattedMember.avatar || undefined,
+      campusId: formattedMember.campusId || '',
+      groups: formattedMember.groups || [],
+      createdAt: formattedMember.createdAt ? String(formattedMember.createdAt) : undefined,
     });
     setLinkedProfiles(nextLinked);
 
@@ -420,7 +424,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      session, members, isLoading,
+      session, sessionMember, members, isLoading,
       register, login, verifyOrLogin, demoLogin, logout,
       getMember, getSessionMember,
       getPendingRequests, approveMember, rejectMember,

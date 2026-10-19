@@ -111,10 +111,17 @@ export const userSchema = z.object({
 // Prayer Request Schema
 export const prayerRequestSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters').max(PRAYER_FIELD_LIMITS.title, `Title must be ${PRAYER_FIELD_LIMITS.title} characters or fewer`),
-  content: z.string().min(10, 'Prayer request must be at least 10 characters').max(PRAYER_FIELD_LIMITS.content, `Prayer request must be ${PRAYER_FIELD_LIMITS.content} characters or fewer`),
+  content: z.string().min(3, 'Prayer request must be at least 3 characters').max(PRAYER_FIELD_LIMITS.content, `Prayer request must be ${PRAYER_FIELD_LIMITS.content} characters or fewer`),
   authorName: z.string().max(FIELD_LIMITS.name, `Name must be ${FIELD_LIMITS.name} characters or fewer`).optional(),
+  authorId: z.string().optional(),
   campusId: z.string().optional(), // Added for guest selection, overridden by session for members
   isAnonymous: z.boolean().optional(),
   privacy: z.enum(['public', 'members', 'staff']).optional(),
   category: z.string().max(40).optional(),
+  broadcastScope: z.enum(['all_campuses', 'campus', 'group']).optional(),
+  targetCampuses: z.array(z.string()).optional(),
+  targetGroups: z.array(z.string()).optional(),
+  submitterName: z.string().max(FIELD_LIMITS.name).optional(),
+  submitterEmail: z.string().email().optional().or(z.literal('')),
+  submitterPhone: z.string().max(30).optional().or(z.literal('')),
 });

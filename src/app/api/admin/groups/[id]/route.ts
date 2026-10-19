@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin, requireAdminWithScope } from '@/lib/api-auth';
 import connectToDatabase from '@/lib/db';
 import Group from '@/models/Group';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdminWithScope();
@@ -69,6 +70,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       }
     }
 
+    await logActivityFromAdmin(admin, {
+      action: 'UPDATE',
+      entityType: 'group',
+      entityId: id,
+      entityTitle: group.name || 'Group',
+      campusId: group.scope !== 'global' ? group.scope : '',
+      details: {
+        nameChanged: oldName !== group.name,
+        oldName,
+        newName: group.name,
+        scope: group.scope,
+      },
+    });
+
     return NextResponse.json(group);
   } catch (error: any) {
     if (error.code === 11000) {
@@ -100,6 +115,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     await Group.findByIdAndDelete(id);
+
+    await logActivityFromAdmin(admin, {
+      action: 'DELETE',
+      entityType: 'group',
+      entityId: id,
+      entityTitle: group.name || 'Group',
+      campusId: group.scope !== 'global' ? group.scope : '',
+    });
 
     return NextResponse.json({ message: 'Group deleted successfully' });
   } catch (error: any) {

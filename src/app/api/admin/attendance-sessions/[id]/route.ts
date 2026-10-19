@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/db';
 import AttendanceSession from '@/models/AttendanceSession';
 import User from '@/models/User';
 import { verifySession } from '@/lib/auth-utils';
+import { logActivity } from '@/lib/activity-logger';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -31,6 +32,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const body = await req.json();
     Object.assign(attSession, body);
     await attSession.save();
+
+    await logActivity({
+      userId: user._id.toString(),
+      userName: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Admin',
+      userEmail: user.email,
+      userRole: user.role,
+      action: 'UPDATE',
+      entityType: 'attendance_session',
+      entityId: id,
+      entityTitle: attSession.title || 'Attendance Session',
+      campusId: attSession.campusId,
+      details: { changedFields: Object.keys(body) },
+    });
 
     return NextResponse.json(attSession);
   } catch (error) {
@@ -64,6 +78,19 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     await AttendanceSession.findByIdAndDelete(id);
+
+    await logActivity({
+      userId: user._id.toString(),
+      userName: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Admin',
+      userEmail: user.email,
+      userRole: user.role,
+      action: 'DELETE',
+      entityType: 'attendance_session',
+      entityId: id,
+      entityTitle: attSession.title || 'Attendance Session',
+      campusId: attSession.campusId,
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting attendance session:', error);

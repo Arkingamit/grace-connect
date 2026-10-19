@@ -2,9 +2,10 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, Bell, Megaphone, User as UserIcon, Check, X, ShieldAlert, Users, CheckCircle, Link2, Music, Heart, Calendar } from 'lucide-react';
+import { ChevronLeft, Bell, Megaphone, User as UserIcon, Check, X, ShieldAlert, Users, CheckCircle, Link2, Music, Heart, Calendar, Image as ImageIcon, BookOpen, FileText, Radio } from 'lucide-react';
 import { useAdminData } from '@/lib/admin-data-context';
 import { useAuth } from '@/lib/auth-context';
+import { getNotificationDeepLink } from '@/lib/notification-links';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,7 +34,7 @@ function writeDismissedIds(ids: string[]) {
 }
 
 export default function NotificationsPage() {
-  const { announcements, campuses, groupScopes } = useAdminData();
+  const { announcements, campuses, groupScopes, getVisibleAnnouncements } = useAdminData();
   const { session } = useAuth();
 
   const [dbNotifications, setDbNotifications] = useState<any[]>([]);
@@ -44,6 +45,7 @@ export default function NotificationsPage() {
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [approveDialogUser, setApproveDialogUser] = useState<any | null>(null);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [localGroupScopes, setLocalGroupScopes] = useState<any[]>([]);
   const [approving, setApproving] = useState(false);
   const [rejectDialogUser, setRejectDialogUser] = useState<any | null>(null);
   const [rejecting, setRejecting] = useState(false);
@@ -71,8 +73,9 @@ export default function NotificationsPage() {
       setLoading(true);
       Promise.all([
         fetch('/api/admin/prayers').then(res => res.ok ? res.json() : []),
-        fetch('/api/admin/users').then(res => res.ok ? res.json() : [])
-      ]).then(([prayers, users]) => {
+        fetch('/api/admin/users').then(res => res.ok ? res.json() : []),
+        fetch('/api/admin/groups').then(res => res.ok ? res.json() : []),
+      ]).then(([prayers, users, groupsData]) => {
         if (Array.isArray(prayers)) {
           setPendingPrayers(prayers.filter(p => p.status === 'pending'));
         }
@@ -84,6 +87,14 @@ export default function NotificationsPage() {
           });
           setUsersById(byId);
           setPendingUsers(users.filter((u: any) => u.status === 'pending'));
+        }
+        if (Array.isArray(groupsData)) {
+          setLocalGroupScopes(groupsData.map((g: any) => ({
+            name: g.name,
+            scope: g.scope,
+            id: g.id || g._id,
+            coreGroupId: g.coreGroupId ? String(g.coreGroupId) : null,
+          })));
         }
       }).catch(err => console.error("Error fetching admin approvals:", err))
       .finally(() => setLoading(false));
@@ -233,9 +244,18 @@ export default function NotificationsPage() {
 
   const notifications = useMemo(() => {
     const items: any[] = [];
+    const userCreatedAt = session?.createdAt ? new Date(session.createdAt) : null;
+    const targetAnnouncements = getVisibleAnnouncements
+      ? getVisibleAnnouncements(session?.campusId || '', session?.groups || [], session?.role)
+      : announcements;
 
     // Map Announcements to Notifications
-    announcements.forEach((ann) => {
+    targetAnnouncements.forEach((ann) => {
+      // Don't show announcements created before the user registered
+      if (userCreatedAt && ann.createdAt && new Date(ann.createdAt) < userCreatedAt) {
+        return;
+      }
+
       // Check if announcement is expired
       if (ann.endDate) {
         let expirationDateObj;
@@ -258,6 +278,7 @@ export default function NotificationsPage() {
         icon: Megaphone,
         color: 'text-[#8B2323]',
         bgColor: 'bg-[#FBE8E8]',
+        link: `/announcements?id=${encodeURIComponent(ann.id)}`,
       });
     });
 
@@ -292,10 +313,90 @@ export default function NotificationsPage() {
       });
     });
 
-    // Map DB Notifications (worship videos, new prayers, system, etc.)
+    // Map DB Notifications (events, sermons, worship videos, prayers, gallery, etc.)
     dbNotifications.forEach((n: any) => {
       if (n.isRead) return;
-      if (n.type === 'new_worship_video') {
+      const deepLink = n.url || getNotificationDeepLink(n.type, n.sourceId);
+
+      if (n.type === 'new_event' || n.type === 'event_reminder') {
+        items.push({
+          id: n._id,
+          sourceId: n.sourceId,
+          type: 'event',
+          title: n.title || 'Church Event',
+          content: n.message || 'New event announcement',
+          date: new Date(n.createdAt || Date.now()),
+          icon: Calendar,
+          color: 'text-blue-600',
+          bgColor: 'bg-blue-50',
+          link: deepLink,
+        });
+      } else if (n.type === 'new_gallery') {
+        items.push({
+          id: n._id,
+          sourceId: n.sourceId,
+          type: 'gallery',
+          title: n.title || 'Gallery Update',
+          content: n.message || 'New photos/videos added to gallery.',
+          date: new Date(n.createdAt || Date.now()),
+          icon: ImageIcon,
+          color: 'text-sky-600',
+          bgColor: 'bg-sky-50',
+          link: deepLink,
+        });
+      } else if (n.type === 'new_sermon') {
+        items.push({
+          id: n._id,
+          sourceId: n.sourceId,
+          type: 'sermon',
+          title: n.title || 'New Sermon',
+          content: n.message || 'A new sermon is available to watch.',
+          date: new Date(n.createdAt || Date.now()),
+          icon: BookOpen,
+          color: 'text-indigo-600',
+          bgColor: 'bg-indigo-50',
+          link: deepLink,
+        });
+      } else if (n.type === 'new_note') {
+        items.push({
+          id: n._id,
+          sourceId: n.sourceId,
+          type: 'note',
+          title: n.title || 'New Note',
+          content: n.message || 'A new note has been published.',
+          date: new Date(n.createdAt || Date.now()),
+          icon: FileText,
+          color: 'text-amber-700',
+          bgColor: 'bg-amber-50',
+          link: deepLink,
+        });
+      } else if (n.type === 'live_now') {
+        items.push({
+          id: n._id,
+          sourceId: n.sourceId,
+          type: 'live',
+          title: n.title || "We're Live!",
+          content: n.message || 'The live stream has started.',
+          date: new Date(n.createdAt || Date.now()),
+          icon: Radio,
+          color: 'text-red-600',
+          bgColor: 'bg-red-50',
+          link: '/live',
+        });
+      } else if (n.type === 'attendance') {
+        items.push({
+          id: n._id,
+          sourceId: n.sourceId,
+          type: 'attendance',
+          title: n.title || 'Attendance Session',
+          content: n.message || 'Check-in is now open.',
+          date: new Date(n.createdAt || Date.now()),
+          icon: CheckCircle,
+          color: 'text-emerald-600',
+          bgColor: 'bg-emerald-50',
+          link: '/check-in',
+        });
+      } else if (n.type === 'new_worship_video') {
         items.push({
           id: n._id,
           sourceId: n.sourceId,
@@ -306,7 +407,7 @@ export default function NotificationsPage() {
           icon: Music,
           color: 'text-purple-600',
           bgColor: 'bg-purple-50',
-          link: '/music',
+          link: deepLink,
         });
       } else if (n.type === 'new_prayer') {
         items.push({
@@ -319,7 +420,7 @@ export default function NotificationsPage() {
           icon: Heart,
           color: 'text-rose-600',
           bgColor: 'bg-rose-50',
-          link: '/prayer-wall',
+          link: deepLink,
         });
       } else if (n.type !== 'new_announcement' && n.type !== 'recurring_announcement') {
         items.push({
@@ -332,7 +433,7 @@ export default function NotificationsPage() {
           icon: Bell,
           color: 'text-[#8B2323]',
           bgColor: 'bg-[#FBE8E8]',
-          link: n.url || '/',
+          link: deepLink,
         });
       }
     });
@@ -341,7 +442,19 @@ export default function NotificationsPage() {
     return items
       .filter(item => !dismissedIds.includes(item.id))
       .sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [announcements, pendingPrayers, pendingUsers, dismissedIds, usersById, dbNotifications]);
+  }, [
+    announcements,
+    pendingPrayers,
+    pendingUsers,
+    dismissedIds,
+    usersById,
+    dbNotifications,
+    session?.createdAt,
+    session?.campusId,
+    session?.groups,
+    session?.role,
+    getVisibleAnnouncements,
+  ]);
 
   const handleDismissOne = (id: string) => {
     persistDismissed([id]);
@@ -528,45 +641,99 @@ export default function NotificationsPage() {
                   <Users className="w-4 h-4 text-primary" /> Assign to Groups *
                 </Label>
                 <p className="text-xs text-muted-foreground">Select one or more groups for this member</p>
-                <div className="space-y-4">
-                  {groupScopes.filter(g => g.scope === 'global').length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Global Groups</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {groupScopes.filter(g => g.scope === 'global').map(g => (
-                          <label key={g.name} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                            <Checkbox
-                              checked={selectedGroups.includes(g.name)}
-                              onCheckedChange={() => toggleGroup(g.name)}
-                            />
-                            <span className="truncate">{g.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                {(() => {
+                  const allGroups = (groupScopes && groupScopes.length > 0) ? groupScopes : localGroupScopes;
 
-                  {groupScopes.filter(g => g.scope === approveDialogUser.campusId).length > 0 && (
-                    <div className="space-y-2 pt-2 border-t border-border/50">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Campus Groups</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {groupScopes.filter(g => g.scope === approveDialogUser.campusId).map(g => (
-                          <label key={g.name} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                            <Checkbox
-                              checked={selectedGroups.includes(g.name)}
-                              onCheckedChange={() => toggleGroup(g.name)}
-                            />
-                            <span className="truncate">{g.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  const targetCampusId = String(approveDialogUser?.campusId || '').toLowerCase().trim();
+                  const userCampus = campuses.find(c =>
+                    c.id === approveDialogUser?.campusId ||
+                    c._id === approveDialogUser?.campusId ||
+                    c.name?.toLowerCase().trim() === targetCampusId
+                  );
 
-                  {groupScopes.filter(g => g.scope === 'global' || g.scope === approveDialogUser.campusId).length === 0 && (
-                    <p className="text-xs text-muted-foreground italic">No groups available for this campus.</p>
-                  )}
-                </div>
+                  const isCampusMatch = (scope: string) => {
+                    if (!scope || scope === 'global') return false;
+                    const cleanScope = String(scope).toLowerCase().trim();
+                    if (cleanScope === targetCampusId) return true;
+                    if (userCampus) {
+                      if (userCampus.id && cleanScope === String(userCampus.id).toLowerCase().trim()) return true;
+                      if (userCampus._id && cleanScope === String(userCampus._id).toLowerCase().trim()) return true;
+                      if (userCampus.name && cleanScope === String(userCampus.name).toLowerCase().trim()) return true;
+
+                      // Root word match: e.g. "grace north" and "North Campus" both share "north"
+                      const normUserCampus = userCampus.name.toLowerCase().replace(/grace|campus/g, '').trim();
+                      const matchedScopeCampus = campuses.find(c => c.id === scope || c._id === scope);
+                      const normScopeCampus = (matchedScopeCampus?.name || scope).toLowerCase().replace(/grace|campus/g, '').trim();
+                      if (normUserCampus && normScopeCampus && (normUserCampus === normScopeCampus || normUserCampus.includes(normScopeCampus) || normScopeCampus.includes(normUserCampus))) {
+                        return true;
+                      }
+                    }
+                    return false;
+                  };
+
+                  const globalGroups = allGroups.filter(g => g.scope === 'global');
+                  const campusGroups = allGroups.filter(g => isCampusMatch(g.scope));
+                  const otherGroups = allGroups.filter(g => g.scope !== 'global' && !isCampusMatch(g.scope));
+
+                  return (
+                    <div className="space-y-4">
+                      {globalGroups.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Global Groups</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {globalGroups.map(g => (
+                              <label key={g.name} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                                <Checkbox
+                                  checked={selectedGroups.includes(g.name)}
+                                  onCheckedChange={() => toggleGroup(g.name)}
+                                />
+                                <span className="truncate">{g.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {campusGroups.length > 0 && (
+                        <div className="space-y-2 pt-2 border-t border-border/50">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Campus Groups</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {campusGroups.map(g => (
+                              <label key={g.name} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                                <Checkbox
+                                  checked={selectedGroups.includes(g.name)}
+                                  onCheckedChange={() => toggleGroup(g.name)}
+                                />
+                                <span className="truncate">{g.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {campusGroups.length === 0 && otherGroups.length > 0 && (
+                        <div className="space-y-2 pt-2 border-t border-border/50">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Other Available Groups</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {otherGroups.map(g => (
+                              <label key={g.name} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                                <Checkbox
+                                  checked={selectedGroups.includes(g.name)}
+                                  onCheckedChange={() => toggleGroup(g.name)}
+                                />
+                                <span className="truncate">{g.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {globalGroups.length === 0 && campusGroups.length === 0 && otherGroups.length === 0 && (
+                        <p className="text-xs text-muted-foreground italic">No groups available. Please create a group in Settings first.</p>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

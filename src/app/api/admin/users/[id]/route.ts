@@ -6,6 +6,7 @@ import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
 import bcrypt from 'bcryptjs';
 import { isFutureBirthday } from '@/lib/date-utils';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -116,7 +117,29 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Birthday cannot be in the future' }, { status: 400 });
     }
 
+    let logAction: 'APPROVE' | 'REJECT' | 'ROLE_CHANGE' | 'UPDATE' = 'UPDATE';
+    if (body.status === 'approved' && targetUser.status !== 'approved') {
+      logAction = 'APPROVE';
+    } else if (body.status === 'rejected' && targetUser.status !== 'rejected') {
+      logAction = 'REJECT';
+    } else if (body.role && body.role !== targetUser.role) {
+      logAction = 'ROLE_CHANGE';
+    }
+
     const user = await User.findByIdAndUpdate(id, body, { new: true, select: '-password' });
+
+    await logActivityFromAdmin(admin, {
+      action: logAction,
+      entityType: 'user',
+      entityId: id,
+      entityTitle: user?.name || targetUser.name || `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim() || targetUser.email || 'Member',
+      details: {
+        previousRole: targetUser.role,
+        newRole: user?.role,
+        status: user?.status,
+        campusId: user?.campusId,
+      },
+    });
 
     return NextResponse.json(user);
   } catch (error: any) {
@@ -150,6 +173,15 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     await User.findByIdAndDelete(id);
+
+    await logActivityFromAdmin(admin, {
+      action: 'DELETE',
+      entityType: 'user',
+      entityId: id,
+      entityTitle: targetUser.name || `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim() || targetUser.email || 'Member',
+      details: { role: targetUser.role, email: targetUser.email },
+    });
+
     return NextResponse.json({ message: 'User deleted successfully' });
   } catch (error: any) {
     return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });

@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/db';
 import Broadcast from '@/models/Broadcast';
 import { apiSuccess, apiError, withErrorHandler } from '@/lib/api-helpers';
 import { notifyMembers, wantsMemberNotification } from '@/lib/notify-members';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
 
 export async function GET() {
   return withErrorHandler(async () => {
@@ -76,6 +77,18 @@ export async function POST(req: Request) {
         targetGroups: broadcast.targetGroups || [],
       });
     }
+
+    await logActivityFromAdmin(admin, {
+      action: 'PUBLISH',
+      entityType: 'note',
+      entityId: broadcast._id.toString(),
+      entityTitle: broadcast.title || 'Untitled Note',
+      details: {
+        hasMaterialLinks: (broadcast.materialLinks || []).length > 0,
+        targetCampuses: broadcast.targetCampuses,
+        targetGroups: broadcast.targetGroups,
+      },
+    });
 
     return apiSuccess(broadcast, 201);
   });

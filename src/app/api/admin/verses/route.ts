@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/api-auth';
 import connectToDatabase from '@/lib/db';
 import { DailyVerse } from '@/models/DailyVerse';
 import { serverCache } from '@/lib/cache';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -43,6 +44,13 @@ export async function POST(req: Request) {
     
     // Invalidate the daily verse cache so updates reflect immediately
     serverCache.invalidate('daily-verse');
+
+    await logActivityFromAdmin(admin, {
+      action: 'UPDATE',
+      entityType: 'verse',
+      entityTitle: `${newVerses.length} Daily Verses`,
+      details: { count: newVerses.length },
+    });
     
     return NextResponse.json({ success: true, count: newVerses.length });
   } catch (error) {
@@ -61,6 +69,12 @@ export async function DELETE() {
     
     // Invalidate the daily verse cache
     serverCache.invalidate('daily-verse');
+
+    await logActivityFromAdmin(admin, {
+      action: 'DELETE',
+      entityType: 'verse',
+      entityTitle: 'All Daily Verses',
+    });
     
     return NextResponse.json({ success: true });
   } catch (error) {

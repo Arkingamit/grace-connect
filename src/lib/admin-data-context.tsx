@@ -68,6 +68,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   campus_leader: 'Campus Pastor',
   admin: 'Admin',
   super_admin: 'IT Team',
+  it_team: 'IT Team',
 };
 
 /** Core Team Leader = group_leader with campusId === 'global' (cross-campus for their groups) */
@@ -90,7 +91,7 @@ export function getRoleLabel(role: UserRole, campusId?: string): string {
   if (role === 'group_leader') {
     return isCoreTeamLeader(role, campusId) ? 'Core Team Leader' : 'FASL Leader';
   }
-  return ROLE_LABELS[role];
+  return ROLE_LABELS[role] || 'Member';
 }
 
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
@@ -99,6 +100,7 @@ export const ROLE_HIERARCHY: Record<UserRole, number> = {
   campus_leader: 2,
   admin: 3,
   super_admin: 4,
+  it_team: 4,
 };
 
 export function hasPermission(user: UserProfile, module: string): boolean {
@@ -322,7 +324,7 @@ interface AdminDataContextType {
   updateFlipCardConfig: (config: FlipCardConfig) => void;
 
   // Prayer Requests
-  approvePrayerRequest: (id: string, options?: { sendNotification?: boolean }) => void;
+  approvePrayerRequest: (id: string, options?: { sendNotification?: boolean; targetGroups?: string[]; targetCampuses?: string[] }) => void;
   deletePrayerRequest: (id: string) => void;
   getPendingPrayerRequests: (campusId?: string) => PrayerRequest[];
 
@@ -359,7 +361,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
   const { systemSettings, setSystemSettings, flipCardConfig, updateFlipCardConfig } = useSystem();
 
   const pathname = usePathname();
-  const isAdminRoute = pathname?.startsWith('/admin');
+  const isAdminRoute = pathname?.startsWith('/admin') || pathname?.startsWith('/notifications');
 
   const refreshPublicData = useCallback(async () => {
     const fetchJson = async (url: string) => {
@@ -525,7 +527,10 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
 
   const setCurrentUser = useCallback((u: UserProfile) => setCurrentUserState(u), []);
 
-  const approvePrayerRequest = useCallback((id: string, options?: { sendNotification?: boolean }) => updatePrayerStatus(id, 'approved', options), [updatePrayerStatus]);
+  const approvePrayerRequest = useCallback((
+    id: string,
+    options?: { sendNotification?: boolean; targetGroups?: string[]; targetCampuses?: string[] }
+  ) => updatePrayerStatus(id, 'approved', options), [updatePrayerStatus]);
 
   const getPendingPrayerRequests = useCallback((campusId?: string) => {
     return prayerRequests.filter(p => p.status === 'pending' && (!campusId || campusId === 'all' || p.campusId === campusId));

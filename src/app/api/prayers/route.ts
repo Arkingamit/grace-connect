@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import PrayerRequest from '@/models/PrayerRequest';
 import User from '@/models/User';
+import Campus from '@/models/Campus';
 import { verifySession } from '@/lib/auth-utils';
 import { prayerRequestSchema } from '@/lib/validations';
 import { FIELD_LIMITS, PRAYER_FIELD_LIMITS } from '@/lib/field-limits';
@@ -11,16 +12,26 @@ export async function GET(req: Request) {
     await connectToDatabase();
     const session = await verifySession();
 
-    // Derive allowed privacy levels from the JWT role — no DB query needed
+    // Derive allowed privacy levels from the JWT role
     const allowedPrivacy: Array<'public' | 'members' | 'staff'> = ['public'];
+    let userRole: string | undefined = undefined;
+    let userGroups: string[] = [];
+    let isStaff = false;
 
-    if (session.isAuth) {
-      const role = session.role;
-      if (role === 'member' || role === 'group_leader' || role === 'campus_leader' || role === 'admin' || role === 'super_admin') {
+    if (session.isAuth && session.userId) {
+      userRole = session.role;
+      if (userRole === 'member' || userRole === 'group_leader' || userRole === 'campus_leader' || userRole === 'admin' || userRole === 'super_admin') {
         allowedPrivacy.push('members');
       }
-      if (role === 'campus_leader' || role === 'admin' || role === 'super_admin') {
+      if (userRole === 'campus_leader' || userRole === 'admin' || userRole === 'super_admin') {
         allowedPrivacy.push('staff');
+        isStaff = true;
+      }
+
+      // Fetch user groups for group-scoped prayers
+      const userDoc = await User.findById(session.userId, { groups: 1, role: 1 }).lean();
+      if (userDoc) {
+        userGroups = (userDoc as any).groups || [];
       }
     }
 
@@ -31,10 +42,36 @@ export async function GET(req: Request) {
       .sort({ createdAt: -1 })
       .lean();
 
-    const mappedPrayers = prayers.map((p: any) => ({
-      ...p,
-      id: p._id.toString()
-    }));
+    // Filter by target groups (unless staff or open to all)
+    const filteredPrayers = prayers.filter((p: any) => {
+      if (isStaff) return true;
+      const targetGrps = Array.isArray(p.targetGroups) ? p.targetGroups : [];
+      if (targetGrps.length === 0 || targetGrps.includes('all')) return true;
+      if (!session.isAuth) return false;
+      return targetGrps.some((g: string) => userGroups.includes(g));
+    });
+
+    const mappedPrayers = filteredPrayers.map((p: any) => {
+      const isAnon = !!p.isAnonymous;
+      const mapped: any = {
+        ...p,
+        id: p._id.toString(),
+        authorName: isAnon ? 'Anonymous' : (p.authorName || 'Anonymous'),
+        isAnonymous: isAnon,
+        targetGroups: Array.isArray(p.targetGroups) ? p.targetGroups : [],
+        isBroadcast: !!p.isBroadcast,
+      };
+
+      // Strict privacy sanitization: public members NEVER see submitter identity
+      delete mapped.submitterName;
+      delete mapped.submitterEmail;
+      delete mapped.submitterPhone;
+      if (isAnon) {
+        delete mapped.authorId;
+      }
+
+      return mapped;
+    });
 
     return NextResponse.json(mappedPrayers);
   } catch (error) {
@@ -60,27 +97,79 @@ export async function POST(req: Request) {
     const data = parseResult.data;
     const session = await verifySession();
 
-    let authorName = data.isAnonymous ? 'Anonymous' : (data.authorName || 'Anonymous');
-    let authorId = undefined;
+    let authorName = 'Anonymous';
+    let authorId: string | undefined = undefined;
+    let submitterName: string | undefined = undefined;
+    let submitterEmail: string | undefined = undefined;
+    let submitterPhone: string | undefined = undefined;
     let campusId = data.campusId || 'global';
+    let targetGroups: string[] = [];
 
-    // Only query DB if we need the user's campusId (anonymous posts can skip)
-    if (session.isAuth && session.userId && !data.isAnonymous) {
-      const user = await User.findById(session.userId, { firstName: 1, lastName: 1, campusId: 1 }).lean();
+    if (session.isAuth && session.userId) {
+      const user = await User.findById(session.userId, {
+        firstName: 1,
+        lastName: 1,
+        name: 1,
+        email: 1,
+        phone: 1,
+        campusId: 1,
+        groups: 1,
+      }).lean();
+
       if (user) {
-        if (!data.authorName) {
-          authorName = `${(user as any).firstName} ${(user as any).lastName}`;
+        authorId = session.userId;
+        campusId = (user as any).campusId || campusId;
+        const realName = (user as any).name || `${(user as any).firstName || ''} ${(user as any).lastName || ''}`.trim() || (user as any).email;
+        submitterName = realName;
+        submitterEmail = (user as any).email;
+        submitterPhone = (user as any).phone;
+
+        if (data.isAnonymous) {
+          authorName = 'Anonymous';
+        } else {
+          authorName = data.authorName || realName || 'Anonymous';
         }
-        authorId = session.userId;
-        campusId = (user as any).campusId;
+
+        // Validate user requested groups against their assigned groups
+        const userGroups: string[] = (user as any).groups || [];
+        if (Array.isArray(data.targetGroups)) {
+          targetGroups = data.targetGroups.filter((g: string) => userGroups.includes(g));
+        }
       }
-    } else if (session.isAuth && session.userId && data.isAnonymous) {
-      // Still need campusId for anonymous posts — use lean minimal query
-      const user = await User.findById(session.userId, { campusId: 1 }).lean();
-      if (user) {
-        authorId = session.userId;
-        campusId = (user as any).campusId;
+    } else {
+      // Guest submission
+      submitterName = data.submitterName || (data.isAnonymous ? 'Guest Submitter' : (data.authorName || 'Guest'));
+      submitterEmail = data.submitterEmail;
+      submitterPhone = data.submitterPhone;
+      authorName = data.isAnonymous ? 'Anonymous' : (data.authorName || 'Anonymous');
+    }
+
+    let broadcastScope = data.broadcastScope || (targetGroups.length > 0 ? 'group' : 'campus');
+    let targetCampuses: string[] = Array.isArray(data.targetCampuses) ? data.targetCampuses : [];
+
+    // Verify campus leader broadcast permission
+    if (campusId && campusId !== 'global') {
+      try {
+        const campusDoc = await Campus.findById(campusId, { prayerBroadcastLevel: 1 }).lean();
+        const allowedLevel = (campusDoc as any)?.prayerBroadcastLevel || 'all_campuses';
+        if (allowedLevel === 'group_only') {
+          broadcastScope = 'group';
+        } else if (allowedLevel === 'campus_only' && broadcastScope === 'all_campuses') {
+          broadcastScope = 'campus';
+        }
+      } catch (err) {
+        console.warn('Could not check campus broadcast level:', err);
       }
+    }
+
+    if (broadcastScope === 'all_campuses') {
+      targetCampuses = ['all'];
+      targetGroups = [];
+    } else if (broadcastScope === 'campus') {
+      targetCampuses = [campusId];
+      targetGroups = [];
+    } else if (broadcastScope === 'group') {
+      targetCampuses = [campusId];
     }
 
     const prayer = await PrayerRequest.create({
@@ -91,7 +180,14 @@ export async function POST(req: Request) {
       category: data.category || 'General',
       authorName: String(authorName).slice(0, FIELD_LIMITS.name),
       authorId,
+      submitterName,
+      submitterEmail,
+      submitterPhone,
       campusId,
+      targetCampuses,
+      targetGroups,
+      broadcastScope,
+      isBroadcast: targetGroups.length > 0 || broadcastScope === 'all_campuses',
       status: 'pending',
     });
 

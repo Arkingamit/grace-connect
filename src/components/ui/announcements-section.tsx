@@ -1,20 +1,33 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAdminData } from '@/lib/admin-data-context';
 import { useAuth } from '@/lib/auth-context';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Calendar, Pin, Building2, Users, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
-import { formatDDMMYYYY, formatDateMonthTime } from '@/lib/date-utils';
+import { formatDateMonthTime } from '@/lib/date-utils';
 
 export const AnnouncementsSection = ({ preview = false }: { preview?: boolean }) => {
+  return (
+    <React.Suspense fallback={null}>
+      <AnnouncementsSectionInner preview={preview} />
+    </React.Suspense>
+  );
+};
+
+function AnnouncementsSectionInner({ preview = false }: { preview?: boolean }) {
   const { announcements, campuses, groups, getVisibleAnnouncements } = useAdminData();
   const { getSessionMember, getEffectiveGroups } = useAuth();
+  const searchParams = useSearchParams();
+  const deepId = searchParams?.get('id') || searchParams?.get('announcement');
   
   const [selectedCampus] = useState('all');
   const [selectedGroup] = useState('all');
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const scrolledRef = useRef(false);
 
   const toggleExpand = (id: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -36,7 +49,54 @@ export const AnnouncementsSection = ({ preview = false }: { preview?: boolean })
 
   const campusForFilter = selectedCampus === 'all' ? 'all' : selectedCampus;
 
-  const visibleAnnouncements = getVisibleAnnouncements(campusForFilter, userGroups as string[]);
+  const baseVisible = getVisibleAnnouncements(campusForFilter, userGroups as string[]);
+
+  // If a deep link ID was requested, ensure that announcement is in visible list even if campus/group filtered
+  const visibleAnnouncements = useMemo(() => {
+    if (!deepId) return baseVisible;
+    const cleanId = String(deepId).trim();
+    const alreadyIncluded = baseVisible.some((a) => a.id === cleanId || (a as any)._id === cleanId);
+    if (alreadyIncluded) return baseVisible;
+
+    const matched = announcements.find((a) => a.id === cleanId || (a as any)._id === cleanId);
+    if (matched) {
+      return [matched, ...baseVisible];
+    }
+    return baseVisible;
+  }, [baseVisible, deepId, announcements]);
+
+  // Deep linking: auto-expand and scroll to targeted announcement
+  useEffect(() => {
+    if (!deepId) return;
+    const cleanId = String(deepId).trim();
+    const match = announcements.find((a) => a.id === cleanId || (a as any)._id === cleanId);
+    const targetId = match ? match.id : cleanId;
+
+    // Expand the card
+    setExpandedCards((prev) => ({ ...prev, [targetId]: true }));
+    setHighlightedId(targetId);
+
+    // Scroll to element once it is mounted
+    if (!scrolledRef.current) {
+      scrolledRef.current = true;
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`announcement-${targetId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 150);
+
+      // Fade out highlight after 4 seconds
+      const fadeTimer = setTimeout(() => {
+        setHighlightedId(null);
+      }, 4000);
+
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(fadeTimer);
+      };
+    }
+  }, [deepId, announcements]);
 
   return (
     <section id="announcements" className={preview ? "w-full" : "py-6 sm:py-12"}>
@@ -52,6 +112,7 @@ export const AnnouncementsSection = ({ preview = false }: { preview?: boolean })
             )}
             {(preview ? visibleAnnouncements.slice(0, 3) : visibleAnnouncements).map((announcement) => {
               const isExpanded = !!expandedCards[announcement.id];
+              const isHighlighted = highlightedId === announcement.id || highlightedId === (announcement as any)._id;
               const isLongContent = Boolean(
                 announcement.content && (announcement.content.length > 80 || announcement.content.includes('\n'))
               );
@@ -59,7 +120,12 @@ export const AnnouncementsSection = ({ preview = false }: { preview?: boolean })
               return (
                 <div
                   key={announcement.id}
-                  className="group relative rounded-2xl border border-[#E5D5C5]/70 bg-white/90 backdrop-blur-sm p-3.5 sm:p-4 shadow-sm hover:shadow-md hover:border-[#8B2323]/40 transition-all"
+                  id={`announcement-${announcement.id}`}
+                  className={`group relative rounded-2xl border p-3.5 sm:p-4 backdrop-blur-sm transition-all duration-500 ${
+                    isHighlighted
+                      ? 'border-[#8B2323] ring-2 ring-[#8B2323]/50 shadow-lg bg-[#FFF9F9]'
+                      : 'border-[#E5D5C5]/70 bg-white/90 shadow-sm hover:shadow-md hover:border-[#8B2323]/40'
+                  }`}
                 >
                   {/* Header Row: Pinned & Badges + Date */}
                   <div className="flex items-center justify-between gap-2 mb-2">
@@ -146,4 +212,4 @@ export const AnnouncementsSection = ({ preview = false }: { preview?: boolean })
       </div>
     </section>
   );
-};
+}

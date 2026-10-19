@@ -3,6 +3,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 import connectToDatabase from '@/lib/db';
 import PushSubscriptionModel from '@/models/PushSubscription';
+import { getNotificationDeepLink } from '@/lib/notification-links';
 
 // Configure VAPID once at module level
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
@@ -31,12 +32,13 @@ if (FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY && getA
   });
 }
 
-interface PushPayload {
+export interface PushPayload {
   title: string;
   body: string;
   type?: string;
   url?: string;
   tag?: string;
+  sourceId?: string;
 }
 
 /**
@@ -78,7 +80,9 @@ export async function sendPushToTargeted(
 
     if (subscriptions.length === 0) return;
 
-    const payloadStr = JSON.stringify(payload);
+    const finalUrl = payload.url || (payload.type ? getNotificationDeepLink(payload.type, payload.sourceId) : '');
+    const resolvedPayload = { ...payload, url: finalUrl };
+    const payloadStr = JSON.stringify(resolvedPayload);
     const expiredWebEndpoints: string[] = [];
     const expiredFcmTokens: string[] = [];
 
@@ -133,8 +137,9 @@ export async function sendPushToTargeted(
               },
               data: {
                 type: payload.type || 'system',
-                url: payload.url || '',
+                url: finalUrl,
                 tag: payload.tag || '',
+                sourceId: payload.sourceId || '',
               },
             });
           }
@@ -200,7 +205,9 @@ export async function sendPushToUsers(
 
     if (subscriptions.length === 0) return;
 
-    const payloadStr = JSON.stringify(payload);
+    const finalUrl = payload.url || (payload.type ? getNotificationDeepLink(payload.type, payload.sourceId) : '');
+    const resolvedPayload = { ...payload, url: finalUrl };
+    const payloadStr = JSON.stringify(resolvedPayload);
     const expiredWebEndpoints: string[] = [];
     const expiredFcmTokens: string[] = [];
 
@@ -252,8 +259,9 @@ export async function sendPushToUsers(
               },
               data: {
                 type: payload.type || 'system',
-                url: payload.url || '',
+                url: finalUrl,
                 tag: payload.tag || '',
+                sourceId: payload.sourceId || '',
               },
             });
           }

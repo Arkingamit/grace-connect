@@ -6,6 +6,7 @@ import Notification from '@/models/Notification';
 import { verifySession } from '@/lib/auth-utils';
 import { enforceCampusScope, enforceGroupScope } from '@/lib/api-auth';
 import { sendPushToTargeted } from '@/lib/push-utils';
+import { logActivity } from '@/lib/activity-logger';
 
 function deriveCampusId(targetCampuses: string[]): string {
   if (!targetCampuses?.length || targetCampuses.includes('all')) return 'all';
@@ -101,6 +102,7 @@ export async function POST(req: Request) {
         message: `Check in opens ${newSession.date} · ${newSession.startTime}–${newSession.endTime}`,
         type: 'attendance',
         sourceId: newSession._id.toString(),
+        url: '/check-in',
         targetCampuses,
         targetGroups,
       });
@@ -110,11 +112,31 @@ export async function POST(req: Request) {
           title: `Attendance Session: ${newSession.title}`,
           body: `Check in opens ${newSession.date} · ${newSession.startTime}–${newSession.endTime}`,
           type: 'attendance',
+          sourceId: newSession._id.toString(),
+          url: '/check-in',
         },
         targetCampuses,
         targetGroups
       );
     }
+
+    await logActivity({
+      userId: user._id.toString(),
+      userName: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Admin',
+      userEmail: user.email,
+      userRole: user.role,
+      action: 'CREATE',
+      entityType: 'attendance_session',
+      entityId: newSession._id.toString(),
+      entityTitle: newSession.title || 'Attendance Session',
+      campusId: newSession.campusId,
+      details: {
+        date: newSession.date,
+        startTime: newSession.startTime,
+        endTime: newSession.endTime,
+        targetCampuses: newSession.targetCampuses,
+      },
+    });
 
     return NextResponse.json(newSession, { status: 201 });
   } catch (error) {

@@ -1,4 +1,4 @@
-export type UserRole = 'member' | 'group_leader' | 'campus_leader' | 'admin' | 'super_admin';
+export type UserRole = 'member' | 'group_leader' | 'campus_leader' | 'admin' | 'super_admin' | 'it_team';
 export type MemberStatus = 'pending' | 'approved' | 'rejected';
 
 // Group scope: 'global' means visible everywhere; a campusId means campus-specific
@@ -23,6 +23,7 @@ export interface Campus {
   serviceTimes?: { day: string; times: string[] }[];
   latitude?: number;
   longitude?: number;
+  prayerBroadcastLevel?: 'all_campuses' | 'campus_only' | 'group_only';
 }
 
 export type FormFieldType = 'text' | 'textarea' | 'radio' | 'checkbox' | 'select' | 'date' | 'number' | 'email' | 'phone' | 'time' | 'linear_scale';
@@ -285,6 +286,9 @@ export interface PrayerRequest {
   title: string;
   content: string;
   authorName: string;
+  submitterName?: string;
+  submitterEmail?: string;
+  submitterPhone?: string;
   campusId: string;
   isAnonymous: boolean;
   privacy: 'public' | 'members' | 'staff';
@@ -292,6 +296,9 @@ export interface PrayerRequest {
   prayedCount: number;
   comments: number;
   status: 'pending' | 'approved' | 'rejected';
+  targetCampuses?: string[];
+  targetGroups?: string[];
+  isBroadcast?: boolean;
   createdAt: string;
 }
 
@@ -397,4 +404,7 @@ export interface AuthSession {
   role: string;
   permissions?: string[];
   avatar?: string;
+  campusId?: string;
+  groups?: string[];
+  createdAt?: string;
 }

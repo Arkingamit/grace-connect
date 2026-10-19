@@ -3,6 +3,7 @@ import { requireAdminWithScope } from '@/lib/api-auth';
 import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
 import bcrypt from 'bcryptjs';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -134,6 +135,19 @@ export async function POST(req: Request) {
     // Don't return password
     const userObj = user.toObject();
     delete userObj.password;
+
+    await logActivityFromAdmin(admin, {
+      action: 'CREATE',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      entityTitle: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Member',
+      details: {
+        role: user.role,
+        campusId: user.campusId,
+        groups: user.groups,
+        email: user.email,
+      },
+    });
 
     return NextResponse.json(userObj, { status: 201 });
   } catch (error: any) {

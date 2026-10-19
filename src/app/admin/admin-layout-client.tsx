@@ -44,6 +44,7 @@ import {
   Gift,
   Radio,
   Images,
+  ScrollText,
 } from 'lucide-react';
 
 const roleIcons: Record<UserRole, React.ElementType> = {
@@ -52,6 +53,7 @@ const roleIcons: Record<UserRole, React.ElementType> = {
   campus_leader: Shield,
   admin: ShieldCheck,
   super_admin: Crown,
+  it_team: Crown,
 };
 
 const roleColors: Record<UserRole, string> = {
@@ -60,6 +62,7 @@ const roleColors: Record<UserRole, string> = {
   campus_leader: 'text-blue-500 border-blue-500/30',
   admin: 'text-amber-500 border-amber-500/30',
   super_admin: 'text-purple-500 border-purple-500/30',
+  it_team: 'text-purple-500 border-purple-500/30',
 };
 
 export default function AdminLayoutClient({ children }: { children: React.ReactNode }) {
@@ -141,6 +144,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
     { label: 'ePass Scanner', href: '/admin/scanner', icon: Camera, minRole: 'group_leader' as UserRole, module: 'attendance' },
     { label: 'QR Codes', href: '/admin/qr-codes', icon: QrCode, minRole: 'campus_leader' as UserRole },
     { label: 'Members', href: '/admin/users', icon: Users, minRole: 'group_leader' as UserRole, module: 'members' },
+    { label: 'Activity Logs', href: '/admin/logs', icon: ScrollText, minRole: 'admin' as UserRole, module: 'logs' },
     { label: 'Settings', href: '/admin/settings', icon: Settings, minRole: 'campus_leader' as UserRole },
   ];
 

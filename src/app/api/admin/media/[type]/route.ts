@@ -9,6 +9,8 @@ import { lockLiveFrequency } from '@/lib/live-auto-checkers';
 import { isPublicSermon } from '@/lib/highlight-utils';
 import { applySeriesGuestVisibility, inheritSeriesGuestVisibility } from '@/lib/sermon-visibility';
 import { extractYoutubeVideoId, youtubeThumbnailUrl } from '@/lib/youtube';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
+import { ActivityEntityType } from '@/models/ActivityLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -161,6 +163,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
 
     // Invalidate media cache for this type
     serverCache.invalidate(`media:${type}`);
+
+    const entityTypeMap: Record<string, ActivityEntityType> = {
+      sermons: 'sermon',
+      'sermon-series': 'sermon',
+      'worship-videos': 'worship_video',
+      gallery: 'gallery',
+      livestreams: 'sermon',
+    };
+
+    await logActivityFromAdmin(admin, {
+      action: 'PUBLISH',
+      entityType: entityTypeMap[type] || 'other',
+      entityId: item._id.toString(),
+      entityTitle: item.title || `${type} item`,
+      details: {
+        mediaType: type,
+        category: item.category,
+        pastor: item.pastor,
+        targetCampuses: item.targetCampuses,
+      },
+    });
 
     return NextResponse.json(item, { status: 201 });
   } catch (error) {

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -194,6 +194,16 @@ function GalleryWidgetLayout() {
     setSelectedAlbum(null);
     setPreviewPhotos([]);
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && selectedAlbum) {
+        closePreview();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedAlbum]);
 
   // Group albums into rows of 3 to match previous layout
   const allAlbumRows = useMemo(() => {
@@ -433,13 +443,30 @@ function GalleryWidgetLayout() {
 
       {/* Preview Modal (Popup) */}
       {selectedAlbum && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-xl z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-state="open"
+          className="fixed inset-0 bg-background/80 backdrop-blur-xl z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300"
+        >
           <Card className="relative max-w-5xl w-full glass-card border-0 overflow-hidden shadow-2xl p-1">
             <div className="bg-background/40 p-8 rounded-[1.5rem] space-y-8">
               {/* Modal Header */}
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Back"
+                      data-dialog-close=""
+                      className="rounded-full hover:bg-stone-200/50 flex items-center gap-1 text-stone-700 font-semibold h-7 px-2.5 mr-1"
+                      onClick={closePreview}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>Back</span>
+                    </Button>
                     {selectedAlbum.category && selectedAlbum.category.toLowerCase() !== 'general' && (
                       <Badge variant="glass" className="text-primary">{selectedAlbum.category}</Badge>
                     )}
@@ -469,7 +496,9 @@ function GalleryWidgetLayout() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-full hover:bg-white/10"
+                  aria-label="Close"
+                  data-dialog-close=""
+                  className="rounded-full hover:bg-white/10 shrink-0"
                   onClick={closePreview}
                 >
                   <X className="w-6 h-6" />
@@ -576,10 +605,11 @@ function GalleryWidgetLayout() {
 
 
 function GalleryPageLayout() {
+  const router = useRouter();
   const { session, getSessionMember, getEffectiveGroups } = useAuth();
   const { getVisibleGalleryAlbums, addGalleryAlbum } = useAdminData();
   const searchParams = useSearchParams();
-  const albumParam = searchParams?.get('album');
+  const albumParam = searchParams?.get('album') || searchParams?.get('id');
 
   const member = getSessionMember();
   const effectiveGroups = member ? getEffectiveGroups(member) : [];
@@ -600,6 +630,21 @@ function GalleryPageLayout() {
   // Album dialog details state
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [selectedAlbum, setSelectedAlbum] = useState<any>(null);
+
+  const handleClosePreview = () => {
+    setIsPreviewOpen(false);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('album')) {
+        url.searchParams.delete('album');
+        const nextUrl = url.pathname + (url.search ? url.search : '');
+        router.replace(nextUrl, { scroll: false });
+      }
+    }
+    setTimeout(() => {
+      setSelectedAlbum(null);
+    }, 250);
+  };
 
   // Upload video state
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -664,8 +709,24 @@ function GalleryPageLayout() {
         setSelectedAlbum(match);
         setIsPreviewOpen(true);
       }
+    } else if (!albumParam && isPreviewOpen) {
+      setIsPreviewOpen(false);
+      setSelectedAlbum(null);
     }
   }, [albumParam, galleryAlbums]);
+
+  // Handle browser popstate
+  useEffect(() => {
+    const handlePopState = () => {
+      const currentParam = new URLSearchParams(window.location.search).get('album');
+      if (!currentParam && isPreviewOpen) {
+        setIsPreviewOpen(false);
+        setSelectedAlbum(null);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isPreviewOpen]);
 
   // Fetch album covers
   useEffect(() => {
@@ -844,19 +905,28 @@ function GalleryPageLayout() {
   const fetchAlbumPreview = async (album: any) => {
     setSelectedAlbum(album);
     setIsPreviewOpen(true);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      const albumId = album.id || album._id;
+      if (albumId && url.searchParams.get('album') !== albumId) {
+        url.searchParams.set('album', albumId);
+        window.history.replaceState(null, '', url.toString());
+      }
+    }
   };
 
   const handleShareAlbum = async () => {
     if (!selectedAlbum) return;
+    const albumId = selectedAlbum.id || selectedAlbum._id;
     try {
       await navigator.share({
         title: selectedAlbum.title,
         text: selectedAlbum.description,
-        url: window.location.origin + `/gallery?album=${selectedAlbum.id}`,
+        url: window.location.origin + `/gallery?album=${albumId}`,
       });
     } catch (err) {
       // Fallback: Copy to clipboard
-      navigator.clipboard.writeText(window.location.origin + `/gallery?album=${selectedAlbum.id}`);
+      navigator.clipboard.writeText(window.location.origin + `/gallery?album=${albumId}`);
       alert("Album link copied to clipboard!");
     }
   };
@@ -1163,13 +1233,36 @@ function GalleryPageLayout() {
       </section>
 
       {/* Album Preview dialog with grid of photos */}
-      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+      <Dialog
+        open={isPreviewOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleClosePreview();
+          } else {
+            setIsPreviewOpen(true);
+          }
+        }}
+      >
         <DialogContent className="max-w-lg p-0 overflow-hidden bg-background border-primary/10 rounded-3xl">
+          {/* Top-left Back button for intuitive navigation */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleClosePreview}
+            className="absolute left-3 top-3 z-20 flex items-center gap-1.5 h-8 px-2.5 rounded-full text-stone-600 hover:text-stone-900 hover:bg-stone-100/80 text-xs font-semibold cursor-pointer"
+            aria-label="Back"
+            data-dialog-close=""
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Back</span>
+          </Button>
+
           {/* Header */}
-          <DialogHeader className="p-6 sm:p-8">
+          <DialogHeader className="p-6 sm:p-8 pt-12 sm:pt-12">
             <div className="flex flex-col gap-5">
               <div className="space-y-2 text-center flex flex-col items-center px-4">
-                <div className="flex items-center justify-center gap-2 mb-1 flex-wrap">
+                <div className="flex items-center justify-center gap-2 mb-1 flex-wrap pt-2">
                   {selectedAlbum?.category && selectedAlbum.category.toLowerCase() !== 'general' && (
                     <Badge variant="glass" className="bg-primary/10 text-primary border-0 w-max">{selectedAlbum?.category}</Badge>
                   )}

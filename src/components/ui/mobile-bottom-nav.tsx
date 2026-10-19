@@ -90,11 +90,15 @@ function isIgnoredSwipeTarget(target: EventTarget | null) {
 }
 
 function tabMetrics(el: HTMLElement) {
+  const height = Math.max(0, el.offsetHeight - PILL_INSET * 2);
+  const width = height; // Square indicator
+  const left = el.offsetLeft + (el.offsetWidth - width) / 2;
+  const top = el.offsetTop + PILL_INSET;
   return {
-    left: el.offsetLeft + PILL_INSET,
-    top: el.offsetTop + PILL_INSET,
-    width: Math.max(0, el.offsetWidth - PILL_INSET * 2),
-    height: Math.max(0, el.offsetHeight - PILL_INSET * 2),
+    left,
+    top,
+    width,
+    height,
     center: el.offsetLeft + el.offsetWidth / 2,
   };
 }
@@ -177,13 +181,12 @@ export function MobileBottomNav() {
     const a = tabMetrics(fromEl);
     const b = tabMetrics(toEl);
     const tt = Math.max(0, Math.min(1, t));
-    const jelly = 1.35; // stay large while swiping
+    const jelly = 1.15; // smooth subtle stretch while swiping
     const naturalW = a.width + (b.width - a.width) * tt;
     const width = naturalW * jelly;
-    const naturalH = a.height + (b.height - a.height) * tt;
-    const height = naturalH * jelly;
+    const height = a.height;
     pillX.set(a.left + (b.left - a.left) * tt - (width - naturalW) / 2);
-    pillY.set(a.top + (b.top - a.top) * tt - (height - naturalH) / 2);
+    pillY.set(a.top);
     pillW.set(width);
     pillH.set(height);
   }, [pillH, pillW, pillX, pillY]);
@@ -205,13 +208,12 @@ export function MobileBottomNav() {
     const b = tabs[Math.min(i + 1, tabs.length - 1)];
     const span = b.center - a.center || 1;
     const t = Math.max(0, Math.min(1, (x - a.center) / span));
-    const jelly = 1.35; // stay large while dragging
+    const jelly = 1.15;
     const naturalW = a.width + (b.width - a.width) * t;
     const width = naturalW * jelly;
-    const naturalH = a.height + (b.height - a.height) * t;
-    const height = naturalH * jelly;
+    const height = a.height;
     pillX.set(a.left + (b.left - a.left) * t - (width - naturalW) / 2);
-    pillY.set(a.top + (b.top - a.top) * t - (height - naturalH) / 2);
+    pillY.set(a.top);
     pillW.set(width);
     pillH.set(height);
     const hovered = t < 0.5 ? i : Math.min(i + 1, tabs.length - 1);
@@ -219,6 +221,29 @@ export function MobileBottomNav() {
     setHighlightIndex(hovered);
     setSheen(clientX, true);
   }, [pillH, pillW, pillX, pillY, setSheen]);
+
+function scrollToTop() {
+  if (typeof window === "undefined") return;
+  try {
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    if (document.documentElement) {
+      document.documentElement.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    }
+    if (document.body) {
+      document.body.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    }
+    const scrollables = document.querySelectorAll(
+      "main, [data-scroll-container], [data-radix-scroll-area-viewport]"
+    );
+    scrollables.forEach((el) => {
+      if (el instanceof HTMLElement && el.scrollTop > 0) {
+        el.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+      }
+    });
+  } catch {
+    window.scrollTo(0, 0);
+  }
+}
 
   const goToIndex = useCallback(
     (index: number) => {
@@ -231,7 +256,18 @@ export function MobileBottomNav() {
       setHighlightIndex(next);
       placePill(next, false);
       clearSheen();
-      if (isOnTab(pathname, item)) return;
+
+      // If already on that tab/page, navigate/scroll to top
+      if (isOnTab(pathname, item)) {
+        if (pathname !== item.href) {
+          router.replace(item.href, { scroll: false });
+        }
+        scrollToTop();
+        setCompact(false);
+        lastY.current = 0;
+        return;
+      }
+
       router.replace(item.href, { scroll: false });
     },
     [clearSheen, pathname, placePill, router],
@@ -471,14 +507,14 @@ export function MobileBottomNav() {
       <div
         className={cn(
           "pointer-events-auto mx-auto origin-bottom transition-[max-width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          compact ? "max-w-[21rem]" : "max-w-[24.5rem]",
+          compact ? "max-w-[20rem]" : "max-w-[22.5rem]",
         )}
       >
         <div
           ref={barRef}
           className={cn(
             "relative flex touch-none items-center gap-0.5 rounded-full transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            compact ? "px-1.5 py-1" : "px-1 py-1",
+            compact ? "px-1 py-1" : "px-1.5 py-1",
           )}
           onPointerDown={onNavPointerDown}
         >
@@ -492,7 +528,7 @@ export function MobileBottomNav() {
           </div>
           <motion.span
             aria-hidden
-            className="pointer-events-none absolute z-[1] rounded-full overflow-hidden will-change-[left,width]"
+            className="pointer-events-none absolute z-[1] rounded-2xl overflow-hidden will-change-[left,width]"
             style={{ 
               left: pillX, top: pillY, width: pillW, height: pillH,
               boxShadow: "0 6px 16px rgba(139, 35, 35, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08)"
@@ -521,28 +557,17 @@ export function MobileBottomNav() {
                   goToIndex(index);
                 }}
                 className={cn(
-                  "relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center rounded-full transition-colors duration-200 [-webkit-tap-highlight-color:transparent]",
-                  compact ? "h-11 px-1.5" : "h-[3.4rem] px-1.5",
+                  "relative z-10 flex min-w-0 flex-1 items-center justify-center rounded-2xl transition-colors duration-200 [-webkit-tap-highlight-color:transparent]",
+                  compact ? "h-11 px-1" : "h-12 px-1",
                   isActive ? "text-[#8B2323]" : "text-[#4A3A32] active:text-[#3A2D27]",
                 )}
                 aria-current={isActive ? "page" : undefined}
                 aria-label={item.label}
               >
                 <Icon
-                  strokeWidth={isActive ? 2.25 : 1.75}
-                  className={cn(
-                    "relative z-10 shrink-0 transition-all duration-300",
-                    compact ? "h-[22px] w-[22px]" : "h-5 w-5",
-                  )}
+                  strokeWidth={isActive ? 2.3 : 1.85}
+                  className="relative z-10 shrink-0 h-[22px] w-[22px] transition-all duration-200 active:scale-95"
                 />
-                <span
-                  className={cn(
-                    "relative z-10 overflow-hidden text-center text-[10px] font-semibold leading-none tracking-wide transition-all duration-300",
-                    compact ? "mt-0 max-h-0 opacity-0" : "mt-0.5 max-h-4 opacity-100",
-                  )}
-                >
-                  {item.label}
-                </span>
               </button>
             );
           })}

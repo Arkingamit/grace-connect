@@ -18,6 +18,7 @@ export function useCampuses() {
     serviceTimes: c.serviceTimes,
     latitude: Number.isFinite(c.latitude as number) ? c.latitude : undefined,
     longitude: Number.isFinite(c.longitude as number) ? c.longitude : undefined,
+    prayerBroadcastLevel: c.prayerBroadcastLevel || 'all_campuses',
   });
 
   const addCampus = useCallback(async (c: Omit<Campus, 'id'>) => {

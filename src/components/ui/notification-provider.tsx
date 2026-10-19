@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Bell, Calendar, Megaphone, BookOpen, Heart, Music, FileText, X, Radio, Image as ImageIcon } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { getNotificationDeepLink } from '@/lib/notification-links';
 
 // ────────────────────────────────────────────
 // Types
@@ -18,6 +19,7 @@ interface NotificationToast {
   message: string;
   type: string;
   url?: string;
+  sourceId?: string;
   createdAt: string;
 }
 
@@ -78,14 +80,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const swRegistered = useRef(false);
 
   // Helper: show a toast from a push payload (reused by foreground handler)
-  const showPushToast = useCallback((data: { title?: string; body?: string; message?: string; type?: string; url?: string }) => {
+  const showPushToast = useCallback((data: { title?: string; body?: string; message?: string; type?: string; url?: string; sourceId?: string }) => {
     const id = `push-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const url = data.url || getNotificationDeepLink(data.type, data.sourceId);
     const toast: NotificationToast = {
       id,
       title: data.title || 'Grace Connect',
       message: data.body || data.message || '',
       type: data.type || 'system',
-      url: data.url,
+      url,
+      sourceId: data.sourceId,
       createdAt: new Date().toISOString(),
     };
     setToasts((prev) => [toast, ...prev].slice(0, 5));
@@ -160,19 +164,26 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
         // Add listener for native push notification action clicks
         PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-          const url = notification.notification.data?.url || '/notifications';
-          window.location.href = url;
+          const data = notification.notification?.data || {};
+          const targetUrl = data.url || getNotificationDeepLink(data.type, data.sourceId || data.id) || '/notifications';
+          console.log('[Native Push] Action performed, navigating to:', targetUrl);
+          if (typeof window !== 'undefined') {
+            window.location.href = targetUrl;
+          }
         });
 
         // Foreground handler: show an in-app toast immediately when a push
         // arrives while the app is open (instead of waiting for the 30s poll)
         PushNotifications.addListener('pushNotificationReceived', (notification) => {
           console.log('[Native Push] Foreground notification:', notification);
+          const data = notification.data || {};
+          const url = data.url || getNotificationDeepLink(data.type, data.sourceId || data.id);
           showPushToast({
-            title: notification.title || notification.data?.title,
-            body: notification.body || notification.data?.body || notification.data?.message,
-            type: notification.data?.type,
-            url: notification.data?.url,
+            title: notification.title || data.title,
+            body: notification.body || data.body || data.message,
+            type: data.type,
+            url,
+            sourceId: data.sourceId || data.id,
           });
         });
 
@@ -272,6 +283,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           title: n.title,
           message: n.message,
           type: n.type,
+          url: n.url || getNotificationDeepLink(n.type, n.sourceId),
+          sourceId: n.sourceId,
           createdAt: n.createdAt,
         }));
 
@@ -380,8 +393,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 className={`pointer-events-auto rounded-2xl border ${colors.border} ${colors.bg} p-4 shadow-xl backdrop-blur-sm flex items-start gap-3 cursor-pointer`}
                 onClick={() => {
                   dismissToast(toast.id);
-                  if (toast.url) {
-                    router.push(toast.url);
+                  const targetUrl = toast.url || getNotificationDeepLink(toast.type, toast.sourceId);
+                  if (targetUrl) {
+                    router.push(targetUrl);
                   } else {
                     router.push('/notifications');
                   }

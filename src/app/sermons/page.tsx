@@ -62,7 +62,7 @@ export default function SermonsPage() {
   const { sermonSeries, sermons, getVisibleSermons, currentUser } = useAdminData();
   const { goBack } = useNavigationHistory();
   const searchParams = useSearchParams();
-  const deepSermonId = searchParams.get('sermon');
+  const deepSermonId = searchParams?.get('sermon') || searchParams?.get('id');
   const [search, setSearch] = useState('');
   const [activePastor, setActivePastor] = useState('All');
   const [activeCampusId, setActiveCampusId] = useState('global');

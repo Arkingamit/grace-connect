@@ -4,6 +4,7 @@ import connectToDatabase from '@/lib/db';
 import EventModel from '@/models/Event';
 import { calculateNextOccurrence, generateOccurrences } from '@/lib/recurrence';
 import { serverCache } from '@/lib/cache';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdminWithScope();
@@ -63,6 +64,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       // Invalidate events cache
       serverCache.invalidate('events');
 
+      await logActivityFromAdmin(admin, {
+        action: 'UPDATE',
+        entityType: 'event',
+        entityId: id,
+        entityTitle: event?.title || originalEvent.title || 'Event',
+        details: { updateSeries: true, modifiedFields: Object.keys(body) },
+      });
+
       return NextResponse.json(event);
     } else {
       const event = await EventModel.findByIdAndUpdate(id, body, { new: true });
@@ -70,6 +79,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
       // Invalidate events cache
       serverCache.invalidate('events');
+
+      await logActivityFromAdmin(admin, {
+        action: 'UPDATE',
+        entityType: 'event',
+        entityId: id,
+        entityTitle: event.title || 'Event',
+        details: { updateSeries: false, modifiedFields: Object.keys(body) },
+      });
 
       return NextResponse.json(event);
     }
@@ -103,6 +120,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     // Invalidate events cache
     serverCache.invalidate('events');
     
+    await logActivityFromAdmin(admin, {
+      action: 'DELETE',
+      entityType: 'event',
+      entityId: id,
+      entityTitle: event.title || 'Event',
+      details: { deleteSeries },
+    });
+
     return NextResponse.json({ message: 'Event(s) deleted successfully' });
   } catch (error: any) {
     return NextResponse.json({ error: 'Failed to delete event' }, { status: 500 });

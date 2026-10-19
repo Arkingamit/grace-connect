@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,13 +81,51 @@ export function NoteShareSection({
   variant?: 'default' | 'page';
   limit?: number;
 }) {
+  return (
+    <React.Suspense fallback={null}>
+      <NoteShareSectionInner variant={variant} limit={limit} />
+    </React.Suspense>
+  );
+}
+
+function NoteShareSectionInner({
+  variant = 'default',
+  limit,
+}: {
+  variant?: 'default' | 'page';
+  limit?: number;
+}) {
   const { broadcasts: contextBroadcasts, getVisibleBroadcasts } = useAdminData();
   const { getSessionMember, getEffectiveGroups } = useAuth();
+  const searchParams = useSearchParams();
+  const deepId = searchParams?.get('id') || searchParams?.get('note');
   const [broadcasts, setBroadcasts] = React.useState<any[]>(contextBroadcasts || []);
   const [loading, setLoading] = React.useState(!contextBroadcasts || contextBroadcasts.length === 0);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [sortOrder, setSortOrder] = React.useState<'newest' | 'oldest'>('newest');
   const [dateFilter, setDateFilter] = React.useState<string>('');
+  const [highlightedId, setHighlightedId] = React.useState<string | null>(null);
+  const scrolledRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!deepId) return;
+    const cleanId = String(deepId).trim();
+    setHighlightedId(cleanId);
+    if (!scrolledRef.current) {
+      scrolledRef.current = true;
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`note-${cleanId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 200);
+      const fadeTimer = setTimeout(() => setHighlightedId(null), 4000);
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(fadeTimer);
+      };
+    }
+  }, [deepId, broadcasts]);
 
   React.useEffect(() => {
     // Sync when context updates; fetch if context is empty (e.g. loaded before login)
@@ -281,10 +320,18 @@ export function NoteShareSection({
       ) : (
         <>
           <div className={`grid grid-cols-1 md:grid-cols-2 ${variant === 'page' ? 'lg:grid-cols-3' : ''} gap-2.5 sm:gap-3.5`}>
-            {displayedBroadcasts.map(b => (
+            {displayedBroadcasts.map(b => {
+              const bId = String(b._id || b.id || '');
+              const isHighlighted = highlightedId === bId;
+              return (
               <div
                 key={b._id || b.id}
-                className="group relative rounded-2xl border border-[#E5D5C5]/70 bg-white/90 backdrop-blur-sm p-3.5 shadow-sm hover:shadow-md hover:border-[#8B2323]/40 transition-all flex flex-col justify-between"
+                id={`note-${bId}`}
+                className={`group relative rounded-2xl border p-3.5 flex flex-col justify-between transition-all duration-500 ${
+                  isHighlighted
+                    ? 'border-[#8B2323] ring-2 ring-[#8B2323]/50 shadow-lg bg-[#FFF9F9]'
+                    : 'border-[#E5D5C5]/70 bg-white/90 shadow-sm hover:shadow-md hover:border-[#8B2323]/40'
+                }`}
               >
                 <div>
                   {/* Meta row: Date + Author */}
@@ -324,7 +371,8 @@ export function NoteShareSection({
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {variant === 'default' && (

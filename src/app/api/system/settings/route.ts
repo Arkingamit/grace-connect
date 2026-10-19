@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/db';
 import { SystemSettings } from '@/models/SystemSettings';
 import { requireAdmin } from '@/lib/api-auth';
 import { serverCache, CACHE_TTL } from '@/lib/cache';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +56,13 @@ export async function PUT(req: Request) {
 
     // Invalidate system settings cache
     serverCache.invalidate('system-settings');
+
+    await logActivityFromAdmin(admin, {
+      action: 'UPDATE',
+      entityType: 'system_settings',
+      entityTitle: 'System Settings',
+      details: { updatedFields: Object.keys(body) },
+    });
     
     return NextResponse.json(settings);
   } catch (error) {

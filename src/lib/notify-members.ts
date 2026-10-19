@@ -1,5 +1,6 @@
 import Notification, { type INotification } from '@/models/Notification';
 import { sendPushToTargeted } from '@/lib/push-utils';
+import { getNotificationDeepLink } from '@/lib/notification-links';
 
 export function wantsMemberNotification(input: unknown): boolean {
   return Boolean(
@@ -20,6 +21,7 @@ type NotifyMembersInput = {
   message: string;
   type: INotification['type'];
   sourceId?: string;
+  url?: string;
   targetCampuses?: string[];
   targetGroups?: string[];
 };
@@ -29,23 +31,26 @@ export async function notifyMembers({
   message,
   type,
   sourceId,
+  url,
   targetCampuses,
   targetGroups,
 }: NotifyMembersInput) {
   const campuses = targetCampuses?.length ? targetCampuses : ['all'];
   const groups = targetGroups || [];
+  const deepLink = url || getNotificationDeepLink(type, sourceId);
 
   await Notification.create({
     title,
     message,
     type,
     sourceId,
+    url: deepLink,
     targetCampuses: campuses,
     targetGroups: groups,
   });
 
   await sendPushToTargeted(
-    { title, body: message, type },
+    { title, body: message, type, sourceId, url: deepLink },
     campuses,
     groups
   );

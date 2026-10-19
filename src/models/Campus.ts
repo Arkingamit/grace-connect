@@ -1,5 +1,7 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
+export type PrayerBroadcastLevel = 'all_campuses' | 'campus_only' | 'group_only';
+
 export interface ICampus extends Document {
   name: string;
   pastor: string;
@@ -11,6 +13,7 @@ export interface ICampus extends Document {
   serviceTimes?: { day: string; times: string[] }[];
   latitude?: number;
   longitude?: number;
+  prayerBroadcastLevel?: PrayerBroadcastLevel;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +33,11 @@ const CampusSchema = new Schema<ICampus>(
     }],
     latitude: { type: Number },
     longitude: { type: Number },
+    prayerBroadcastLevel: {
+      type: String,
+      enum: ['all_campuses', 'campus_only', 'group_only'],
+      default: 'all_campuses',
+    },
   },
   { timestamps: true }
 );

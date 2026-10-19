@@ -19,6 +19,8 @@ import { ConnectivityGate } from "@/components/ui/connectivity-gate";
 import { FormRateLimitGuard } from "@/components/ui/form-rate-limit-guard";
 import { HideKeyboardOnScroll } from "@/components/ui/hide-keyboard-on-scroll";
 import { InteractionRestoration } from "@/components/ui/interaction-restoration";
+import { PullToRefresh } from "@/components/ui/pull-to-refresh";
+import { ScreenPrivacyGuard } from "@/components/ui/screen-privacy-guard";
 
 // QueryClient created OUTSIDE the component to prevent recreation on re-render
 const queryClient = new QueryClient({
@@ -56,6 +58,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
                 <Sonner />
                 <FormRateLimitGuard />
                 <HideKeyboardOnScroll />
+                <PullToRefresh />
+                <ScreenPrivacyGuard />
                 <NotificationProvider>
                   <ConnectivityGate />
                   <NativePermissionGate />

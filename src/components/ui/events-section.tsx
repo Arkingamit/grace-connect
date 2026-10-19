@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAdminData, type Event } from '@/lib/admin-data-context';
@@ -232,6 +232,90 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
   const [eventPass, setEventPass] = useState<EventRegistrationPass | null>(null);
   const dialogPosition = useKeyboardAwareDialogPosition(true);
 
+  const isClosingRef = useRef(false);
+  const hasPushedHistoryRef = useRef(false);
+
+  const safeClose = useCallback(() => {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    // Push history state so mobile gesture back pops this modal without navigating away from the page
+    if (typeof window !== "undefined") {
+      window.history.pushState({ modal: "event-rsvp", eventId: event.id }, "");
+      hasPushedHistoryRef.current = true;
+    }
+
+    const onPopState = () => {
+      safeClose();
+    };
+
+    const onCloseOverlay = () => {
+      safeClose();
+    };
+
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener("app:close-overlay", onCloseOverlay);
+
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      window.removeEventListener("app:close-overlay", onCloseOverlay);
+
+      // If closed by button/submit rather than popstate, pop the history entry
+      if (hasPushedHistoryRef.current && !isClosingRef.current) {
+        if (typeof window !== "undefined" && window.history.state?.modal === "event-rsvp") {
+          window.history.back();
+        }
+      }
+    };
+  }, [event.id, safeClose]);
+
+  // Touch gesture back navigation: edge-swipe right or swipe-down to dismiss
+  const touchStartRef = useRef<{ x: number; y: number; isEdge: boolean } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const target = e.target as HTMLElement | null;
+    if (target && ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName)) return;
+
+    // Edge swipe from left (within 48px of left viewport edge)
+    const isEdge = touch.clientX <= 48;
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      isEdge,
+    };
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+
+    // 1. Edge-swipe right to go back
+    if (touchStartRef.current.isEdge && dx > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      touchStartRef.current = null;
+      safeClose();
+      return;
+    }
+
+    // 2. Swipe down from top of modal / header to dismiss
+    const dialogEl = e.currentTarget as HTMLElement;
+    if (dialogEl && dialogEl.scrollTop <= 0 && dy > 75 && Math.abs(dy) > Math.abs(dx) * 1.4) {
+      touchStartRef.current = null;
+      safeClose();
+      return;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartRef.current = null;
+  };
+
   useEffect(() => {
     setEventPass(loadEventRegistrationPass(event.id));
   }, [event.id]);
@@ -399,8 +483,13 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
     return (
       <>
         <CelebrationRibbon active />
-        <Dialog open={true} onOpenChange={onClose}>
-          <DialogContent className="max-h-[90dvh] max-w-md overflow-y-auto border-0 bg-transparent p-0 shadow-none sm:rounded-2xl">
+        <Dialog open={true} onOpenChange={(open) => !open && safeClose()}>
+          <DialogContent
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="max-h-[90dvh] max-w-md overflow-y-auto border-0 bg-transparent p-0 shadow-none sm:rounded-2xl"
+          >
             <DialogHeader className="sr-only">
               <DialogTitle>
                 {existingReg ? 'Registration Updated!' : "You're Registered!"}
@@ -419,7 +508,7 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
                 statusLabel={existingReg ? 'Updated' : 'Registered'}
                 celebrate={false}
               />
-              <Button onClick={onClose} className="w-full max-w-sm bg-[#8B2323] hover:bg-[#721515] text-white">
+              <Button onClick={safeClose} className="w-full max-w-sm bg-[#8B2323] hover:bg-[#721515] text-white">
                 Close
               </Button>
             </div>
@@ -431,10 +520,13 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
 
   return (
     <>
-    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={true} onOpenChange={(open) => !open && safeClose()}>
       <DialogContent
         data-keep-keyboard
         style={dialogPosition.style}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         className={cn(
           "min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain",
           "max-w-xl w-[calc(100%-1.25rem)] p-4 gap-3 sm:p-6 sm:gap-4",
@@ -1062,16 +1154,35 @@ function EventsPageLayout() {
   }, [getSessionMember, getEffectiveGroups, getVisibleEvents]);
 
   useEffect(() => {
-    const rsvpId = searchParams.get('rsvp');
+    const rsvpId = searchParams.get('rsvp') || searchParams.get('event') || searchParams.get('id');
     if (!rsvpId) return;
-    const match = events.find((event) => matchEventId(event, rsvpId))
-      || visibleEvents.find((event) => matchEventId(event, rsvpId));
-    if (match) setRsvpEvent(match);
+    const cleanId = String(rsvpId).trim();
+    const match = events.find((event) => matchEventId(event, cleanId))
+      || visibleEvents.find((event) => matchEventId(event, cleanId));
+    if (match) {
+      setRsvpEvent(match);
+      return;
+    }
+
+    // Direct fallback if events list is still loading or filtered
+    let cancelled = false;
+    fetch(`/api/admin/events`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (cancelled || !Array.isArray(data)) return;
+        const found = data.find((e: any) => matchEventId(e, cleanId));
+        if (found) setRsvpEvent(found);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams, events, visibleEvents]);
 
   const closeRsvp = () => {
     setRsvpEvent(null);
-    if (searchParams.get('rsvp')) {
+    if (searchParams.get('rsvp') || searchParams.get('event') || searchParams.get('id')) {
       router.replace('/events');
     }
   };

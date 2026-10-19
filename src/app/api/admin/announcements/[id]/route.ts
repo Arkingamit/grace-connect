@@ -5,6 +5,7 @@ import { calculateNextOccurrence } from '@/lib/recurrence';
 import { apiSuccess, apiError, withErrorHandler } from '@/lib/api-helpers';
 import { serverCache } from '@/lib/cache';
 import { takeSendNotificationFlag } from '@/lib/notify-members';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   return withErrorHandler(async () => {
@@ -42,6 +43,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     // Invalidate all announcement caches
     serverCache.invalidateByTag('announcements');
     
+    await logActivityFromAdmin(admin, {
+      action: 'UPDATE',
+      entityType: 'announcement',
+      entityId: id,
+      entityTitle: announcement.title || 'Announcement',
+      details: { changedFields: Object.keys(body) },
+    });
+
     return apiSuccess(announcement);
   });
 }
@@ -77,6 +86,13 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     // Invalidate all announcement caches
     serverCache.invalidateByTag('announcements');
+
+    await logActivityFromAdmin(admin, {
+      action: 'DELETE',
+      entityType: 'announcement',
+      entityId: id,
+      entityTitle: announcement.title || 'Announcement',
+    });
 
     return apiSuccess({ message: 'Announcement deleted successfully' });
   });

@@ -70,6 +70,7 @@ const roleColors: Record<UserRole, string> = {
   campus_leader: 'bg-[#FBE8E8] text-[#8B2323]',
   admin: 'bg-[#721515]/10 text-[#721515]',
   super_admin: 'bg-[#5C1111]/10 text-[#5C1111]',
+  it_team: 'bg-[#5C1111]/10 text-[#5C1111]',
 };
 
 function getInitials(name: string) {

@@ -8,6 +8,8 @@ import { notifyLiveIfNeeded, takeSendNotificationFlag } from '@/lib/notify-membe
 import { lockLiveFrequency } from '@/lib/live-auto-checkers';
 import { applySeriesGuestVisibility, inheritSeriesGuestVisibility } from '@/lib/sermon-visibility';
 import { extractYoutubeVideoId, youtubeThumbnailUrl } from '@/lib/youtube';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
+import { ActivityEntityType } from '@/models/ActivityLog';
 
 const models: any = {
   sermons: Sermon,
@@ -107,6 +109,25 @@ export async function PUT(req: Request, { params }: { params: Promise<{ type: st
     // Invalidate media cache for this type
     serverCache.invalidate(`media:${type}`);
 
+    const entityTypeMap: Record<string, ActivityEntityType> = {
+      sermons: 'sermon',
+      'sermon-series': 'sermon',
+      'worship-videos': 'worship_video',
+      gallery: 'gallery',
+      livestreams: 'sermon',
+    };
+
+    await logActivityFromAdmin(admin, {
+      action: 'UPDATE',
+      entityType: entityTypeMap[type] || 'other',
+      entityId: id,
+      entityTitle: item?.title || existingItem.title || `${type} item`,
+      details: {
+        mediaType: type,
+        changedFields: Object.keys(body),
+      },
+    });
+
     return NextResponse.json(item);
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update item' }, { status: 500 });
@@ -144,6 +165,22 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ type:
 
     // Invalidate media cache for this type
     serverCache.invalidate(`media:${type}`);
+
+    const entityTypeMap: Record<string, ActivityEntityType> = {
+      sermons: 'sermon',
+      'sermon-series': 'sermon',
+      'worship-videos': 'worship_video',
+      gallery: 'gallery',
+      livestreams: 'sermon',
+    };
+
+    await logActivityFromAdmin(admin, {
+      action: 'DELETE',
+      entityType: entityTypeMap[type] || 'other',
+      entityId: id,
+      entityTitle: existingItem.title || `${type} item`,
+      details: { mediaType: type },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

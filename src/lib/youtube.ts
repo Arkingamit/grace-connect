@@ -77,7 +77,7 @@ export function shortYoutubeDescription(raw?: string) {
   return `${text.slice(0, 177).trimEnd()}…`;
 }
 
-export function youtubeThumbnailUrl(videoId?: string | null) {
+export function youtubeThumbnailUrl(videoId?: string | null, quality: 'mqdefault' | 'hqdefault' | 'maxresdefault' = 'mqdefault') {
   if (!videoId || typeof videoId !== "string") return "";
-  return `https://img.youtube.com/vi/${videoId.trim()}/hqdefault.jpg`;
+  return `https://img.youtube.com/vi/${videoId.trim()}/${quality}.jpg`;
 }

@@ -30,6 +30,9 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(GoogleAuth.class);
         super.onCreate(savedInstanceState);
 
+        // Block screenshots, screen recording, and recent-apps preview capture
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
+
         // Android 15+ edge-to-edge ignores adjustResize unless decor fits system windows.
         // Without this, the keyboard overlays the WebView and leaves gray gaps in dialogs.
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
@@ -87,6 +90,13 @@ public class MainActivity extends BridgeActivity {
                 );
             }
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Ensure FLAG_SECURE remains active across all app resumes and transitions
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
     }
 
     @Override

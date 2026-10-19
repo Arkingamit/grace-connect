@@ -50,6 +50,7 @@ import {
   Check,
   Edit2,
   ChevronsUpDown,
+  Radio,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAdminActionLoading } from '@/components/admin/admin-action-loading';
@@ -248,13 +249,17 @@ export default function SettingsPage() {
 
   const openCreateCampus = () => {
     setEditingCampusId(null);
-    setCampusForm({ name: '', pastor: '', address: '', city: '', zipCode: '', phone: '', email: '', latitude: undefined, longitude: undefined, serviceTimes: [{ day: 'Sunday', times: [''] }] });
+    setCampusForm({ name: '', pastor: '', address: '', city: '', zipCode: '', phone: '', email: '', latitude: undefined, longitude: undefined, prayerBroadcastLevel: 'all_campuses', serviceTimes: [{ day: 'Sunday', times: [''] }] });
     setCampusDialogOpen(true);
   };
 
   const openEditCampus = (campus: Campus) => {
     setEditingCampusId(campus.id);
-    setCampusForm({ ...campus, serviceTimes: campus.serviceTimes?.length ? campus.serviceTimes : [{ day: 'Sunday', times: [''] }] });
+    setCampusForm({
+      ...campus,
+      prayerBroadcastLevel: campus.prayerBroadcastLevel || 'all_campuses',
+      serviceTimes: campus.serviceTimes?.length ? campus.serviceTimes : [{ day: 'Sunday', times: [''] }]
+    });
     setCampusDialogOpen(true);
   };
 
@@ -909,6 +914,30 @@ export default function SettingsPage() {
                   />
                 </div>
               ))}
+            </div>
+
+            {/* Prayer Wall Member Broadcast Level */}
+            <div className="min-w-0 space-y-2 border-t border-border/50 pt-3">
+              <Label className="flex items-center gap-1.5 font-medium">
+                <Radio className="w-4 h-4 text-primary" />
+                Prayer Wall Member Broadcast Level
+              </Label>
+              <Select
+                value={campusForm.prayerBroadcastLevel || 'all_campuses'}
+                onValueChange={(val: any) => setCampusForm({ ...campusForm, prayerBroadcastLevel: val })}
+              >
+                <SelectTrigger className="w-full min-w-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all_campuses">All Campuses (Members can broadcast globally, locally, or to groups)</SelectItem>
+                  <SelectItem value="campus_only">Local Campus Only (Members can broadcast to local campus or groups)</SelectItem>
+                  <SelectItem value="group_only">Fellowship Groups Only (Members can only broadcast to assigned groups)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Sets the highest broadcast scope that members of this campus are permitted to select when sharing prayer requests.
+              </p>
             </div>
           </div>
           <DialogFooter className="mt-2 flex w-full min-w-0 flex-col-reverse gap-2 sm:mt-4 sm:flex-row sm:items-center sm:justify-between">

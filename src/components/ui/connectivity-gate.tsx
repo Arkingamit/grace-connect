@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
 import { NativeSettings, AndroidSettings, IOSSettings } from "capacitor-native-settings";
-import { WifiOff } from "lucide-react";
+import { Loader2, WifiOff } from "lucide-react";
 
 export function ConnectivityGate() {
   const [offline, setOffline] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
   const native = Capacitor.isNativePlatform();
 
   useEffect(() => {
@@ -30,6 +31,25 @@ export function ConnectivityGate() {
     };
   }, []);
 
+  const handleRetry = () => {
+    if (isRetrying) return;
+    setIsRetrying(true);
+    fetch("/logo.svg?t=" + Date.now())
+      .then(() => {
+        setOffline(false);
+        window.location.reload();
+      })
+      .catch(() => {
+        if (typeof navigator !== "undefined" && navigator.onLine) {
+          setOffline(false);
+          window.location.reload();
+        }
+      })
+      .finally(() => {
+        setTimeout(() => setIsRetrying(false), 600);
+      });
+  };
+
   if (!offline) return null;
 
   return (
@@ -50,27 +70,23 @@ export function ConnectivityGate() {
         </p>
         <button
           type="button"
-          className="mt-6 h-11 w-full rounded-full bg-gradient-to-r from-[#810008] to-[#A3161E] text-sm font-semibold text-white active:opacity-90"
-          onClick={() => {
-            fetch("/logo.svg?t=" + Date.now())
-              .then(() => {
-                setOffline(false);
-                window.location.reload();
-              })
-              .catch(() => {
-                if (typeof navigator !== "undefined" && navigator.onLine) {
-                  setOffline(false);
-                  window.location.reload();
-                }
-              });
-          }}
+          disabled={isRetrying}
+          className="mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#810008] to-[#A3161E] text-sm font-semibold text-white shadow-md shadow-[#810008]/20 transition-all duration-150 hover:brightness-105 active:scale-95 active:brightness-90 active:shadow-xs disabled:opacity-75 disabled:pointer-events-none cursor-pointer"
+          onClick={handleRetry}
         >
-          Try again
+          {isRetrying ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Checking connection…</span>
+            </>
+          ) : (
+            "Try again"
+          )}
         </button>
         {native && (
           <button
             type="button"
-            className="mt-2.5 h-11 w-full rounded-full border border-[#E5D5C5] bg-white text-sm font-semibold text-[#1A202C]"
+            className="mt-2.5 flex h-11 w-full items-center justify-center rounded-full border border-[#E5D5C5] bg-white text-sm font-semibold text-[#1A202C] shadow-xs transition-all duration-150 hover:bg-[#FAF7F2] active:scale-95 active:bg-[#F3EAE1] active:border-[#CDBBAA] cursor-pointer"
             onClick={() => {
               void NativeSettings.open({
                 optionAndroid: AndroidSettings.Wireless,

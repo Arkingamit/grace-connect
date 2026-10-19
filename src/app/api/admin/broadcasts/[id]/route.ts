@@ -4,6 +4,7 @@ import connectToDatabase from '@/lib/db';
 import Broadcast from '@/models/Broadcast';
 import User from '@/models/User';
 import { apiSuccess, apiError, withErrorHandler } from '@/lib/api-helpers';
+import { logActivity, logActivityFromAdmin } from '@/lib/activity-logger';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   return withErrorHandler(async () => {
@@ -43,6 +44,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const updated = await Broadcast.findByIdAndUpdate(id, { $set: updateData }, { new: true });
+
+    await logActivityFromAdmin(admin, {
+      action: 'UPDATE',
+      entityType: 'note',
+      entityId: id,
+      entityTitle: updated?.title || broadcast.title || 'Note',
+      details: { changedFields: Object.keys(updateData) },
+    });
+
     return apiSuccess(updated);
   });
 }
@@ -71,6 +81,19 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     await Broadcast.findByIdAndDelete(id);
+
+    await logActivity({
+      userId: user._id.toString(),
+      userName: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Admin',
+      userEmail: user.email,
+      userRole: user.role,
+      action: 'DELETE',
+      entityType: 'note',
+      entityId: id,
+      entityTitle: broadcast.title || 'Note',
+      campusId: user.campusId,
+    });
+
     return apiSuccess({ success: true });
   });
 }

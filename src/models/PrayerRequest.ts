@@ -5,6 +5,9 @@ export interface IPrayerRequest extends Document {
   content: string;
   authorName: string;
   authorId?: mongoose.Types.ObjectId | string;
+  submitterName?: string;
+  submitterEmail?: string;
+  submitterPhone?: string;
   campusId: string;
   isAnonymous: boolean;
   privacy: 'public' | 'members' | 'staff';
@@ -13,6 +16,10 @@ export interface IPrayerRequest extends Document {
   prayedBy: string[]; // Array of IPs or User IDs
   comments: number;
   status: 'pending' | 'approved' | 'rejected';
+  targetCampuses: string[];
+  targetGroups: string[];
+  isBroadcast: boolean;
+  broadcastScope?: 'all_campuses' | 'campus' | 'group';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,6 +30,9 @@ const prayerRequestSchema = new mongoose.Schema<IPrayerRequest>(
     content: { type: String, required: true },
     authorName: { type: String, required: true, default: 'Anonymous' },
     authorId: { type: mongoose.Schema.Types.Mixed }, // Could be ObjectId if logged in
+    submitterName: { type: String },
+    submitterEmail: { type: String },
+    submitterPhone: { type: String },
     campusId: { type: String, required: true },
     isAnonymous: { type: Boolean, default: false },
     privacy: { 
@@ -38,6 +48,14 @@ const prayerRequestSchema = new mongoose.Schema<IPrayerRequest>(
       type: String, 
       enum: ['pending', 'approved', 'rejected'], 
       default: 'pending' // Set to pending by default for admin approval
+    },
+    targetCampuses: { type: [String], default: [] },
+    targetGroups: { type: [String], default: [] },
+    isBroadcast: { type: Boolean, default: false },
+    broadcastScope: {
+      type: String,
+      enum: ['all_campuses', 'campus', 'group'],
+      default: 'campus',
     },
   },
   {

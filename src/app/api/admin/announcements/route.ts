@@ -5,6 +5,7 @@ import { calculateNextOccurrence } from '@/lib/recurrence';
 import { apiSuccess, apiError, withErrorHandler } from '@/lib/api-helpers';
 import { serverCache, CACHE_TTL } from '@/lib/cache';
 import { notifyMembers, takeSendNotificationFlag } from '@/lib/notify-members';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
 
 export async function GET() {
   return withErrorHandler(async () => {
@@ -63,6 +64,18 @@ export async function POST(req: Request) {
 
     // Invalidate all announcement caches (any role/campus combo)
     serverCache.invalidateByTag('announcements');
+
+    await logActivityFromAdmin(admin, {
+      action: 'PUBLISH',
+      entityType: 'announcement',
+      entityId: announcement._id.toString(),
+      entityTitle: announcement.title || 'Untitled Announcement',
+      details: {
+        isPinned: announcement.isPinned,
+        isRecurring: announcement.isRecurring,
+        targetCampuses: announcement.targetCampuses,
+      },
+    });
 
     return apiSuccess(announcement, 201);
   });

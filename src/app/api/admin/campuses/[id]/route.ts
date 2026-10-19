@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/api-auth';
 import connectToDatabase from '@/lib/db';
 import Campus from '@/models/Campus';
 import { serverCache } from '@/lib/cache';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
@@ -27,6 +28,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       'serviceTimes',
       'latitude',
       'longitude',
+      'prayerBroadcastLevel',
     ] as const;
     for (const field of fields) {
       if (body[field] !== undefined) {
@@ -44,6 +46,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     
     // Invalidate campuses cache
     serverCache.invalidate('campuses');
+
+    await logActivityFromAdmin(admin, {
+      action: 'UPDATE',
+      entityType: 'campus',
+      entityId: id,
+      entityTitle: campus.name || 'Campus',
+      campusId: id,
+      details: { changedFields: Object.keys(updates) },
+    });
 
     return NextResponse.json(campus);
   } catch (error: any) {
@@ -69,6 +80,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     
     // Invalidate campuses cache
     serverCache.invalidate('campuses');
+
+    await logActivityFromAdmin(admin, {
+      action: 'DELETE',
+      entityType: 'campus',
+      entityId: id,
+      entityTitle: campus.name || 'Campus',
+      campusId: id,
+    });
 
     return NextResponse.json({ message: 'Campus deleted successfully' });
   } catch (error: any) {

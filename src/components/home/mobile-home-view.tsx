@@ -340,17 +340,14 @@ function HighlightsCardStack({
           {/* Top Badges */}
           <div className="flex items-center justify-between w-full relative z-10">
             <div className="flex items-center gap-1.5">
-              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-black/50 backdrop-blur-md text-white border border-white/20 shadow-xs">
-                {item.tag}
-              </span>
-              {isVideo && (
-                <span className="px-2 py-0.5 rounded-full bg-red-600/85 backdrop-blur-md text-white text-[10px] font-bold flex items-center gap-1 shadow-xs border border-white/20">
-                  <Play className="w-2.5 h-2.5 fill-current" /> Video
+              {item.tag && !['video', 'videos'].includes(item.tag.toLowerCase()) && (
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-black/50 backdrop-blur-md text-white border border-white/20 shadow-xs">
+                  {item.tag}
                 </span>
               )}
             </div>
 
-            {!isVideo && mediaType === 'photo' && (
+            {!isVideo && mediaType === 'photo' && item.tag?.toLowerCase() !== 'photos' && (
               <div className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-[11px] font-bold flex items-center gap-1.5 shadow-xs">
                 <ImageIcon className="w-3.5 h-3.5" />
                 <span>Photos</span>
@@ -420,11 +417,8 @@ function HighlightsCardStack({
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="highlights-tag">{item.tag}</span>
-              {isVideo && (
-                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-red-600/10 text-red-700 font-bold flex items-center gap-0.5">
-                  <Play className="w-2 h-2 fill-current" /> Video
-                </span>
+              {item.tag && !['video', 'videos'].includes(item.tag.toLowerCase()) && (
+                <span className="highlights-tag">{item.tag}</span>
               )}
             </div>
             <h3 className="font-serif text-lg mt-0.5 leading-snug font-bold text-foreground line-clamp-1">
@@ -582,6 +576,16 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
   const [activeIdx, setActiveIdx] = useState(0);
   const [headerVisible, setHeaderVisible] = useState(true);
   const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const rsvpId = params.get('rsvp') || params.get('event');
+    if (!rsvpId || !events?.length) return;
+    const cleanId = String(rsvpId).trim();
+    const match = events.find((e: any) => e.id === cleanId || e._id === cleanId || String(e._id) === cleanId);
+    if (match) setRsvpEvent(match);
+  }, [events]);
 
   useEffect(() => {
     const readY = (target: EventTarget | null) => {
@@ -757,8 +761,13 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
 
   const announcementNotificationCount = React.useMemo(() => {
     const now = new Date();
+    const userCreatedAt = session?.createdAt
+      ? new Date(session.createdAt)
+      : (sessionMember?.createdAt ? new Date(sessionMember.createdAt) : null);
+
     const activeAnnouncements = (announcements || []).filter(a => {
       if (dismissedIds.includes(`ann-${a.id}`)) return false;
+      if (userCreatedAt && a.createdAt && new Date(a.createdAt) < userCreatedAt) return false;
       if (a.endDate) {
         let exp: Date;
         if (a.endTime) {
@@ -772,7 +781,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
     }).length;
 
     return Math.max(activeAnnouncements, directAnnouncementNotifCount);
-  }, [announcements, dismissedIds, directAnnouncementNotifCount]);
+  }, [announcements, dismissedIds, directAnnouncementNotifCount, session?.createdAt, sessionMember?.createdAt]);
 
   // Card badges show ONLY when there are active notifications for them in the notification bar
   const worshipNotificationCount = React.useMemo(() => {
@@ -1129,7 +1138,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
               <img
                 src="/Grace_Connect_Minimalist_Wordmark-removebg-preview.png"
                 alt="Grace Connect"
-                className="h-12 w-auto max-w-[210px] object-contain dark:invert"
+                className="h-14 w-auto max-w-[235px] object-contain dark:invert"
               />
             </Link>
 

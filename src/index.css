@@ -574,3 +574,27 @@
   }
 }
 
+/* Security & Privacy: Block screenshots and PDF export via browser print dialog */
+@media print {
+  html, body {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+}
+
+/* Disable touch callout on protected images and videos */
+img, video {
+  -webkit-touch-callout: none !important;
+}
+
+/* Privacy shield overlay when window blur / background screen capture occurs */
+body.screen-capture-obscured {
+  filter: blur(24px) grayscale(100%);
+  transition: filter 0.15s ease-out;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+

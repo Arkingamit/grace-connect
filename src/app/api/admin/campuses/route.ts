@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/api-auth';
 import connectToDatabase from '@/lib/db';
 import Campus from '@/models/Campus';
 import { serverCache, CACHE_TTL } from '@/lib/cache';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -40,6 +41,15 @@ export async function POST(req: Request) {
 
     // Invalidate campuses cache
     serverCache.invalidate('campuses');
+
+    await logActivityFromAdmin(admin, {
+      action: 'CREATE',
+      entityType: 'campus',
+      entityId: campus._id.toString(),
+      entityTitle: campus.name || 'Campus',
+      campusId: campus._id.toString(),
+      details: { address: campus.address, pastor: campus.pastor },
+    });
 
     return NextResponse.json(campus, { status: 201 });
   } catch (error: any) {

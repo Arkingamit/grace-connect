@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useAdminData } from '@/lib/admin-data-context';
+import { useAdminData, getAllowedGroups } from '@/lib/admin-data-context';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,15 +9,17 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  Clock, CheckCircle, XCircle, Heart, User, Shield, MessageCircle, Trash2
+  Clock, CheckCircle, XCircle, Heart, User, Shield, MessageCircle, Trash2,
+  Radio, EyeOff, UserCheck, Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SendNotificationOption } from '@/components/admin/send-notification-option';
 
 export default function PrayerRequestsPage() {
-  const { prayerRequests, campuses, currentUser, approvePrayerRequest, deletePrayerRequest } = useAdminData();
+  const { prayerRequests, campuses, groupScopes, currentUser, approvePrayerRequest, deletePrayerRequest } = useAdminData();
 
   const isCampusLeader = currentUser.role === 'campus_leader';
+  const availableGroups = getAllowedGroups(currentUser, groupScopes);
   
   // Filter based on role
   const visiblePrayers = isCampusLeader
@@ -29,11 +31,49 @@ export default function PrayerRequestsPage() {
 
   const [rejectConfirm, setRejectConfirm] = useState<string | null>(null);
   const [notifyOnApprove, setNotifyOnApprove] = useState<Record<string, boolean>>({});
+  const [broadcastGroupsByPrayer, setBroadcastGroupsByPrayer] = useState<Record<string, string[]>>({});
+
+  const getSelectedGroups = (prayer: any): string[] => {
+    if (broadcastGroupsByPrayer[prayer.id] !== undefined) {
+      return broadcastGroupsByPrayer[prayer.id];
+    }
+    return Array.isArray(prayer.targetGroups) ? prayer.targetGroups : [];
+  };
+
+  const toggleGroupForPrayer = (prayerId: string, groupName: string) => {
+    setBroadcastGroupsByPrayer((prev) => {
+      const current = prev[prayerId] !== undefined
+        ? prev[prayerId]
+        : (prayerRequests.find(p => p.id === prayerId)?.targetGroups || []);
+      const next = current.includes(groupName)
+        ? current.filter(g => g !== groupName)
+        : [...current, groupName];
+      return { ...prev, [prayerId]: next };
+    });
+  };
+
+  const setAllCampusForPrayer = (prayerId: string) => {
+    setBroadcastGroupsByPrayer((prev) => ({ ...prev, [prayerId]: [] }));
+  };
 
   const handleApprove = async (id: string) => {
     try {
-      await approvePrayerRequest(id, { sendNotification: !!notifyOnApprove[id] });
-      toast.success(notifyOnApprove[id] ? 'Prayer approved and members notified' : 'Prayer request approved');
+      const prayer = prayerRequests.find(p => p.id === id);
+      const targetGroups = broadcastGroupsByPrayer[id] !== undefined
+        ? broadcastGroupsByPrayer[id]
+        : (prayer?.targetGroups || []);
+
+      await approvePrayerRequest(id, {
+        sendNotification: !!notifyOnApprove[id],
+        targetGroups,
+      });
+
+      toast.success(
+        notifyOnApprove[id]
+          ? (targetGroups.length > 0 ? `Prayer approved & broadcasted to ${targetGroups.join(', ')}` : 'Prayer approved & campus notified')
+          : 'Prayer request approved'
+      );
+
       setNotifyOnApprove((prev) => {
         const next = { ...prev };
         delete next[id];
@@ -73,7 +113,7 @@ export default function PrayerRequestsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Prayer Wall Management</h1>
         <p className="text-muted-foreground mt-1">
-          Review, approve, and manage prayer requests from your congregation
+          Review, approve, and manage prayer requests and broadcasts from your congregation
           {isCampusLeader && (
             <span className="text-amber-500"> · Showing requests for {campuses.find(c => c.id === currentUser.campusId)?.name}</span>
           )}
@@ -125,67 +165,149 @@ export default function PrayerRequestsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {pendingPrayers.map(prayer => (
-                <Card key={prayer.id} className="border-amber-500/20 bg-amber-500/5 shadow-sm">
-                  <CardContent className="p-5 space-y-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <Badge variant="outline" className={categoryColors[prayer.category] || categoryColors.General}>
-                            {prayer.category}
-                          </Badge>
-                          {prayer.privacy !== 'public' && (
-                            <Badge variant="outline" className="gap-1 border-primary/20 bg-primary/5 text-primary">
-                              <Shield className="w-3 h-3" />
-                              {prayer.privacy === 'members' ? 'Members Only' : 'Staff Only'}
+              {pendingPrayers.map(prayer => {
+                const targetGrps = getSelectedGroups(prayer);
+                return (
+                  <Card key={prayer.id} className="border-amber-500/20 bg-amber-500/5 shadow-sm">
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <Badge variant="outline" className={categoryColors[prayer.category] || categoryColors.General}>
+                              {prayer.category}
                             </Badge>
-                          )}
-                          {!isCampusLeader && (
-                             <Badge variant="outline" className="text-[10px]">
-                               {campuses.find(c => c.id === prayer.campusId)?.name || 'Unknown Campus'}
-                             </Badge>
-                          )}
-                        </div>
-                        <h3 className="font-bold text-lg leading-tight">{prayer.title}</h3>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <User className="w-3.5 h-3.5" /> 
-                          {prayer.isAnonymous ? 'Anonymous' : prayer.authorName}
-                          <span className="text-border px-1">•</span>
-                          {formatDate(prayer.createdAt)}
+                            {prayer.privacy !== 'public' && (
+                              <Badge variant="outline" className="gap-1 border-primary/20 bg-primary/5 text-primary">
+                                <Shield className="w-3 h-3" />
+                                {prayer.privacy === 'members' ? 'Members Only' : 'Staff Only'}
+                              </Badge>
+                            )}
+                            {prayer.isAnonymous && (
+                              <Badge variant="outline" className="gap-1 border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300">
+                                <EyeOff className="w-3 h-3" /> Anonymous to Public
+                              </Badge>
+                            )}
+                            {!isCampusLeader && (
+                               <Badge variant="outline" className="text-[10px]">
+                                 {campuses.find(c => c.id === prayer.campusId)?.name || 'Unknown Campus'}
+                               </Badge>
+                            )}
+                          </div>
+                          <h3 className="font-bold text-lg leading-tight">{prayer.title}</h3>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <User className="w-3.5 h-3.5" /> 
+                            {prayer.isAnonymous ? 'Anonymous (on wall)' : prayer.authorName}
+                            <span className="text-border px-1">•</span>
+                            {formatDate(prayer.createdAt)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="bg-background/50 rounded-lg p-3 text-sm text-foreground/80 whitespace-pre-wrap border border-border/50">
-                      {prayer.content}
-                    </div>
 
-                    <div className="space-y-3 pt-2">
-                      <SendNotificationOption
-                        id={`notify-prayer-${prayer.id}`}
-                        checked={!!notifyOnApprove[prayer.id]}
-                        onChange={(send) => setNotifyOnApprove((prev) => ({ ...prev, [prayer.id]: send }))}
-                        description="Members will get a push and in-app alert for this prayer. Leave unchecked to approve quietly."
-                      />
-                      <div className="flex gap-2">
-                      <Button
-                        className="flex-1 gap-2 bg-emerald-500 hover:bg-emerald-600 text-white"
-                        onClick={() => handleApprove(prayer.id)}
-                      >
-                        <CheckCircle className="w-4 h-4" /> Approve
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        className="flex-1 gap-2"
-                        onClick={() => setRejectConfirm(prayer.id)}
-                      >
-                        <Trash2 className="w-4 h-4" /> Delete
-                      </Button>
+                      {/* Submitter Details - Visible to Campus Leader during approval */}
+                      {prayer.isAnonymous && (
+                        <div className="bg-amber-500/10 dark:bg-amber-950/20 border border-amber-500/25 rounded-xl p-3 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                              <UserCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                              Submitter Identity (Campus Leader View)
+                            </span>
+                            <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-amber-500/20 text-amber-800 dark:text-amber-300 font-medium">
+                              Hidden from public
+                            </Badge>
+                          </div>
+                          <div className="text-foreground font-semibold text-sm">
+                            {prayer.submitterName || 'Anonymous Submitter'}
+                          </div>
+                          {(prayer.submitterEmail || prayer.submitterPhone) && (
+                            <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs pt-0.5">
+                              {prayer.submitterEmail && <span>Email: <strong className="text-foreground/90 font-medium">{prayer.submitterEmail}</strong></span>}
+                              {prayer.submitterPhone && <span>Phone: <strong className="text-foreground/90 font-medium">{prayer.submitterPhone}</strong></span>}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="bg-background/50 rounded-lg p-3 text-sm text-foreground/80 whitespace-pre-wrap border border-border/50">
+                        {prayer.content}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+
+                      {/* Campus Leader Broadcast Decision Section */}
+                      <div className="bg-background/60 rounded-xl p-3.5 border border-border/60 space-y-2.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold flex items-center gap-1.5 text-foreground/90">
+                            <Radio className="w-3.5 h-3.5 text-primary" />
+                            Broadcasting Scope
+                          </span>
+                          <span className="text-muted-foreground font-medium">
+                            {targetGrps.length === 0 ? 'All Campus Members' : `${targetGrps.length} group(s) selected`}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Decide which group has the right to see and receive push broadcasts for this prayer request:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setAllCampusForPrayer(prayer.id)}
+                            className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                              targetGrps.length === 0
+                                ? 'bg-primary text-primary-foreground border-primary font-medium shadow-xs'
+                                : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                            }`}
+                          >
+                            All Campus Members
+                          </button>
+                          {availableGroups.map((grp) => {
+                            const isSelected = targetGrps.includes(grp);
+                            return (
+                              <button
+                                key={grp}
+                                type="button"
+                                onClick={() => toggleGroupForPrayer(prayer.id, grp)}
+                                className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                                  isSelected
+                                    ? 'bg-primary text-primary-foreground border-primary font-medium shadow-xs'
+                                    : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                                }`}
+                              >
+                                {grp}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 pt-2">
+                        <SendNotificationOption
+                          id={`notify-prayer-${prayer.id}`}
+                          checked={!!notifyOnApprove[prayer.id]}
+                          onChange={(send) => setNotifyOnApprove((prev) => ({ ...prev, [prayer.id]: send }))}
+                          description={
+                            targetGrps.length > 0
+                              ? `Members of ${targetGrps.join(', ')} will get a push broadcast. Leave unchecked to approve quietly.`
+                              : "Campus members will get a push broadcast. Leave unchecked to approve quietly."
+                          }
+                        />
+                        <div className="flex gap-2">
+                        <Button
+                          className="flex-1 gap-2 bg-emerald-500 hover:bg-emerald-600 text-white"
+                          onClick={() => handleApprove(prayer.id)}
+                        >
+                          <CheckCircle className="w-4 h-4" /> Approve & Broadcast
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          className="flex-1 gap-2"
+                          onClick={() => setRejectConfirm(prayer.id)}
+                        >
+                          <Trash2 className="w-4 h-4" /> Delete
+                        </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
@@ -208,62 +330,84 @@ export default function PrayerRequestsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {approvedPrayers.map(prayer => (
-                <Card key={prayer.id} className="border-border/50 bg-card/30">
-                  <CardContent className="p-5 space-y-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <Badge variant="outline" className={categoryColors[prayer.category] || categoryColors.General}>
-                            {prayer.category}
-                          </Badge>
-                          {prayer.privacy !== 'public' && (
-                            <Badge variant="outline" className="gap-1 border-primary/20 bg-primary/5 text-primary">
-                              <Shield className="w-3 h-3" />
-                              {prayer.privacy === 'members' ? 'Members Only' : 'Staff Only'}
+              {approvedPrayers.map(prayer => {
+                const targetGrps = Array.isArray(prayer.targetGroups) ? prayer.targetGroups : [];
+                return (
+                  <Card key={prayer.id} className="border-border/50 bg-card/30">
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <Badge variant="outline" className={categoryColors[prayer.category] || categoryColors.General}>
+                              {prayer.category}
                             </Badge>
-                          )}
-                          {!isCampusLeader && (
-                             <Badge variant="outline" className="text-[10px]">
-                               {campuses.find(c => c.id === prayer.campusId)?.name || 'Unknown Campus'}
-                             </Badge>
-                          )}
+                            {prayer.privacy !== 'public' && (
+                              <Badge variant="outline" className="gap-1 border-primary/20 bg-primary/5 text-primary">
+                                <Shield className="w-3 h-3" />
+                                {prayer.privacy === 'members' ? 'Members Only' : 'Staff Only'}
+                              </Badge>
+                            )}
+                            {prayer.isAnonymous && (
+                              <Badge variant="outline" className="gap-1 border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300">
+                                <EyeOff className="w-3 h-3" /> Anonymous to Public
+                              </Badge>
+                            )}
+                            {targetGrps.length > 0 ? (
+                              <Badge variant="outline" className="gap-1 border-primary/30 bg-primary/10 text-primary font-medium">
+                                <Radio className="w-3 h-3" /> Broadcast: {targetGrps.join(', ')}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                                All Campus
+                              </Badge>
+                            )}
+                            {!isCampusLeader && (
+                               <Badge variant="outline" className="text-[10px]">
+                                 {campuses.find(c => c.id === prayer.campusId)?.name || 'Unknown Campus'}
+                               </Badge>
+                            )}
+                          </div>
+                          <h3 className="font-bold text-lg leading-tight">{prayer.title}</h3>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <User className="w-3.5 h-3.5" /> 
+                            {prayer.isAnonymous ? 'Anonymous' : prayer.authorName}
+                            {prayer.isAnonymous && prayer.submitterName && (
+                              <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                                (Leader view: {prayer.submitterName})
+                              </span>
+                            )}
+                            <span className="text-border px-1">•</span>
+                            {formatDate(prayer.createdAt)}
+                          </div>
                         </div>
-                        <h3 className="font-bold text-lg leading-tight">{prayer.title}</h3>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <User className="w-3.5 h-3.5" /> 
-                          {prayer.isAnonymous ? 'Anonymous' : prayer.authorName}
-                          <span className="text-border px-1">•</span>
-                          {formatDate(prayer.createdAt)}
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 -mt-2 -mr-2"
+                          onClick={() => setRejectConfirm(prayer.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 -mt-2 -mr-2"
-                        onClick={() => setRejectConfirm(prayer.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    
-                    <div className="bg-background/50 rounded-lg p-3 text-sm text-foreground/80 whitespace-pre-wrap border border-border/50">
-                      {prayer.content}
-                    </div>
+                      
+                      <div className="bg-background/50 rounded-lg p-3 text-sm text-foreground/80 whitespace-pre-wrap border border-border/50">
+                        {prayer.content}
+                      </div>
 
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <Heart className="w-4 h-4 text-rose-500" />
-                        <span className="font-medium">{prayer.prayedCount}</span> prayed
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <Heart className="w-4 h-4 text-rose-500" />
+                          <span className="font-medium">{prayer.prayedCount}</span> prayed
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <MessageCircle className="w-4 h-4" />
+                          <span className="font-medium">{prayer.comments}</span> comments
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <MessageCircle className="w-4 h-4" />
-                        <span className="font-medium">{prayer.comments}</span> comments
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>

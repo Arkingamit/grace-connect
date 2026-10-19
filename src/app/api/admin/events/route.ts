@@ -7,6 +7,7 @@ import { generateOccurrences } from '@/lib/recurrence';
 import mongoose from 'mongoose';
 import { serverCache, CACHE_TTL } from '@/lib/cache';
 import { notifyMembers, wantsMemberNotification } from '@/lib/notify-members';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
 
 import AttendanceRecord from '@/models/AttendanceRecord';
 
@@ -119,6 +120,20 @@ export async function POST(req: Request) {
       // Invalidate events cache
       serverCache.invalidate('events');
 
+      await logActivityFromAdmin(admin, {
+        action: 'PUBLISH',
+        entityType: 'event',
+        entityId: createdEvents[0]._id.toString(),
+        entityTitle: eventData.title || 'Untitled Event',
+        details: {
+          recurring: true,
+          occurrencesCount: occurrences.length,
+          category: eventData.category,
+          date: eventData.date,
+          targetCampuses: eventData.targetCampuses,
+        },
+      });
+
       return NextResponse.json(createdEvents[0], { status: 201 });
     } else {
       const event = await EventModel.create(eventData);
@@ -135,6 +150,19 @@ export async function POST(req: Request) {
 
       // Invalidate events cache
       serverCache.invalidate('events');
+
+      await logActivityFromAdmin(admin, {
+        action: 'PUBLISH',
+        entityType: 'event',
+        entityId: event._id.toString(),
+        entityTitle: event.title || 'Untitled Event',
+        details: {
+          recurring: false,
+          category: event.category,
+          date: event.date,
+          targetCampuses: event.targetCampuses,
+        },
+      });
 
       return NextResponse.json(event, { status: 201 });
     }

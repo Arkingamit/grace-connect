@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "2B633NXZ52.com.graceconnect.app",
+        "paths": ["NOT /api/*", "NOT /.well-known/*", "*"]
+      }
+    ]
+  }
+}

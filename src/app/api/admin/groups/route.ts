@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin, requireAdminWithScope } from '@/lib/api-auth';
 import connectToDatabase from '@/lib/db';
 import Group from '@/models/Group';
+import { logActivityFromAdmin } from '@/lib/activity-logger';
 
 async function ensureGroupIndexes() {
   try {
@@ -110,6 +111,15 @@ export async function POST(req: Request) {
         { new: true, projection: { password: 0 } }
       ).lean();
     }
+
+    await logActivityFromAdmin(admin, {
+      action: 'CREATE',
+      entityType: 'group',
+      entityId: group._id.toString(),
+      entityTitle: group.name || 'Group',
+      campusId: scope !== 'global' ? scope : '',
+      details: { scope, coreGroupId },
+    });
 
     return NextResponse.json(
       {

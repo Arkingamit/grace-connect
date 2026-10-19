@@ -5,6 +5,7 @@ import EventModel from '@/models/Event';
 import Notification from '@/models/Notification';
 import { calculateNextOccurrence, isTodayMatchingSchedule } from '@/lib/recurrence';
 import { sendPushToTargeted } from '@/lib/push-utils';
+import { getNotificationDeepLink } from '@/lib/notification-links';
 
 /**
  * POST /api/cron/recurring-announcements
@@ -279,7 +280,8 @@ export async function POST(req: Request) {
             title: n.title,
             body: n.message,
             type: n.type,
-            url: n.type === 'event_reminder' ? '/events' : '/notifications',
+            sourceId: n.sourceId,
+            url: getNotificationDeepLink(n.type, n.sourceId),
           },
           n.targetCampuses?.length ? n.targetCampuses : ['all'],
           n.targetGroups?.length ? n.targetGroups : []

@@ -29,23 +29,102 @@ function canUseBrowserHistory(): boolean {
 }
 
 function closeOpenOverlay(): boolean {
-  const openLayer = document.querySelector<HTMLElement>(
+  if (typeof document === "undefined") return false;
+
+  // Exit fullscreen first if a video player or element is active in fullscreen
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+    return true;
+  }
+
+  // 1. Direct search for any open dialog / modal close button across document
+  const dialogCloseBtn = document.querySelector<HTMLElement>(
     [
-      '[role="dialog"][data-state="open"]',
-      '[role="alertdialog"][data-state="open"]',
-      '[role="menu"][data-state="open"]',
-      '[data-radix-popper-content-wrapper] [data-state="open"]',
-      '[data-state="open"][role="listbox"]',
+      '[role="dialog"][data-state="open"] button[aria-label="Close"]',
+      '[role="dialog"][data-state="open"] [data-radix-dialog-close]',
+      '[role="dialog"][data-state="open"] button.absolute.right-4',
+      '[role="dialog"] button[aria-label="Close"]',
+      '[role="dialog"] [data-radix-dialog-close]',
+      '[role="dialog"] button.absolute.right-4',
+      '[role="alertdialog"] [data-radix-alert-dialog-cancel]',
+      '[data-dialog-close]',
     ].join(", "),
   );
+  if (dialogCloseBtn) {
+    dialogCloseBtn.click();
+    return true;
+  }
 
-  if (!openLayer) return false;
+  // Dispatch custom overlay close event
+  window.dispatchEvent(new CustomEvent("app:close-overlay"));
 
-  const closeBtn = openLayer.querySelector<HTMLElement>(
-    'button[aria-label="Close"], button[aria-label="close"], [data-radix-dialog-close]',
+  const openLayers = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      [
+        '[role="dialog"][data-state="open"]',
+        '[role="dialog"]',
+        '[role="alertdialog"][data-state="open"]',
+        '[role="alertdialog"]',
+        '[role="menu"][data-state="open"]',
+        '[data-radix-popper-content-wrapper] [data-state="open"]',
+        '[data-state="open"][role="listbox"]',
+        '[data-dialog-open]',
+        '.fixed.inset-0:not(.pointer-events-none):not([aria-hidden="true"])',
+      ].join(", "),
+    ),
+  );
+
+  const activeLayer = openLayers.reverse().find((layer) => {
+    if (layer.classList.contains("pointer-events-none")) return false;
+    if (layer.getAttribute("aria-hidden") === "true") return false;
+    const style = window.getComputedStyle(layer);
+    if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
+    const zIndex = parseInt(style.zIndex, 10);
+    return (
+      (!isNaN(zIndex) && zIndex >= 40) ||
+      layer.getAttribute("role") === "dialog" ||
+      layer.getAttribute("role") === "alertdialog" ||
+      layer.getAttribute("data-state") === "open"
+    );
+  });
+
+  if (!activeLayer) return false;
+
+  const closeBtn = activeLayer.querySelector<HTMLElement>(
+    [
+      'button[aria-label="Close"]',
+      'button[aria-label="close"]',
+      'button[aria-label="Back"]',
+      'button[aria-label="back"]',
+      '[data-radix-dialog-close]',
+      '[data-dialog-close]',
+    ].join(", "),
   );
   if (closeBtn) {
     closeBtn.click();
+    return true;
+  }
+
+  // Fallback: search all buttons in activeLayer for close/back icons or text
+  const allButtons = Array.from(activeLayer.querySelectorAll<HTMLButtonElement>("button"));
+  const fallbackBtn = allButtons.find((btn) => {
+    const label = (btn.getAttribute("aria-label") || "").toLowerCase();
+    const text = (btn.textContent || "").toLowerCase().trim();
+    const hasIcon = Boolean(
+      btn.querySelector("svg.lucide-x, svg.lucide-chevron-left, svg.lucide-arrow-left"),
+    );
+    return (
+      label.includes("close") ||
+      label.includes("back") ||
+      text === "close" ||
+      text === "back" ||
+      text === "cancel" ||
+      hasIcon
+    );
+  });
+
+  if (fallbackBtn) {
+    fallbackBtn.click();
     return true;
   }
 
@@ -53,14 +132,29 @@ function closeOpenOverlay(): boolean {
     "[data-radix-dialog-overlay][data-state='open'], [data-state='open'].fixed.inset-0",
   );
   if (overlay) {
+    overlay.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }));
+    overlay.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    overlay.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true }));
+    overlay.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true }));
     overlay.click();
-    return true;
   }
 
   document.dispatchEvent(
     new KeyboardEvent("keydown", {
       key: "Escape",
       code: "Escape",
+      keyCode: 27,
+      which: 27,
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  document.dispatchEvent(
+    new KeyboardEvent("keyup", {
+      key: "Escape",
+      code: "Escape",
+      keyCode: 27,
+      which: 27,
       bubbles: true,
       cancelable: true,
     }),
@@ -144,6 +238,13 @@ export function NativeBackNavigation() {
 
     window.__graceNativeBack = handleBack;
 
+    const handlePopState = () => {
+      // If an overlay/modal was open when user swiped back or used browser back, close it
+      closeOpenOverlay();
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
     let listener: { remove: () => Promise<void> } | undefined;
     const setup = async () => {
       if (Capacitor.getPlatform() !== "android") return;
@@ -157,6 +258,7 @@ export function NativeBackNavigation() {
       if (window.__graceNativeBack === handleBack) {
         delete window.__graceNativeBack;
       }
+      window.removeEventListener("popstate", handlePopState);
       void listener?.remove();
     };
   }, [router]);

@@ -127,18 +127,45 @@ async function staleWhileRevalidate(request) {
 
 // ── Push Notifications ───────────────────────────────────────────────
 
-// Map notification types to URL paths for click navigation
-const TYPE_TO_PATH = {
-  new_event: '/events',
-  new_announcement: '/notifications',
-  new_note: '/broadcasts',
-  new_prayer: '/prayer-wall',
-  new_sermon: '/#sermons',
-  new_worship_video: '/#worship-videos',
-  recurring_announcement: '/notifications',
-  event_reminder: '/events',
-  system: '/notifications',
-};
+function getNotificationUrl(data) {
+  if (data.url) return data.url;
+  const sourceId = data.sourceId || data.id;
+  const cleanSourceId = sourceId ? encodeURIComponent(String(sourceId).trim()) : '';
+
+  switch (data.type) {
+    case 'new_event':
+    case 'event_reminder':
+      return cleanSourceId ? `/events?rsvp=${cleanSourceId}` : '/events';
+
+    case 'new_announcement':
+    case 'recurring_announcement':
+      return cleanSourceId ? `/announcements?id=${cleanSourceId}` : '/announcements';
+
+    case 'new_gallery':
+      return cleanSourceId ? `/gallery?album=${cleanSourceId}` : '/gallery';
+
+    case 'new_sermon':
+      return cleanSourceId ? `/sermons?sermon=${cleanSourceId}` : '/sermons';
+
+    case 'new_worship_video':
+      return cleanSourceId ? `/music?video=${cleanSourceId}` : '/music';
+
+    case 'new_note':
+      return cleanSourceId ? `/broadcasts?id=${cleanSourceId}` : '/broadcasts';
+
+    case 'new_prayer':
+      return cleanSourceId ? `/prayer-wall?prayer=${cleanSourceId}` : '/prayer-wall';
+
+    case 'live_now':
+      return '/live';
+
+    case 'attendance':
+      return '/check-in';
+
+    default:
+      return '/notifications';
+  }
+}
 
 self.addEventListener('push', (event) => {
   if (!event.data) return;
@@ -151,6 +178,7 @@ self.addEventListener('push', (event) => {
   }
 
   const title = data.title || 'Grace Connect';
+  const targetUrl = getNotificationUrl(data);
   const options = {
     body: data.body || data.message || '',
     icon: '/logo.png',
@@ -159,8 +187,9 @@ self.addEventListener('push', (event) => {
     tag: data.tag || `gc-${Date.now()}`,
     renotify: true,
     data: {
-      url: data.url || TYPE_TO_PATH[data.type] || '/',
+      url: targetUrl,
       type: data.type || 'system',
+      sourceId: data.sourceId || '',
     },
     actions: [
       { action: 'open', title: 'View' },
@@ -176,7 +205,7 @@ self.addEventListener('notificationclick', (event) => {
 
   if (event.action === 'dismiss') return;
 
-  const targetUrl = event.notification.data?.url || '/';
+  const targetUrl = event.notification.data?.url || '/notifications';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

@@ -129,6 +129,14 @@ function sanitizeSubtitle(sub?: string): string | undefined {
   return cleaned || undefined;
 }
 
+function cleanThumbnailUrl(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  if (url.includes('img.youtube.com') && url.includes('/hqdefault.jpg')) {
+    return url.replace('/hqdefault.jpg', '/mqdefault.jpg');
+  }
+  return url;
+}
+
 interface RecentSearchItem {
   id: string;
   kind: 'query' | 'item';
@@ -1170,17 +1178,21 @@ export default function SearchPage() {
                 <p className="text-xs text-[#7A6150] mt-1">Check back later or browse All.</p>
               </div>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between px-0.5">
-                  <h3 className="text-xs font-bold text-[#7A6150] uppercase tracking-wider">
-                    Just In & Recently Posted
-                  </h3>
-                  <span className="text-[11px] font-semibold text-[#8B2323] bg-[#FBE8E8] px-2 py-0.5 rounded-full">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-3.5 rounded-full bg-[#8B2323]" />
+                    <h3 className="text-xs font-bold text-[#4A3A32] uppercase tracking-wider">
+                      Just In & Recently Posted
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-[#8B2323] bg-[#FBE8E8] px-2.5 py-0.5 rounded-full border border-[#8B2323]/15 flex items-center gap-1 shadow-xs">
+                    <Sparkles className="w-2.5 h-2.5" />
                     Newest First
                   </span>
                 </div>
 
-                <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-4 px-4 pb-2 snap-x items-stretch">
+                <div className="flex gap-3.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-3 pt-1 snap-x scroll-smooth items-stretch">
                   {freshReleases.map((item) => {
                     const isVideo = item.type === 'sermon' || item.type === 'worship' || item.type === 'video';
                     return (
@@ -1193,107 +1205,143 @@ export default function SearchPage() {
                           }
                           router.push(dest);
                         }}
-                        className="group relative w-40 sm:w-44 shrink-0 rounded-xl overflow-hidden shadow-xs border border-[#E5D5C5]/70 bg-white snap-start cursor-pointer active:scale-98 transition-all hover:shadow-md flex flex-col"
+                        className="group relative w-44 sm:w-48 h-[272px] shrink-0 rounded-2xl overflow-hidden shadow-xs hover:shadow-xl border border-[#E5D5C5]/60 bg-[#FAF7F2] snap-start cursor-pointer active:scale-98 transition-all duration-300 flex flex-col select-none"
                       >
                         {item.thumbnail ? (
-                          <>
-                            {/* Aspect 4:5 Poster Image */}
-                            <div className="relative aspect-[4/5] w-full bg-[#FAF7F2] overflow-hidden">
+                          <div className="relative w-full h-full overflow-hidden flex flex-col justify-between">
+                            {/* Full-bleed Background Poster Image */}
+                            <div className="absolute inset-0 bg-[#2D231E]/20 overflow-hidden">
                               <img
-                                src={item.thumbnail}
+                                src={cleanThumbnailUrl(item.thumbnail)}
                                 alt={item.title}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
+                                loading="lazy"
+                                onError={(e) => {
+                                  const target = e.currentTarget;
+                                  if (target.src.includes('hqdefault.jpg')) {
+                                    target.src = target.src.replace('hqdefault.jpg', 'mqdefault.jpg');
+                                  }
+                                }}
                               />
+                            </div>
 
-                              {/* Top Badges */}
-                              <div className="absolute top-2 left-2 flex items-center gap-1">
-                                <span className="bg-[#8B2323] text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-md shadow-xs tracking-wider">
+                            {/* Top Subtle Scrim Gradient */}
+                            <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/70 via-black/25 to-transparent pointer-events-none z-10" />
+
+                            {/* Bottom Rich Scrim Gradient */}
+                            <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/95 via-black/65 via-45% to-transparent pointer-events-none z-10" />
+
+                            {/* Top Header Row: Badges */}
+                            <div className="relative z-20 p-3 flex items-center justify-between gap-1.5">
+                              {item.isNew ? (
+                                <span className="bg-[#8B2323] text-white text-[9.5px] font-black uppercase px-2 py-0.5 rounded-full shadow-sm tracking-wider flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                                   NEW
                                 </span>
-                              </div>
-
-                              {/* Media Indicator Icons */}
-                              {item.type === 'photo' && (
-                                <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md text-white p-1 rounded-md">
-                                  <Copy className="w-3.5 h-3.5" />
-                                </div>
-                              )}
-                              {isVideo && (
-                                <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
-                                  <div className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm text-[#8B2323] flex items-center justify-center pl-0.5 shadow-md group-hover:scale-110 group-hover:bg-[#8B2323] group-hover:text-white transition-all">
-                                    <Play className="w-4 h-4 fill-current" />
-                                  </div>
-                                </div>
+                              ) : (
+                                <span />
                               )}
 
-                              {/* Bottom Gradient Overlay */}
-                              <div className="absolute inset-x-0 bottom-0 pt-8 pb-2 px-2.5 bg-gradient-to-t from-black/85 via-black/40 to-transparent text-white">
-                                <div className="text-[9px] font-semibold text-white/80 uppercase tracking-wider mb-0.5 flex items-center justify-between">
-                                  <span>{sanitizeCategory(item.category, item.type === 'video' ? 'Video' : item.type === 'photo' ? 'Photos' : '')}</span>
-                                  <span>{item.timeAgo}</span>
-                                </div>
-                                <h4 className="font-bold text-xs text-white line-clamp-2 leading-tight">
-                                  {item.title}
-                                </h4>
+                              <div className="flex items-center gap-1">
+                                {item.type === 'photo' && (
+                                  <span className="bg-black/45 backdrop-blur-md text-white text-[9.5px] font-semibold px-2 py-0.5 rounded-full border border-white/20 flex items-center gap-1 shadow-xs">
+                                    <Copy className="w-2.5 h-2.5" />
+                                    Photos
+                                  </span>
+                                )}
+                                {isVideo && (
+                                  <span className="bg-black/45 backdrop-blur-md text-white text-[9.5px] font-semibold px-2 py-0.5 rounded-full border border-white/20 flex items-center gap-1 shadow-xs">
+                                    <Play className="w-2.5 h-2.5 fill-current" />
+                                    {sanitizeCategory(item.category, item.type === 'worship' ? 'Worship' : 'Video')}
+                                  </span>
+                                )}
+                                {!isVideo && item.type !== 'photo' && item.category && (
+                                  <span className="bg-black/45 backdrop-blur-md text-white text-[9.5px] font-semibold px-2 py-0.5 rounded-full border border-white/20 shadow-xs">
+                                    {item.category}
+                                  </span>
+                                )}
                               </div>
                             </div>
 
-                            {/* Card Subtitle Footer */}
-                            <div className="p-2 bg-white flex-1 flex items-center">
-                              <p className="text-[11px] text-[#7A6150] font-medium truncate">
-                                {sanitizeSubtitle(item.subtitle) || item.description || (item.date ? formatDDMMYYYY(item.date) : sanitizeCategory(item.category, ''))}
-                              </p>
+                            {/* Center Floating Play Button (for Videos/Music) */}
+                            {isVideo && (
+                              <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                                <div className="w-12 h-12 rounded-full bg-white/25 backdrop-blur-md border border-white/40 text-white flex items-center justify-center pl-0.5 shadow-xl group-hover:scale-115 group-hover:bg-[#8B2323] group-hover:border-[#8B2323] transition-all duration-300">
+                                  <Play className="w-5 h-5 fill-current drop-shadow-sm" />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Bottom Content Area */}
+                            <div className="relative z-20 p-3 mt-auto flex flex-col justify-end text-white">
+                              <div className="flex items-center justify-between text-[10px] font-medium text-white/75 mb-1">
+                                <span className="truncate max-w-[65%] text-white/80 font-semibold uppercase tracking-wider text-[9px]">
+                                  {sanitizeSubtitle(item.subtitle) || sanitizeCategory(item.category, item.type === 'video' ? 'Video' : item.type === 'worship' ? 'Worship' : '')}
+                                </span>
+                                {item.timeAgo && (
+                                  <span className="shrink-0 text-white/70 text-[9.5px]">{item.timeAgo}</span>
+                                )}
+                              </div>
+
+                              <h4 className="font-bold text-[13px] text-white line-clamp-2 leading-snug group-hover:text-red-200 transition-colors drop-shadow-sm">
+                                {item.title}
+                              </h4>
+
+                              {item.description && (
+                                <p className="text-[10.5px] text-white/70 line-clamp-1 mt-1 font-normal">
+                                  {item.description}
+                                </p>
+                              )}
                             </div>
-                          </>
+                          </div>
                         ) : (
                           (() => {
                             const theme = getEditorialCardTheme(item.type);
                             const CardIcon = theme.icon;
 
                             return (
-                              <div className={`relative w-full h-full p-3.5 flex flex-col justify-between ${theme.gradient} overflow-hidden select-none min-h-[230px]`}>
+                              <div className="relative w-full h-full p-3.5 flex flex-col justify-between bg-gradient-to-b from-[#FFFDF9] via-[#FAF4EC] to-[#F5ECE1] overflow-hidden select-none">
                                 {/* Background Decorative Watermark Icon */}
-                                <div className={`absolute -right-3 -bottom-3 ${theme.watermark} pointer-events-none transform -rotate-12`}>
-                                  <CardIcon className="w-24 h-24 stroke-[1.2]" />
+                                <div className="absolute -right-3 -bottom-3 text-[#8B2323]/[0.06] pointer-events-none transform -rotate-12">
+                                  <CardIcon className="w-28 h-28 stroke-[1.1]" />
                                 </div>
 
-                                {/* Top Header: NEW badge + Date */}
-                                <div className="relative z-10">
-                                  <div className="flex items-center justify-between gap-1.5">
-                                    {item.isNew ? (
-                                      <span className="bg-[#8B2323] text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-md shadow-xs tracking-wider">
-                                        NEW
-                                      </span>
-                                    ) : (
-                                      <span />
-                                    )}
+                                {/* Top Header Row */}
+                                <div className="relative z-10 flex items-center justify-between gap-1.5">
+                                  {item.isNew ? (
+                                    <span className="bg-[#8B2323] text-white text-[9.5px] font-black uppercase px-2 py-0.5 rounded-full shadow-xs tracking-wider flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                      NEW
+                                    </span>
+                                  ) : (
+                                    <span />
+                                  )}
 
-                                    {item.timeAgo && (
-                                      <span className="text-[10px] font-semibold text-[#7A6150]/75">
-                                        {item.timeAgo}
-                                      </span>
-                                    )}
-                                  </div>
+                                  <span className="bg-[#8B2323]/10 text-[#8B2323] border border-[#8B2323]/20 text-[9.5px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    <CardIcon className="w-2.5 h-2.5" />
+                                    {sanitizeCategory(item.category, item.type === 'announcement' ? 'Notice' : item.type === 'note' ? 'Prayer' : 'Event')}
+                                  </span>
+                                </div>
 
-                                  {/* Title */}
-                                  <h4 className="font-bold text-sm text-[#1A202C] leading-snug line-clamp-3 group-hover:text-[#8B2323] transition-colors mt-2.5">
+                                {/* Middle Content */}
+                                <div className="relative z-10 my-auto py-2">
+                                  <h4 className="font-serif font-bold text-[14.5px] text-[#2D231E] leading-snug line-clamp-3 group-hover:text-[#8B2323] transition-colors">
                                     {item.title}
                                   </h4>
 
-                                  {/* Description Snippet */}
                                   {item.description && (
-                                    <p className="text-[11px] text-[#7A6150]/90 line-clamp-3 leading-relaxed mt-1.5 font-normal">
+                                    <p className="text-[11px] text-[#7A6150] line-clamp-3 leading-relaxed mt-2 font-normal">
                                       {item.description}
                                     </p>
                                   )}
                                 </div>
 
                                 {/* Bottom Footer: Subtitle / Date & Action Link */}
-                                <div className="relative z-10 pt-2.5 mt-auto border-t border-[#E5D5C5]/60 flex items-center justify-between gap-1">
-                                  <p className="text-[10px] text-[#7A6150] font-medium truncate flex-1">
-                                    {sanitizeSubtitle(item.subtitle) || (item.date ? formatDDMMYYYY(item.date) : sanitizeCategory(item.category, ''))}
-                                  </p>
-                                  <span className="inline-flex items-center text-[10px] font-bold text-[#8B2323] group-hover:translate-x-0.5 transition-transform shrink-0">
+                                <div className="relative z-10 pt-2 border-t border-[#E5D5C5]/70 flex items-center justify-between gap-1 text-[#7A6150]">
+                                  <span className="text-[10px] font-semibold text-[#7A6150]/80 truncate">
+                                    {item.timeAgo || (item.date ? formatDDMMYYYY(item.date) : '')}
+                                  </span>
+                                  <span className="inline-flex items-center text-[10.5px] font-bold text-[#8B2323] group-hover:translate-x-0.5 transition-transform shrink-0">
                                     {theme.readText}
                                     <ChevronRight className="w-3 h-3 ml-0.5" />
                                   </span>
