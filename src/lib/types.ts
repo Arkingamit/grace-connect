@@ -395,6 +395,7 @@ export interface ChurchMember {
   rejectionReason?: string;
   rejectionNote?: string;
   rejectedAt?: string;
+  dismissedNotificationIds?: string[];
 }
 
 export interface AuthSession {
@@ -402,9 +403,11 @@ export interface AuthSession {
   email: string;
   name: string;
   role: string;
+  status?: MemberStatus | string;
   permissions?: string[];
   avatar?: string;
   campusId?: string;
   groups?: string[];
   createdAt?: string;
+  dismissedNotificationIds?: string[];
 }

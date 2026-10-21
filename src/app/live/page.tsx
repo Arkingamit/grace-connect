@@ -3,7 +3,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
-import { MobileBottomNav } from "@/components/ui/mobile-bottom-nav";
 import { LiveStreamSection } from "@/components/ui/live-stream";
 import { useNavigationHistory } from "@/components/ui/navigation-history-provider";
 
@@ -27,7 +26,6 @@ export default function LivePage() {
       <main className="max-w-6xl mx-auto px-4 md:px-8">
         <LiveStreamSection variant="page" />
       </main>
-      <MobileBottomNav />
     </div>
   );
 }

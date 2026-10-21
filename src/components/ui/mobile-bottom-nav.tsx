@@ -89,17 +89,25 @@ function isIgnoredSwipeTarget(target: EventTarget | null) {
   return false;
 }
 
-function tabMetrics(el: HTMLElement) {
-  const height = Math.max(0, el.offsetHeight - PILL_INSET * 2);
+function tabMetrics(el: HTMLElement, bar?: HTMLElement | null) {
+  const naturalH = el.offsetHeight || 48;
+  const height = Math.max(28, naturalH - PILL_INSET * 2);
   const width = height; // Square indicator
-  const left = el.offsetLeft + (el.offsetWidth - width) / 2;
+  const naturalW = el.offsetWidth || height;
+  let left = el.offsetLeft + (naturalW - width) / 2;
   const top = el.offsetTop + PILL_INSET;
+
+  if (bar && bar.offsetWidth > 0) {
+    const maxLeft = Math.max(PILL_INSET, bar.offsetWidth - width - PILL_INSET);
+    left = Math.max(PILL_INSET, Math.min(maxLeft, left));
+  }
+
   return {
     left,
     top,
     width,
     height,
-    center: el.offsetLeft + el.offsetWidth / 2,
+    center: el.offsetLeft + naturalW / 2,
   };
 }
 
@@ -146,7 +154,7 @@ export function MobileBottomNav() {
     const bar = barRef.current;
     const el = itemRefs.current[index];
     if (!bar || !el) return;
-    const { left, top, width, height } = tabMetrics(el);
+    const { left, top, width, height } = tabMetrics(el, bar);
     if (instant) {
       pillX.set(left);
       pillY.set(top);
@@ -175,17 +183,23 @@ export function MobileBottomNav() {
   }, []);
 
   const lerpPill = useCallback((fromIndex: number, toIndex: number, t: number) => {
+    const bar = barRef.current;
     const fromEl = itemRefs.current[fromIndex];
     const toEl = itemRefs.current[toIndex];
     if (!fromEl || !toEl) return;
-    const a = tabMetrics(fromEl);
-    const b = tabMetrics(toEl);
+    const a = tabMetrics(fromEl, bar);
+    const b = tabMetrics(toEl, bar);
     const tt = Math.max(0, Math.min(1, t));
     const jelly = 1.15; // smooth subtle stretch while swiping
     const naturalW = a.width + (b.width - a.width) * tt;
     const width = naturalW * jelly;
     const height = a.height;
-    pillX.set(a.left + (b.left - a.left) * tt - (width - naturalW) / 2);
+    let targetX = a.left + (b.left - a.left) * tt - (width - naturalW) / 2;
+    if (bar && bar.offsetWidth > 0) {
+      const maxLeft = Math.max(PILL_INSET, bar.offsetWidth - width - PILL_INSET);
+      targetX = Math.max(PILL_INSET, Math.min(maxLeft, targetX));
+    }
+    pillX.set(targetX);
     pillY.set(a.top);
     pillW.set(width);
     pillH.set(height);
@@ -195,7 +209,7 @@ export function MobileBottomNav() {
     const bar = barRef.current;
     if (!bar) return;
     const tabs = itemRefs.current
-      .map((el) => (el ? tabMetrics(el) : null))
+      .map((el) => (el ? tabMetrics(el, bar) : null))
       .filter((tab): tab is NonNullable<typeof tab> => Boolean(tab));
     if (tabs.length < 2) return;
 
@@ -212,7 +226,12 @@ export function MobileBottomNav() {
     const naturalW = a.width + (b.width - a.width) * t;
     const width = naturalW * jelly;
     const height = a.height;
-    pillX.set(a.left + (b.left - a.left) * t - (width - naturalW) / 2);
+    let targetX = a.left + (b.left - a.left) * t - (width - naturalW) / 2;
+    if (bar.offsetWidth > 0) {
+      const maxLeft = Math.max(PILL_INSET, bar.offsetWidth - width - PILL_INSET);
+      targetX = Math.max(PILL_INSET, Math.min(maxLeft, targetX));
+    }
+    pillX.set(targetX);
     pillY.set(a.top);
     pillW.set(width);
     pillH.set(height);
@@ -288,7 +307,24 @@ function scrollToTop() {
     const instant = firstLayout.current;
     firstLayout.current = false;
     placePill(activeIndex, instant);
-  }, [activeIndex, compact, placePill]);
+  }, [activeIndex, placePill]);
+
+  // Continuously track layout during compact mode CSS transitions (max-width & padding)
+  useEffect(() => {
+    let animId: number;
+    const start = performance.now();
+    const duration = 350;
+
+    const tick = (now: number) => {
+      placePill(activeIndexRef.current, true);
+      if (now - start < duration) {
+        animId = requestAnimationFrame(tick);
+      }
+    };
+
+    animId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animId);
+  }, [compact, placePill]);
 
   useEffect(() => {
     const bar = barRef.current;
@@ -303,14 +339,16 @@ function scrollToTop() {
     window.addEventListener("resize", sync);
     window.visualViewport?.addEventListener("resize", sync);
     window.visualViewport?.addEventListener("scroll", sync);
+    bar.addEventListener("transitionend", sync);
 
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", sync);
       window.visualViewport?.removeEventListener("resize", sync);
       window.visualViewport?.removeEventListener("scroll", sync);
+      bar.removeEventListener("transitionend", sync);
     };
-  }, [compact, placePill]);
+  }, [placePill]);
 
   useEffect(() => {
     const readY = (target: EventTarget | null) => {
@@ -513,14 +551,14 @@ function scrollToTop() {
         <div
           ref={barRef}
           className={cn(
-            "relative flex touch-none items-center gap-0.5 rounded-full transition-[padding] duration-300 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]",
+            "relative flex touch-none items-center gap-0.5 rounded-full overflow-hidden transition-[padding] duration-300 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]",
             compact ? "px-1 py-1" : "px-1.5 py-1",
           )}
+          style={{ boxShadow: "0 6px 6px rgba(0, 0, 0, 0.2), 0 0 20px rgba(0, 0, 0, 0.1)" }}
           onPointerDown={onNavPointerDown}
         >
           <div 
             className="pointer-events-none absolute inset-0 rounded-full overflow-hidden"
-            style={{ boxShadow: "0 6px 6px rgba(0, 0, 0, 0.2), 0 0 20px rgba(0, 0, 0, 0.1)" }}
           >
             <div className="absolute -inset-12 z-0" style={{ backdropFilter: "blur(3px)", filter: "url(#glass-distortion)", isolation: "isolate" }} />
             <div className="absolute inset-0 z-10 rounded-[inherit]" style={{ background: "rgba(255, 255, 255, 0.25)" }} />
@@ -528,13 +566,14 @@ function scrollToTop() {
           </div>
           <motion.span
             aria-hidden
-            className="pointer-events-none absolute z-[1] rounded-2xl overflow-hidden will-change-[left,width]"
+            className="pointer-events-none absolute z-[1] rounded-full overflow-hidden will-change-[left,width]"
             style={{ 
               left: pillX, top: pillY, width: pillW, height: pillH,
-              boxShadow: "0 6px 16px rgba(139, 35, 35, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08)"
+              boxShadow: "0 6px 16px rgba(139, 35, 35, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
             }}
           >
-            <div className="absolute -inset-4 z-0" style={{ backdropFilter: "blur(6px)", filter: "url(#glass-distortion)", isolation: "isolate" }} />
             <div className="absolute inset-0 z-10 rounded-[inherit]" style={{ background: "linear-gradient(135deg, rgba(251, 232, 232, 0.88) 0%, rgba(247, 216, 216, 0.78) 100%)" }} />
             <div className="absolute inset-0 z-20 rounded-[inherit] overflow-hidden border border-[#8B2323]/20" style={{ boxShadow: "inset 2px 2px 3px 0 rgba(255, 255, 255, 0.95), inset -2px -2px 4px 0 rgba(139, 35, 35, 0.25), inset 0 0 8px rgba(139, 35, 35, 0.08)" }} />
           </motion.span>
@@ -557,7 +596,7 @@ function scrollToTop() {
                   goToIndex(index);
                 }}
                 className={cn(
-                  "relative z-10 flex min-w-0 flex-1 items-center justify-center rounded-2xl transition-colors duration-200 [-webkit-tap-highlight-color:transparent]",
+                  "relative z-10 flex min-w-0 flex-1 items-center justify-center rounded-full transition-colors duration-200 outline-none focus:outline-none focus-visible:outline-none [-webkit-tap-highlight-color:transparent]",
                   compact ? "h-11 px-1" : "h-12 px-1",
                   isActive ? "text-[#8B2323]" : "text-[#4A3A32] active:text-[#3A2D27]",
                 )}

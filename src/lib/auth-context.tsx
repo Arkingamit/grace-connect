@@ -112,10 +112,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: formattedMember.email,
       name: formattedMember.name || `${formattedMember.firstName} ${formattedMember.lastName}`,
       role: formattedMember.role || 'member',
+      status: formattedMember.status || 'approved',
       avatar: formattedMember.avatar || undefined,
       campusId: formattedMember.campusId || '',
       groups: formattedMember.groups || [],
       createdAt: formattedMember.createdAt ? String(formattedMember.createdAt) : undefined,
+      dismissedNotificationIds: formattedMember.dismissedNotificationIds || [],
     });
     setLinkedProfiles(nextLinked);
 
@@ -126,6 +128,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setActiveProfileId(null);
       }
+
+      // Synchronize server-persisted dismissed notification IDs so re-installing
+      // the app and signing back in keeps previously cleared notifications hidden.
+      try {
+        const serverDismissed: string[] = Array.isArray(formattedMember.dismissedNotificationIds)
+          ? formattedMember.dismissedNotificationIds
+          : [];
+        const local: string[] = JSON.parse(localStorage.getItem('grace_dismissed_notifications') || '[]');
+        const merged = Array.from(new Set([...local, ...serverDismissed]));
+        localStorage.setItem('grace_dismissed_notifications', JSON.stringify(merged));
+        window.dispatchEvent(new CustomEvent('grace_notifications_dismissed_sync', {
+          detail: { dismissedIds: merged }
+        }));
+      } catch {}
     }
 
     if ((wasPending && nextStatus === 'approved') || linkedBecameApproved) {

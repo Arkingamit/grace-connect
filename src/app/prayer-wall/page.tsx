@@ -24,14 +24,11 @@ export default function PrayerWallPage() {
             const current: string[] = JSON.parse(localStorage.getItem('grace_dismissed_notifications') || '[]');
             const updated = Array.from(new Set([...current, ...ids]));
             localStorage.setItem('grace_dismissed_notifications', JSON.stringify(updated));
-            const dbIds = prayerNotifs.map(n => n._id).filter(Boolean);
-            if (dbIds.length > 0) {
-              fetch('/api/notifications', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: dbIds })
-              }).catch(() => {});
-            }
+            fetch('/api/notifications', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids })
+            }).catch(() => {});
           }
         }).catch(() => {});
     } catch {}

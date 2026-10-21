@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { requireAdminWithScope } from '@/lib/api-auth';
 import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
+import Announcement from '@/models/Announcement';
+import Notification from '@/models/Notification';
 import bcrypt from 'bcryptjs';
 import { logActivityFromAdmin } from '@/lib/activity-logger';
 
@@ -129,6 +131,21 @@ export async function POST(req: Request) {
       const salt = await bcrypt.genSalt(10);
       body.password = await bcrypt.hash(body.password, salt);
     }
+
+    const [existingAnnouncements, existingNotifications] = await Promise.all([
+      Announcement.find({}, { _id: 1 }).lean(),
+      Notification.find({}, { _id: 1, sourceId: 1 }).lean(),
+    ]);
+
+    body.dismissedNotificationIds = Array.from(new Set([
+      ...existingAnnouncements.map((a: any) => `ann-${a._id.toString()}`),
+      ...existingNotifications.flatMap((n: any) => [
+        n._id.toString(),
+        n.sourceId ? `ann-${n.sourceId}` : null,
+        n.sourceId ? `worship-${n.sourceId}` : null,
+        n.sourceId ? `prayer-${n.sourceId}` : null,
+      ]).filter(Boolean) as string[],
+    ]));
 
     const user = await User.create(body);
 

@@ -950,7 +950,7 @@ export default function UsersPage() {
                       return (
                         <div key={module.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-4">
                           <Label className="text-sm font-medium">{module.label}</Label>
-                          <Popover>
+                          <Popover modal={true}>
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
@@ -965,7 +965,13 @@ export default function UsersPage() {
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-[220px] p-3" align="start">
+                            <PopoverContent
+                              className="z-[60] w-[240px] p-3 shadow-lg"
+                              align="start"
+                              sideOffset={4}
+                              onWheel={(e) => e.stopPropagation()}
+                              onTouchMove={(e) => e.stopPropagation()}
+                            >
                               <div className="space-y-3">
                                 <div className="flex items-center space-x-2">
                                   <Checkbox 
@@ -989,9 +995,15 @@ export default function UsersPage() {
                                 
                                 <div className="w-full h-px bg-border/80 my-1" />
                                 
-                                <div className="max-h-[150px] overflow-y-auto space-y-2 pr-1">
+                                <div
+                                  data-no-tab-swipe
+                                  className="max-h-[190px] overflow-y-auto overscroll-contain space-y-2 pr-1.5 touch-pan-y"
+                                  style={{ WebkitOverflowScrolling: 'touch' }}
+                                  onWheel={(e) => e.stopPropagation()}
+                                  onTouchMove={(e) => e.stopPropagation()}
+                                >
                                   {getAllowedCampuses(currentUser, campuses, 'members').map(c => (
-                                    <div key={c.id} className="flex items-center space-x-2">
+                                    <div key={c.id} className="flex items-center space-x-2 py-0.5">
                                       <Checkbox 
                                         id={`${c.id}-${module.id}`}
                                         checked={currentScopes.includes(c.id)}

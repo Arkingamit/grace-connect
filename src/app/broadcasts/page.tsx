@@ -3,7 +3,6 @@
 import React from "react";
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
-import { MobileBottomNav } from "@/components/ui/mobile-bottom-nav";
 import { NoteShareSection } from "@/components/ui/note-share-section";
 import { AuthGate } from "@/components/ui/auth-gate";
 import { useNavigationHistory } from "@/components/ui/navigation-history-provider";

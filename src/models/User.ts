@@ -29,6 +29,7 @@ export interface IUser extends Document {
   rejectionReason?: string;
   rejectionNote?: string;
   rejectedAt?: Date | null;
+  dismissedNotificationIds?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -70,6 +71,7 @@ const UserSchema = new Schema<IUser>(
     rejectionReason: { type: String, default: '' },
     rejectionNote: { type: String, default: '' },
     rejectedAt: { type: Date, default: null },
+    dismissedNotificationIds: [{ type: String }],
   },
   { timestamps: true }
 );

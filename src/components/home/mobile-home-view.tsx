@@ -678,14 +678,25 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
     if (typeof window !== 'undefined') {
       try {
         dismissed = JSON.parse(localStorage.getItem('grace_dismissed_notifications') || '[]');
-        setDismissedIds(dismissed);
       } catch {
         dismissed = [];
       }
     }
+    if (sessionMember?.dismissedNotificationIds?.length) {
+      dismissed = Array.from(new Set([...dismissed, ...sessionMember.dismissedNotificationIds]));
+    }
+    setDismissedIds(dismissed);
 
     const notifs = notifsList || rawNotifsRef.current;
     if (Array.isArray(notifs)) {
+      const isPending = session?.status === 'pending' || sessionMember?.status === 'pending';
+      if (isPending) {
+        setWorshipNotifCount(0);
+        setPrayerNotifCount(0);
+        setDirectAnnouncementNotifCount(0);
+        return;
+      }
+
       const unreadWorship = notifs.filter((n: any) =>
         n.type === 'new_worship_video' &&
         !n.isRead &&
@@ -709,7 +720,7 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
       setPrayerNotifCount(unreadPrayers);
       setDirectAnnouncementNotifCount(unreadAnnounces);
     }
-  }, []);
+  }, [sessionMember?.dismissedNotificationIds, session?.status, sessionMember?.status]);
 
   useEffect(() => {
     // Initial fetch of /api/notifications
@@ -753,21 +764,28 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
     const onSync = () => refreshNotificationCounts();
     window.addEventListener('focus', onSync);
     window.addEventListener('storage', onSync);
+    window.addEventListener('grace_notifications_dismissed_sync', onSync);
     return () => {
       window.removeEventListener('focus', onSync);
       window.removeEventListener('storage', onSync);
+      window.removeEventListener('grace_notifications_dismissed_sync', onSync);
     };
   }, [session?.role, refreshNotificationCounts]);
 
   const announcementNotificationCount = React.useMemo(() => {
+    if (session?.status === 'pending' || sessionMember?.status === 'pending') {
+      return 0;
+    }
     const now = new Date();
     const userCreatedAt = session?.createdAt
       ? new Date(session.createdAt)
       : (sessionMember?.createdAt ? new Date(sessionMember.createdAt) : null);
 
+    if (!userCreatedAt) return 0;
+
     const activeAnnouncements = (announcements || []).filter(a => {
       if (dismissedIds.includes(`ann-${a.id}`)) return false;
-      if (userCreatedAt && a.createdAt && new Date(a.createdAt) < userCreatedAt) return false;
+      if (!a.createdAt || new Date(a.createdAt) <= userCreatedAt) return false;
       if (a.endDate) {
         let exp: Date;
         if (a.endTime) {
@@ -781,23 +799,28 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
     }).length;
 
     return Math.max(activeAnnouncements, directAnnouncementNotifCount);
-  }, [announcements, dismissedIds, directAnnouncementNotifCount, session?.createdAt, sessionMember?.createdAt]);
+  }, [announcements, dismissedIds, directAnnouncementNotifCount, session?.createdAt, session?.status, sessionMember?.createdAt, sessionMember?.status]);
 
   // Card badges show ONLY when there are active notifications for them in the notification bar
   const worshipNotificationCount = React.useMemo(() => {
+    if (session?.status === 'pending' || sessionMember?.status === 'pending') return 0;
     return worshipNotifCount;
-  }, [worshipNotifCount]);
+  }, [worshipNotifCount, session?.status, sessionMember?.status]);
 
   const prayerNotificationCount = React.useMemo(() => {
+    if (session?.status === 'pending' || sessionMember?.status === 'pending') return 0;
     const adminPending = (session?.role === 'campus_leader' || session?.role === 'admin' || session?.role === 'super_admin') ? pendingPrayerCount : 0;
     return prayerNotifCount + adminPending;
-  }, [prayerNotifCount, pendingPrayerCount, session?.role]);
+  }, [prayerNotifCount, pendingPrayerCount, session?.role, session?.status, sessionMember?.status]);
 
   // Notification bar in the header reflects all unread notifications
   const unseenCount = React.useMemo(() => {
+    if (session?.status === 'pending' || sessionMember?.status === 'pending') {
+      return 0;
+    }
     const adminUserPending = (session?.role === 'campus_leader' || session?.role === 'admin' || session?.role === 'super_admin') ? (pendingCount - pendingPrayerCount) : 0;
     return announcementNotificationCount + worshipNotificationCount + prayerNotificationCount + checkInCount + adminUserPending;
-  }, [announcementNotificationCount, worshipNotificationCount, prayerNotificationCount, checkInCount, session?.role, pendingCount, pendingPrayerCount]);
+  }, [announcementNotificationCount, worshipNotificationCount, prayerNotificationCount, checkInCount, session?.role, session?.status, sessionMember?.status, pendingCount, pendingPrayerCount]);
 
   // Visit handlers that instantly dismiss notifications when user opens a card
   const handleVisitCheckIn = useCallback(() => {
@@ -820,12 +843,11 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
       setDismissedIds(updated);
       setPrayerNotifCount(0);
       setPendingPrayerCount(0);
-      const dbIds = prayerNotifs.map((n: any) => n._id).filter(Boolean);
-      if (dbIds.length > 0) {
+      if (idsToDismiss.length > 0) {
         fetch('/api/notifications', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids: dbIds })
+          body: JSON.stringify({ ids: idsToDismiss })
         }).catch(() => {});
       }
     } catch {}
@@ -841,12 +863,11 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
       localStorage.setItem('grace_visited_worship', String(Date.now()));
       setDismissedIds(updated);
       setWorshipNotifCount(0);
-      const dbIds = worshipNotifs.map((n: any) => n._id).filter(Boolean);
-      if (dbIds.length > 0) {
+      if (idsToDismiss.length > 0) {
         fetch('/api/notifications', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids: dbIds })
+          body: JSON.stringify({ ids: idsToDismiss })
         }).catch(() => {});
       }
     } catch {}
@@ -857,18 +878,18 @@ export function MobileHomeView({ forceVisible = false }: { forceVisible?: boolea
       const annNotifs = rawNotifsRef.current.filter((n: any) => n.type === 'new_announcement' || n.type === 'recurring_announcement');
       const notifIds = annNotifs.flatMap((n: any) => [n._id, n.sourceId ? `ann-${n.sourceId}` : null]).filter(Boolean) as string[];
       const adminAnnIds = (announcements || []).map(a => `ann-${a.id}`);
+      const idsToDismiss = Array.from(new Set([...notifIds, ...adminAnnIds]));
       const current: string[] = JSON.parse(localStorage.getItem('grace_dismissed_notifications') || '[]');
-      const updated = Array.from(new Set([...current, ...notifIds, ...adminAnnIds]));
+      const updated = Array.from(new Set([...current, ...idsToDismiss]));
       localStorage.setItem('grace_dismissed_notifications', JSON.stringify(updated));
       localStorage.setItem('grace_visited_announcements', String(Date.now()));
       setDismissedIds(updated);
       setDirectAnnouncementNotifCount(0);
-      const dbIds = annNotifs.map((n: any) => n._id).filter(Boolean);
-      if (dbIds.length > 0) {
+      if (idsToDismiss.length > 0) {
         fetch('/api/notifications', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids: dbIds })
+          body: JSON.stringify({ ids: idsToDismiss })
         }).catch(() => {});
       }
     } catch {}

@@ -4,6 +4,8 @@ import { requireAdminWithScope } from '@/lib/api-auth';
 import { memberUnderLeaderScope } from '@/lib/leader-scope';
 import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
+import Announcement from '@/models/Announcement';
+import Notification from '@/models/Notification';
 import bcrypt from 'bcryptjs';
 import { isFutureBirthday } from '@/lib/date-utils';
 import { logActivityFromAdmin } from '@/lib/activity-logger';
@@ -120,6 +122,23 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     let logAction: 'APPROVE' | 'REJECT' | 'ROLE_CHANGE' | 'UPDATE' = 'UPDATE';
     if (body.status === 'approved' && targetUser.status !== 'approved') {
       logAction = 'APPROVE';
+      // Seed all announcements & notifications created prior to approval so the new member starts fresh
+      const [existingAnnouncements, existingNotifications] = await Promise.all([
+        Announcement.find({}, { _id: 1 }).lean(),
+        Notification.find({}, { _id: 1, sourceId: 1 }).lean(),
+      ]);
+
+      const approvalDismissed = Array.from(new Set([
+        ...((targetUser as any).dismissedNotificationIds || []),
+        ...existingAnnouncements.map((a: any) => `ann-${a._id.toString()}`),
+        ...existingNotifications.flatMap((n: any) => [
+          n._id.toString(),
+          n.sourceId ? `ann-${n.sourceId}` : null,
+          n.sourceId ? `worship-${n.sourceId}` : null,
+          n.sourceId ? `prayer-${n.sourceId}` : null,
+        ]).filter(Boolean) as string[],
+      ]));
+      body.dismissedNotificationIds = approvalDismissed;
     } else if (body.status === 'rejected' && targetUser.status !== 'rejected') {
       logAction = 'REJECT';
     } else if (body.role && body.role !== targetUser.role) {

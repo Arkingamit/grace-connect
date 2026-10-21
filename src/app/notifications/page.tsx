@@ -35,7 +35,7 @@ function writeDismissedIds(ids: string[]) {
 
 export default function NotificationsPage() {
   const { announcements, campuses, groupScopes, getVisibleAnnouncements } = useAdminData();
-  const { session } = useAuth();
+  const { session, sessionMember } = useAuth();
 
   const [dbNotifications, setDbNotifications] = useState<any[]>([]);
   const [pendingPrayers, setPendingPrayers] = useState<any[]>([]);
@@ -51,20 +51,43 @@ export default function NotificationsPage() {
   const [rejecting, setRejecting] = useState(false);
 
   useEffect(() => {
-    setDismissedIds(readDismissedIds());
+    const handleSync = (e?: any) => {
+      const ids: string[] = e?.detail?.dismissedIds || readDismissedIds();
+      setDismissedIds(ids);
+    };
+    handleSync();
+
     fetch('/api/notifications')
       .then(res => res.ok ? res.json() : [])
       .then(data => {
         if (Array.isArray(data)) setDbNotifications(data);
       })
       .catch(() => {});
+
+    window.addEventListener('grace_notifications_dismissed_sync', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('grace_notifications_dismissed_sync', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, []);
+
+  useEffect(() => {
+    if (sessionMember?.dismissedNotificationIds?.length) {
+      setDismissedIds(prev => Array.from(new Set([...prev, ...sessionMember.dismissedNotificationIds!])));
+    }
+  }, [sessionMember?.dismissedNotificationIds]);
 
   const persistDismissed = (idsToAdd: string[]) => {
     if (!idsToAdd.length) return;
     const updated = Array.from(new Set([...readDismissedIds(), ...idsToAdd]));
     writeDismissedIds(updated);
     setDismissedIds(updated);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('grace_notifications_dismissed_sync', {
+        detail: { dismissedIds: updated }
+      }));
+    }
   };
 
   useEffect(() => {
@@ -243,16 +266,23 @@ export default function NotificationsPage() {
   };
 
   const notifications = useMemo(() => {
+    const isPending = session?.status === 'pending' || sessionMember?.status === 'pending';
+    if (isPending) return [];
+
     const items: any[] = [];
-    const userCreatedAt = session?.createdAt ? new Date(session.createdAt) : null;
+    const userCreatedAt = session?.createdAt
+      ? new Date(session.createdAt)
+      : (sessionMember?.createdAt ? new Date(sessionMember.createdAt) : null);
     const targetAnnouncements = getVisibleAnnouncements
       ? getVisibleAnnouncements(session?.campusId || '', session?.groups || [], session?.role)
       : announcements;
 
-    // Map Announcements to Notifications
+    // Map Announcements to Notifications (never show announcements from before user registration)
     targetAnnouncements.forEach((ann) => {
-      // Don't show announcements created before the user registered
-      if (userCreatedAt && ann.createdAt && new Date(ann.createdAt) < userCreatedAt) {
+      if (!userCreatedAt || !ann.createdAt) {
+        return;
+      }
+      if (new Date(ann.createdAt) <= userCreatedAt) {
         return;
       }
 
@@ -316,6 +346,7 @@ export default function NotificationsPage() {
     // Map DB Notifications (events, sermons, worship videos, prayers, gallery, etc.)
     dbNotifications.forEach((n: any) => {
       if (n.isRead) return;
+      if (userCreatedAt && n.createdAt && new Date(n.createdAt) <= userCreatedAt) return;
       const deepLink = n.url || getNotificationDeepLink(n.type, n.sourceId);
 
       if (n.type === 'new_event' || n.type === 'event_reminder') {
@@ -450,9 +481,12 @@ export default function NotificationsPage() {
     usersById,
     dbNotifications,
     session?.createdAt,
+    session?.status,
     session?.campusId,
     session?.groups,
     session?.role,
+    sessionMember?.createdAt,
+    sessionMember?.status,
     getVisibleAnnouncements,
   ]);
 
@@ -468,12 +502,11 @@ export default function NotificationsPage() {
   const handleClearAll = () => {
     const ids = notifications.map((n) => n.id);
     persistDismissed(ids);
-    const dbIds = notifications.filter(n => !n.id.startsWith('ann-') && !n.id.startsWith('pending-')).map(n => n.id);
-    if (dbIds.length > 0) {
+    if (ids.length > 0) {
       fetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: dbIds })
+        body: JSON.stringify({ ids })
       }).catch(() => {});
     }
   };

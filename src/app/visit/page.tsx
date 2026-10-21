@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { MobileBottomNav } from "@/components/ui/mobile-bottom-nav";
 import { Card } from "@/components/ui/card";
 import { MapPin, Clock, Car, Coffee, Users, Heart } from "lucide-react";
 import { motion } from "framer-motion";
@@ -18,8 +17,6 @@ export default function VisitPage() {
         </div>
 
       </main>
-
-      <MobileBottomNav />
     </div>
   );
 }

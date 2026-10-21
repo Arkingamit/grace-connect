@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import User from '@/models/User';
 import AppleAuthSession from '@/models/AppleAuthSession';
+import Announcement from '@/models/Announcement';
+import Notification from '@/models/Notification';
 import { registerSchema } from '@/lib/validations';
 import { getOAuthPicture } from '@/lib/oauth-picture';
 import { verifyAppleIdToken } from '@/lib/apple-auth';
@@ -65,6 +67,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'This account is already registered. Please log in.' }, { status: 400 });
     }
 
+    // Query existing announcements and notifications to initialize dismissedNotificationIds
+    // so new registered users will not see any notifications/announcements created prior to registration
+    const [existingAnnouncements, existingNotifications] = await Promise.all([
+      Announcement.find({}, { _id: 1 }).lean(),
+      Notification.find({}, { _id: 1, sourceId: 1 }).lean(),
+    ]);
+
+    const initialDismissedIds = Array.from(new Set([
+      ...existingAnnouncements.map((a: any) => `ann-${a._id.toString()}`),
+      ...existingNotifications.flatMap((n: any) => [
+        n._id.toString(),
+        n.sourceId ? `ann-${n.sourceId}` : null,
+        n.sourceId ? `worship-${n.sourceId}` : null,
+        n.sourceId ? `prayer-${n.sourceId}` : null,
+      ]).filter(Boolean) as string[],
+    ]));
+
     const newUser = await User.create({
       firstName,
       middleName,
@@ -84,6 +103,7 @@ export async function POST(req: Request) {
       role: 'member',
       groups: [],
       qrCode: randomUUID(),
+      dismissedNotificationIds: initialDismissedIds,
     });
 
     await createSession(

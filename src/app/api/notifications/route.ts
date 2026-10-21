@@ -2,24 +2,25 @@ import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import connectToDatabase from '@/lib/db';
 import Notification from '@/models/Notification';
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
+import { verifySession } from '@/lib/auth-utils';
 import User from '@/models/User';
 import { getNotificationDeepLink } from '@/lib/notification-links';
 
 async function getCurrentUser() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
-    if (!token) return null;
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret-key');
-    const { payload } = await jwtVerify(token, secret);
-    // connectToDatabase already called by caller — no double-connect
-    const user = await User.findById(payload.userId, {
-      campusId: 1, groups: 1, role: 1, createdAt: 1,
+    const session = await verifySession();
+    if (!session.isAuth || !session.userId) return null;
+    await connectToDatabase();
+    const user = await User.findById(session.userId, {
+      campusId: 1,
+      groups: 1,
+      role: 1,
+      status: 1,
+      createdAt: 1,
+      dismissedNotificationIds: 1,
     }).lean();
     if (!user) return null;
-    return { ...user, tokenUserId: payload.userId as string };
+    return { ...user, tokenUserId: session.userId };
   } catch {
     return null;
   }
@@ -28,7 +29,8 @@ async function getCurrentUser() {
 /**
  * GET /api/notifications
  * Fetches notifications for the current user based on their campus and groups.
- * Filtering is pushed into MongoDB to reduce data transfer.
+ * New registered users do not see notifications from before their registration date.
+ * Dismissed notifications are marked as isRead.
  */
 export async function GET() {
   await connectToDatabase();
@@ -37,9 +39,15 @@ export async function GET() {
 
   try {
     const currentUserId = (user as any)._id?.toString() || (user as any).tokenUserId || '';
+    const userStatus = (user as any).status || 'approved';
+
+    // Pending or rejected members should not see broadcast or general notifications
+    if (userStatus === 'pending' || userStatus === 'rejected') {
+      return NextResponse.json([]);
+    }
+
     const userCampusId = (user as any).campusId || '';
     const userGroups: string[] = (user as any).groups || [];
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     // Resolve user registration date from createdAt or from ObjectId timestamp fallback
     let userCreatedAt: Date;
@@ -48,11 +56,12 @@ export async function GET() {
     } else if (currentUserId && mongoose.Types.ObjectId.isValid(currentUserId)) {
       userCreatedAt = new mongoose.Types.ObjectId(currentUserId).getTimestamp();
     } else {
-      userCreatedAt = thirtyDaysAgo;
+      userCreatedAt = new Date();
     }
-    
-    // Only show notifications from the last 30 days OR since the user registered, whichever is more recent
-    const cutoffDate = userCreatedAt > thirtyDaysAgo ? userCreatedAt : thirtyDaysAgo;
+
+    // New registered users should never see notifications created before their account was registered
+    const cutoffDate = userCreatedAt;
+    const userDismissed = new Set<string>((user as any).dismissedNotificationIds || []);
 
     // Push campus/group targeting and user scoping into MongoDB — returns only relevant notifications
     const notifications = await Notification.find({
@@ -96,14 +105,29 @@ export async function GET() {
       return groupMatch;
     });
 
-    // Compute isRead per-user (direct notification vs broadcast notification)
-    const mapped = filtered.map((n: any) => ({
-      ...n,
-      url: n.url || getNotificationDeepLink(n.type, n.sourceId),
-      isRead: n.userId
-        ? Boolean(n.isRead)
-        : Boolean(n.isRead || (Array.isArray(n.readBy) && n.readBy.includes(currentUserId))),
-    }));
+    // Compute isRead per-user (direct notification vs broadcast notification vs dismissed)
+    const mapped = filtered.map((n: any) => {
+      const nid = n._id?.toString();
+      const isDismissed =
+        userDismissed.has(nid) ||
+        (n.sourceId && (
+          userDismissed.has(n.sourceId) ||
+          userDismissed.has(`ann-${n.sourceId}`) ||
+          userDismissed.has(`worship-${n.sourceId}`) ||
+          userDismissed.has(`prayer-${n.sourceId}`)
+        ));
+
+      return {
+        ...n,
+        url: n.url || getNotificationDeepLink(n.type, n.sourceId),
+        isRead: Boolean(
+          isDismissed ||
+          (n.userId
+            ? n.isRead
+            : (n.isRead || (Array.isArray(n.readBy) && n.readBy.includes(currentUserId))))
+        ),
+      };
+    });
 
     return NextResponse.json(mapped);
   } catch (error) {
@@ -114,7 +138,9 @@ export async function GET() {
 
 /**
  * PATCH /api/notifications
- * Mark notifications as read. Body: { ids: string[] }
+ * Mark notifications as read / dismissed. Body: { ids: string[] }
+ * Persists dismissed IDs directly to the User model so reinstalling the app
+ * and signing in remembers that these notifications were cleared.
  */
 export async function PATCH(req: Request) {
   await connectToDatabase();
@@ -123,22 +149,46 @@ export async function PATCH(req: Request) {
 
   try {
     const currentUserId = (user as any)._id?.toString() || (user as any).tokenUserId || '';
-    const { ids } = await req.json();
-    if (ids && ids.length) {
-      // Direct notifications for this user
-      await Notification.updateMany(
-        { _id: { $in: ids }, userId: currentUserId },
-        { isRead: true }
+    const body = await req.json().catch(() => ({}));
+    const ids: string[] = Array.isArray(body?.ids) ? body.ids : [];
+
+    if (ids.length > 0) {
+      // 1. Persist ALL dismissed IDs to the User document so that after app re-install and sign-in,
+      // cleared notifications stay cleared.
+      await User.updateOne(
+        { _id: currentUserId },
+        { $addToSet: { dismissedNotificationIds: { $each: ids } } }
       );
-      // Broadcast notifications: track user in readBy array
-      await Notification.updateMany(
-        {
-          _id: { $in: ids },
-          $or: [{ userId: '' }, { userId: { $exists: false } }, { userId: null }],
-        },
-        { $addToSet: { readBy: currentUserId } }
-      );
+
+      // 2. Extract valid ObjectIds for updating the Notification collection
+      const validObjectIds = ids
+        .map((id) => {
+          if (typeof id !== 'string') return null;
+          if (mongoose.Types.ObjectId.isValid(id)) return id;
+          const parts = id.split('-');
+          const last = parts[parts.length - 1];
+          if (last && mongoose.Types.ObjectId.isValid(last)) return last;
+          return null;
+        })
+        .filter(Boolean) as string[];
+
+      if (validObjectIds.length > 0) {
+        // Direct notifications for this user
+        await Notification.updateMany(
+          { _id: { $in: validObjectIds }, userId: currentUserId },
+          { isRead: true }
+        );
+        // Broadcast notifications: track user in readBy array
+        await Notification.updateMany(
+          {
+            _id: { $in: validObjectIds },
+            $or: [{ userId: '' }, { userId: { $exists: false } }, { userId: null }],
+          },
+          { $addToSet: { readBy: currentUserId } }
+        );
+      }
     }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating notifications:', error);
