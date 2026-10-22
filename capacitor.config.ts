@@ -55,6 +55,15 @@ const config: CapacitorConfig = {
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
     },
+    PrivacyScreen: {
+      enabled: true,
+      android: {
+        dimBackground: true,
+      },
+      ios: {
+        blurEffect: 'dark',
+      },
+    },
   },
 };
 

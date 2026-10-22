@@ -36,6 +36,7 @@
     "@capacitor/keyboard": "^8.0.5",
     "@capacitor/push-notifications": "^8.1.1",
     "@capgo/background-geolocation": "^8.4.7",
+    "@capgo/capacitor-privacy-screen": "^8.3.14",
     "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
     "@hookform/resolvers": "^3.10.0",
     "@hugeicons/core-free-icons": "^4.2.3",

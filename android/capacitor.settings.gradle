@@ -29,6 +29,9 @@ project(':capacitor-push-notifications').projectDir = new File('../node_modules/
 include ':capgo-background-geolocation'
 project(':capgo-background-geolocation').projectDir = new File('../node_modules/@capgo/background-geolocation/android')
 
+include ':capgo-capacitor-privacy-screen'
+project(':capgo-capacitor-privacy-screen').projectDir = new File('../node_modules/@capgo/capacitor-privacy-screen/android')
+
 include ':codetrix-studio-capacitor-google-auth'
 project(':codetrix-studio-capacitor-google-auth').projectDir = new File('../node_modules/@codetrix-studio/capacitor-google-auth/android')
 

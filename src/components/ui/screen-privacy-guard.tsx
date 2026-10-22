@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { Capacitor } from "@capacitor/core";
 
 /**
  * ScreenPrivacyGuard
@@ -10,6 +11,17 @@ import { toast } from "sonner";
  */
 export function ScreenPrivacyGuard() {
   useEffect(() => {
+    // 0. Ensure native privacy shield is active on Capacitor (iOS & Android)
+    if (Capacitor.isNativePlatform()) {
+      import("@capgo/capacitor-privacy-screen")
+        .then(({ PrivacyScreen }) => {
+          PrivacyScreen.enable({
+            android: { dimBackground: true },
+            ios: { blurEffect: "dark" },
+          }).catch(() => {});
+        })
+        .catch(() => {});
+    }
     // 1. Intercept PrintScreen key & clear clipboard
     const handleKeyDown = (e: KeyboardEvent) => {
       // PrintScreen key
