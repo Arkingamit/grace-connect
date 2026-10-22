@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import PrayerRequest from '@/models/PrayerRequest';
 import { verifySession } from '@/lib/auth-utils';
+import { enforceCampusScope } from '@/lib/api-auth';
 import User from '@/models/User';
 
 export async function GET(req: Request) {
@@ -14,14 +15,24 @@ export async function GET(req: Request) {
     }
 
     const user = await User.findById(session.userId);
-    if (!user || !['campus_leader', 'admin', 'super_admin'].includes(user.role)) {
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const hasPrayerPerm = Array.isArray(user.permissions) && user.permissions.some((p: string) => p.startsWith('prayers:'));
+    const isLeadershipRole = ['campus_leader', 'admin', 'super_admin'].includes(user.role);
+
+    if (!isLeadershipRole && !hasPrayerPerm) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Campus leaders only see their campus. Admins see all.
+    // Role and permission-based campus scoping
     const query: any = {};
-    if (user.role === 'campus_leader') {
-      query.campusId = user.campusId;
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      const allowedCampuses = enforceCampusScope(user.role, user.campusId, undefined, user.permissions, 'prayers');
+      if (!allowedCampuses.includes('all')) {
+        query.campusId = { $in: allowedCampuses };
+      }
     }
 
     const prayers = await PrayerRequest.find(query).sort({ createdAt: -1 }).lean();

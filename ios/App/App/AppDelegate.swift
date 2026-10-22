@@ -11,6 +11,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private var screenRecordingShieldView: UIView?
     private var privacyBlurView: UIView?
 
+    // ── Secure screenshot prevention ──────────────────────────────────
+    // A hidden UITextField with isSecureTextEntry = true causes iOS to
+    // black-out any content rendered inside its layer during screenshots
+    // and screen recordings.  We reparent the entire view hierarchy into
+    // this secure container so the whole app is protected.
+    private var secureField: UITextField?
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
         FirebaseApp.configure()
@@ -37,6 +44,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Remove app switcher privacy shield and verify screen capture status
         hidePrivacyBlur()
         checkScreenCapture()
+        enableSecureScreenshotPrevention()
 
         // Enable native iOS swipe-from-edge back/forward gesture on the WebView
         if let vc = self.window?.rootViewController as? CAPBridgeViewController {
@@ -45,12 +53,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     private func setupPrivacyProtection() {
+        // 1. Apply the secure text field technique to prevent screenshots
+        enableSecureScreenshotPrevention()
+
+        // 2. Observe screen capture (mirroring / recording) changes
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleScreenCaptureChanged),
             name: UIScreen.capturedDidChangeNotification,
             object: nil
         )
+        // 3. Observe post-screenshot notification (for toast / clipboard wipe)
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleUserDidTakeScreenshot),
@@ -58,6 +71,74 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             object: nil
         )
         checkScreenCapture()
+    }
+
+    // MARK: – Secure screenshot prevention (iOS 15, 16, 17, 18+)
+
+    /// Applies the native CoreAnimation secure layer hierarchy trick.
+    /// A hidden UITextField with isSecureTextEntry = true generates an internal
+    /// hardware-encrypted canvas layer (_UITextLayoutCanvasView).
+    /// By nesting the rootViewController's view layer inside this secure layer:
+    /// 1. The entire screen content is captured as PURE BLACK during screenshots and recordings.
+    /// 2. The UIView hierarchy and touch hit-testing are 100% untouched, ensuring full interactivity.
+    @objc func enableSecureScreenshotPrevention() {
+        guard secureField == nil else { return }
+
+        guard let window = self.window ?? UIApplication.shared.windows.first(where: \.isKeyWindow) else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.enableSecureScreenshotPrevention()
+            }
+            return
+        }
+
+        guard let targetView = window.rootViewController?.view ?? window.subviews.first else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.enableSecureScreenshotPrevention()
+            }
+            return
+        }
+
+        guard let parentLayer = targetView.layer.superlayer else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.enableSecureScreenshotPrevention()
+            }
+            return
+        }
+
+        let field = UITextField()
+        field.isSecureTextEntry = true
+        field.isUserInteractionEnabled = false
+        field.frame = targetView.bounds
+        field.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        targetView.addSubview(field)
+        targetView.sendSubviewToBack(field)
+
+        // Force UIKit layout pass so internal secure canvas sublayers are materialized immediately
+        field.setNeedsLayout()
+        field.layoutIfNeeded()
+
+        parentLayer.addSublayer(field.layer)
+
+        // In iOS 17+, the secure text canvas moved to sublayers?.last.
+        // In iOS 16 and below, it was sublayers?.first.
+        let secureSublayer: CALayer?
+        if #available(iOS 17.0, *) {
+            secureSublayer = field.layer.sublayers?.last ?? field.layer.sublayers?.first
+        } else {
+            secureSublayer = field.layer.sublayers?.first ?? field.layer.sublayers?.last
+        }
+
+        guard let secureLayer = secureSublayer else {
+            field.removeFromSuperview()
+            field.layer.removeFromSuperlayer()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                self?.enableSecureScreenshotPrevention()
+            }
+            return
+        }
+
+        secureLayer.addSublayer(targetView.layer)
+        secureField = field
     }
 
     @objc private func handleScreenCaptureChanged() {

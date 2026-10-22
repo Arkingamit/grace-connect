@@ -7,6 +7,8 @@ import {
   useAdminData,
   canAccessAdmin,
   hasPermission,
+  hasGlobalScope,
+  getAllowedCampuses,
   ROLE_LABELS,
   getRoleLabel,
   ROLE_HIERARCHY,
@@ -120,10 +122,12 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
     ? getPendingRequests(currentUser.campusId).length
     : getPendingRequests().length;
     
-  const { getPendingPrayerRequests } = useAdminData();
-  const pendingPrayersCount = isCampusLeader
-    ? getPendingPrayerRequests(currentUser.campusId).length
-    : getPendingPrayerRequests().length;
+  const { getPendingPrayerRequests, prayerRequests } = useAdminData();
+  const isGlobalPrayer = hasGlobalScope(currentUser, 'prayers');
+  const allowedPrayerCampusIds = getAllowedCampuses(currentUser, campuses, 'prayers').map(c => c.id);
+  const pendingPrayersCount = isGlobalPrayer
+    ? getPendingPrayerRequests().length
+    : prayerRequests.filter(p => p.status === 'pending' && (!p.campusId || allowedPrayerCampusIds.includes(p.campusId))).length;
 
   // Build sidebar items based on role
   const sidebarItems = [
@@ -135,7 +139,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
     { label: 'Worship Videos', href: '/admin/worship', icon: Music, minRole: 'admin' as UserRole, module: 'worship' },
     { label: 'Live Broadcast', href: '/admin/live', icon: Radio, minRole: 'campus_leader' as UserRole, module: 'livestreams' },
     { label: 'Gallery Config', href: '/admin/gallery', icon: Images, minRole: 'group_leader' as UserRole, module: 'gallery' },
-    { label: 'Prayer Wall', href: '/admin/prayers', icon: Heart, minRole: 'campus_leader' as UserRole },
+    { label: 'Prayer Wall', href: '/admin/prayers', icon: Heart, minRole: 'campus_leader' as UserRole, module: 'prayers', badge: pendingPrayersCount },
     { label: 'Greetings', href: '/admin/greetings', icon: Gift, minRole: 'campus_leader' as UserRole, module: 'greetings' },
     { label: 'Daily Verses', href: '/admin/verses', icon: BookOpen, minRole: 'admin' as UserRole },
     { label: 'Highlights Cards', href: '/admin/hero-cards', icon: FlipHorizontal, minRole: 'admin' as UserRole },

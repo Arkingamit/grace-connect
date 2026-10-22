@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import PrayerRequest from '@/models/PrayerRequest';
 import { verifySession } from '@/lib/auth-utils';
+import { enforceCampusScope } from '@/lib/api-auth';
 import User from '@/models/User';
 import { notifyMembers, wantsMemberNotification } from '@/lib/notify-members';
 import { logActivity } from '@/lib/activity-logger';
@@ -17,7 +18,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const user = await User.findById(session.userId);
-    if (!user || !['campus_leader', 'admin', 'super_admin'].includes(user.role)) {
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const hasPrayerPerm = Array.isArray(user.permissions) && user.permissions.some((p: string) => p.startsWith('prayers:'));
+    const isLeadershipRole = ['campus_leader', 'admin', 'super_admin'].includes(user.role);
+
+    if (!isLeadershipRole && !hasPrayerPerm) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -28,9 +36,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Prayer request not found' }, { status: 404 });
     }
 
-    // Ensure campus leader can only update their campus prayers
-    if (user.role === 'campus_leader' && prayer.campusId !== user.campusId) {
-      return NextResponse.json({ error: 'Forbidden: Different campus' }, { status: 403 });
+    // Ensure leader/authorized member can only update prayers within their allowed campus scope
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      const allowedCampuses = enforceCampusScope(user.role, user.campusId, undefined, user.permissions, 'prayers');
+      if (!allowedCampuses.includes('all') && prayer.campusId && !allowedCampuses.includes(prayer.campusId)) {
+        return NextResponse.json({ error: 'Forbidden: Different campus' }, { status: 403 });
+      }
     }
 
     let logAction: 'APPROVE' | 'REJECT' | 'UPDATE' = 'UPDATE';
@@ -99,7 +110,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     const user = await User.findById(session.userId);
-    if (!user || !['campus_leader', 'admin', 'super_admin'].includes(user.role)) {
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const hasPrayerPerm = Array.isArray(user.permissions) && user.permissions.some((p: string) => p.startsWith('prayers:'));
+    const isLeadershipRole = ['campus_leader', 'admin', 'super_admin'].includes(user.role);
+
+    if (!isLeadershipRole && !hasPrayerPerm) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -109,8 +127,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ error: 'Prayer request not found' }, { status: 404 });
     }
 
-    if (user.role === 'campus_leader' && prayer.campusId !== user.campusId) {
-      return NextResponse.json({ error: 'Forbidden: Different campus' }, { status: 403 });
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      const allowedCampuses = enforceCampusScope(user.role, user.campusId, undefined, user.permissions, 'prayers');
+      if (!allowedCampuses.includes('all') && prayer.campusId && !allowedCampuses.includes(prayer.campusId)) {
+        return NextResponse.json({ error: 'Forbidden: Different campus' }, { status: 403 });
+      }
     }
 
     await PrayerRequest.findByIdAndDelete(id);

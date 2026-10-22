@@ -168,6 +168,7 @@ class MaintenanceBridgeViewController: CAPBridgeViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         installProxyIfNeeded()
+        (UIApplication.shared.delegate as? AppDelegate)?.enableSecureScreenshotPrevention()
     }
 
     override func viewDidLayoutSubviews() {

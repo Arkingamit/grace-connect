@@ -6,6 +6,7 @@ import Campus from '@/models/Campus';
 import { verifySession } from '@/lib/auth-utils';
 import { prayerRequestSchema } from '@/lib/validations';
 import { FIELD_LIMITS, PRAYER_FIELD_LIMITS } from '@/lib/field-limits';
+import { sendPushToUsers } from '@/lib/push-utils';
 
 export async function GET(req: Request) {
   try {
@@ -190,6 +191,49 @@ export async function POST(req: Request) {
       isBroadcast: targetGroups.length > 0 || broadcastScope === 'all_campuses',
       status: 'pending',
     });
+
+    // Notify authorized campus leaders and admins who can accept prayers for this campus
+    try {
+      const targetCampus = prayer.campusId || 'global';
+      const leaderCriteria: any[] = [
+        { role: { $in: ['admin', 'super_admin'] } },
+        { permissions: 'prayers:global' },
+      ];
+
+      if (targetCampus && targetCampus !== 'global') {
+        leaderCriteria.push(
+          { role: 'campus_leader', campusId: targetCampus },
+          { permissions: `prayers:${targetCampus}` }
+        );
+      } else {
+        leaderCriteria.push({ role: 'campus_leader' });
+      }
+
+      const authorizedUsers = await User.find({
+        status: 'approved',
+        $or: leaderCriteria,
+      }, { _id: 1 }).lean();
+
+      const leaderUserIds = authorizedUsers.map((u: any) => u._id.toString());
+      if (leaderUserIds.length > 0) {
+        let campusName = '';
+        if (targetCampus && targetCampus !== 'global') {
+          const campusDoc = await Campus.findById(targetCampus, { name: 1 }).lean();
+          if (campusDoc) campusName = (campusDoc as any).name;
+        }
+
+        const prayerTitleDisplay = prayer.title.length > 35 ? `${prayer.title.slice(0, 32)}...` : prayer.title;
+        await sendPushToUsers({
+          title: '🙏 New Prayer Request to Review',
+          body: `"${prayerTitleDisplay}" from ${authorName} needs review${campusName ? ` (${campusName})` : ''}.`,
+          type: 'admin_prayer_review',
+          sourceId: prayer._id.toString(),
+          url: '/admin/prayers',
+        }, leaderUserIds);
+      }
+    } catch (notifyErr) {
+      console.warn('[prayers] Failed to send push notification to authorized prayer reviewers:', notifyErr);
+    }
 
     return NextResponse.json(prayer, { status: 201 });
   } catch (error) {

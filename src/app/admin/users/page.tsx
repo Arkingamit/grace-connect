@@ -915,6 +915,7 @@ export default function UsersPage() {
                   <div className="space-y-2.5">
                     {[
                       { id: 'members', label: 'Members (Accepting forms)' },
+                      { id: 'prayers', label: 'Prayer Requests (Accepting requests)' },
                       { id: 'broadcasts', label: 'Broadcasts (Notes)' },
                       { id: 'sermons', label: 'Sermons' },
                       { id: 'worship', label: 'Worship Videos' },

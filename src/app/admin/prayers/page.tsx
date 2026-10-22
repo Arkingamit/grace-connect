@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useAdminData, getAllowedGroups } from '@/lib/admin-data-context';
+import { useAdminData, getAllowedGroups, getAllowedCampuses, hasGlobalScope } from '@/lib/admin-data-context';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,13 +18,16 @@ import { SendNotificationOption } from '@/components/admin/send-notification-opt
 export default function PrayerRequestsPage() {
   const { prayerRequests, campuses, groupScopes, currentUser, approvePrayerRequest, deletePrayerRequest } = useAdminData();
 
-  const isCampusLeader = currentUser.role === 'campus_leader';
+  const isGlobal = hasGlobalScope(currentUser, 'prayers');
+  const allowedCampuses = getAllowedCampuses(currentUser, campuses, 'prayers');
+  const allowedCampusIds = allowedCampuses.map(c => c.id);
   const availableGroups = getAllowedGroups(currentUser, groupScopes);
+  const isCampusLeader = currentUser.role === 'campus_leader' || (!isGlobal && allowedCampuses.length === 1);
   
-  // Filter based on role
-  const visiblePrayers = isCampusLeader
-    ? prayerRequests.filter(p => p.campusId === currentUser.campusId)
-    : prayerRequests;
+  // Filter based on role & campus permissions
+  const visiblePrayers = isGlobal
+    ? prayerRequests
+    : prayerRequests.filter(p => !p.campusId || allowedCampusIds.includes(p.campusId));
 
   const pendingPrayers = visiblePrayers.filter(p => p.status === 'pending');
   const approvedPrayers = visiblePrayers.filter(p => p.status === 'approved');
@@ -114,8 +117,11 @@ export default function PrayerRequestsPage() {
         <h1 className="text-3xl font-bold tracking-tight">Prayer Wall Management</h1>
         <p className="text-muted-foreground mt-1">
           Review, approve, and manage prayer requests and broadcasts from your congregation
-          {isCampusLeader && (
-            <span className="text-amber-500"> · Showing requests for {campuses.find(c => c.id === currentUser.campusId)?.name}</span>
+          {!isGlobal && allowedCampuses.length > 0 && (
+            <span className="text-amber-500">
+              {' · Showing requests for '}
+              {allowedCampuses.map(c => c.name).join(', ')}
+            </span>
           )}
         </p>
       </div>

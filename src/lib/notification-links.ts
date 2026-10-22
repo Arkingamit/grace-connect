@@ -49,7 +49,10 @@ export function getNotificationDeepLink(type?: string, sourceId?: string): strin
     case 'attendance':
       return '/check-in';
 
+    case 'admin_prayer_review':
     case 'prayer-approval':
+      return '/admin/prayers';
+
     case 'user-approval':
     case 'system':
     case 'greeting':
