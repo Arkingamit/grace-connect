@@ -17,8 +17,6 @@ type NavItem = {
 const COMPACT_DELTA = 8;
 const EXPAND_DELTA = -6;
 const NAV_SWIPE_FLICK = 28;
-const PAGE_SWIPE_MIN = 64;
-const PAGE_EDGE = 40;
 const PILL_INSET = 3;
 const PILL_MOVE = { type: "tween" as const, duration: 0.28, ease: [0.22, 1, 0.36, 1] as const };
 
@@ -63,30 +61,6 @@ const OVERLAY_SCROLL_SELECTOR = [
 
 function isOverlayScrollTarget(target: EventTarget | null) {
   return target instanceof Element && Boolean(target.closest(OVERLAY_SCROLL_SELECTOR));
-}
-
-function isIgnoredSwipeTarget(target: EventTarget | null) {
-  if (!(target instanceof Element)) return false;
-  if (
-    target.closest(
-      `nav[aria-label="Primary"], .swiper, .swiper-slide, [data-no-tab-swipe], .highlights-stack-card, input, textarea, select, [contenteditable="true"], [role="slider"], ${OVERLAY_SCROLL_SELECTOR}`,
-    )
-  ) {
-    return true;
-  }
-
-  let node: HTMLElement | null = target as HTMLElement;
-  while (node && node !== document.body) {
-    const { overflowX, overflowY } = window.getComputedStyle(node);
-    if ((overflowX === "auto" || overflowX === "scroll") && node.scrollWidth > node.clientWidth + 8) {
-      return true;
-    }
-    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight + 8) {
-      return true;
-    }
-    node = node.parentElement;
-  }
-  return false;
 }
 
 function tabMetrics(el: HTMLElement, bar?: HTMLElement | null) {
@@ -182,64 +156,29 @@ export function MobileBottomNav() {
     barRef.current?.classList.remove("is-swiping");
   }, []);
 
-  const lerpPill = useCallback((fromIndex: number, toIndex: number, t: number) => {
-    const bar = barRef.current;
-    const fromEl = itemRefs.current[fromIndex];
-    const toEl = itemRefs.current[toIndex];
-    if (!fromEl || !toEl) return;
-    const a = tabMetrics(fromEl, bar);
-    const b = tabMetrics(toEl, bar);
-    const tt = Math.max(0, Math.min(1, t));
-    const jelly = 1.15; // smooth subtle stretch while swiping
-    const naturalW = a.width + (b.width - a.width) * tt;
-    const width = naturalW * jelly;
-    const height = a.height;
-    let targetX = a.left + (b.left - a.left) * tt - (width - naturalW) / 2;
-    if (bar && bar.offsetWidth > 0) {
-      const maxLeft = Math.max(PILL_INSET, bar.offsetWidth - width - PILL_INSET);
-      targetX = Math.max(PILL_INSET, Math.min(maxLeft, targetX));
-    }
-    pillX.set(targetX);
-    pillY.set(a.top);
-    pillW.set(width);
-    pillH.set(height);
-  }, [pillH, pillW, pillX, pillY]);
-
   const followPointer = useCallback((clientX: number) => {
     const bar = barRef.current;
     if (!bar) return;
     const tabs = itemRefs.current
       .map((el) => (el ? tabMetrics(el, bar) : null))
       .filter((tab): tab is NonNullable<typeof tab> => Boolean(tab));
-    if (tabs.length < 2) return;
+    if (tabs.length === 0) return;
 
     const x = localX(bar, clientX);
-    let i = 0;
-    for (let n = 0; n < tabs.length - 1; n++) {
-      if (x >= tabs[n].center) i = n;
+    let hovered = 0;
+    let minDist = Infinity;
+    for (let n = 0; n < tabs.length; n++) {
+      const dist = Math.abs(x - tabs[n].center);
+      if (dist < minDist) {
+        minDist = dist;
+        hovered = n;
+      }
     }
-    const a = tabs[i];
-    const b = tabs[Math.min(i + 1, tabs.length - 1)];
-    const span = b.center - a.center || 1;
-    const t = Math.max(0, Math.min(1, (x - a.center) / span));
-    const jelly = 1.15;
-    const naturalW = a.width + (b.width - a.width) * t;
-    const width = naturalW * jelly;
-    const height = a.height;
-    let targetX = a.left + (b.left - a.left) * t - (width - naturalW) / 2;
-    if (bar.offsetWidth > 0) {
-      const maxLeft = Math.max(PILL_INSET, bar.offsetWidth - width - PILL_INSET);
-      targetX = Math.max(PILL_INSET, Math.min(maxLeft, targetX));
-    }
-    pillX.set(targetX);
-    pillY.set(a.top);
-    pillW.set(width);
-    pillH.set(height);
-    const hovered = t < 0.5 ? i : Math.min(i + 1, tabs.length - 1);
     highlightRef.current = hovered;
     setHighlightIndex(hovered);
+    placePill(hovered, false);
     setSheen(clientX, true);
-  }, [pillH, pillW, pillX, pillY, setSheen]);
+  }, [placePill, setSheen]);
 
 function scrollToTop() {
   if (typeof window === "undefined") return;
@@ -391,92 +330,6 @@ function scrollToTop() {
   useEffect(() => {
     setCompact(false);
   }, [pathname]);
-
-  useEffect(() => {
-    if (keyboardOpen || !onTabRoute) return;
-
-    let startX = 0;
-    let startY = 0;
-    let startT = 0;
-    let tracking = false;
-    let pageDragging = false;
-
-    const snapBack = () => {
-      if (!pageDragging) return;
-      placePill(activeIndexRef.current, false);
-      setHighlightIndex(activeIndexRef.current);
-      highlightRef.current = activeIndexRef.current;
-      clearSheen();
-    };
-
-    const onTouchStart = (event: TouchEvent) => {
-      if (event.touches.length !== 1) {
-        tracking = false;
-        return;
-      }
-      const touch = event.touches[0];
-      if (touch.clientX < PAGE_EDGE) return;
-      if (isIgnoredSwipeTarget(event.target)) return;
-      if (window.matchMedia("(min-width: 1400px)").matches) return;
-      startX = touch.clientX;
-      startY = touch.clientY;
-      startT = Date.now();
-      tracking = true;
-      pageDragging = false;
-    };
-
-    const onTouchMove = (event: TouchEvent) => {
-      if (!tracking || event.touches.length !== 1) return;
-      const touch = event.touches[0];
-      const dx = touch.clientX - startX;
-      const dy = touch.clientY - startY;
-      if (!pageDragging && Math.abs(dx) < 12) return;
-      if (Math.abs(dx) < Math.abs(dy) * 1.2) return;
-      pageDragging = true;
-      const from = activeIndexRef.current;
-      const to = Math.max(0, Math.min(NAV_ITEMS.length - 1, from + (dx < 0 ? 1 : -1)));
-      const t = to === from ? 0 : Math.min(1, Math.abs(dx) / 140);
-      lerpPill(from, to, t);
-      const hovered = t < 0.5 ? from : to;
-      highlightRef.current = hovered;
-      setHighlightIndex(hovered);
-      setSheen(touch.clientX, true);
-    };
-
-    const onTouchEnd = (event: TouchEvent) => {
-      if (!tracking) return;
-      tracking = false;
-      const touch = event.changedTouches[0];
-      if (!touch) {
-        snapBack();
-        pageDragging = false;
-        return;
-      }
-      const dx = touch.clientX - startX;
-      const dy = touch.clientY - startY;
-      const dt = Math.max(1, Date.now() - startT);
-      const isFlick = Math.abs(dx) > 40 && Math.abs(dx) / dt > 0.45;
-      const isSwipe = Math.abs(dx) >= PAGE_SWIPE_MIN;
-      if ((!isSwipe && !isFlick) || Math.abs(dx) < Math.abs(dy) * 1.35) {
-        snapBack();
-        pageDragging = false;
-        return;
-      }
-      pageDragging = false;
-      goToIndex(activeIndexRef.current + (dx < 0 ? 1 : -1));
-    };
-
-    window.addEventListener("touchstart", onTouchStart, { passive: true });
-    window.addEventListener("touchmove", onTouchMove, { passive: true });
-    window.addEventListener("touchend", onTouchEnd, { passive: true });
-    window.addEventListener("touchcancel", onTouchEnd, { passive: true });
-    return () => {
-      window.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchend", onTouchEnd);
-      window.removeEventListener("touchcancel", onTouchEnd);
-    };
-  }, [clearSheen, goToIndex, keyboardOpen, lerpPill, onTabRoute, placePill, setSheen]);
 
   const followPointerRef = useRef(followPointer);
   const goToIndexRef = useRef(goToIndex);
