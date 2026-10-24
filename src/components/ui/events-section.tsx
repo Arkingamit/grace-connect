@@ -234,12 +234,14 @@ export function EventRSVPModal({ event, onClose }: { event: Event; onClose: () =
 
   const isClosingRef = useRef(false);
   const hasPushedHistoryRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   const safeClose = useCallback(() => {
     if (isClosingRef.current) return;
     isClosingRef.current = true;
-    onClose();
-  }, [onClose]);
+    onCloseRef.current();
+  }, []);
 
   useEffect(() => {
     // Push history state so mobile gesture back pops this modal without navigating away from the page
