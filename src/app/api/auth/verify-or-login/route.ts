@@ -67,10 +67,14 @@ export async function POST(req: Request) {
     ).lean();
 
     if (!user) {
-      // New user — no account yet
+      // User is not registered — cannot log in
+      const providerLabel = provider === 'apple' ? 'Apple ID' : 'Google account';
       return NextResponse.json(
-        { status: 'new', email },
-        { status: 200 },
+        {
+          status: 'error',
+          error: `No registered account found with this ${providerLabel}. Please register first.`,
+        },
+        { status: 404 },
       );
     }
 

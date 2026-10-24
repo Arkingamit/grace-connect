@@ -159,13 +159,10 @@ async function redeemFlow(state: string): Promise<AppleSignInOutcome> {
   });
   const data = await res.json().catch(() => ({}));
 
-  if (data?.needsRegistration) {
+  if (data?.needsRegistration || data?.error) {
     return {
-      kind: 'needs-registration',
-      appleState: data.appleState || state,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      email: data.email,
+      kind: 'error',
+      message: data?.error || 'No registered account found with this Apple ID. Please register first.',
     };
   }
 

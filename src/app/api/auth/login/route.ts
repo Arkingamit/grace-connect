@@ -53,13 +53,11 @@ export async function POST(req: Request) {
     );
 
     if (result.needsRegistration) {
-      return NextResponse.json({
-        needsRegistration: true,
-        firstName: firstName || '',
-        lastName: lastName || '',
-        email,
-        picture: picture || '',
-      });
+      const providerLabel = provider === 'apple' ? 'Apple ID' : 'Google account';
+      return NextResponse.json(
+        { error: `No registered account found with this ${providerLabel}. Please register first.` },
+        { status: 404 },
+      );
     }
 
     if (!result.ok) {

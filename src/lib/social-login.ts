@@ -54,9 +54,12 @@ export async function signInVerifiedEmail(
   ).lean();
 
   if (!user) {
+    const label = providerLabel === 'Apple' ? 'Apple ID' : 'Google account';
     return {
       ok: false,
+      status: 404,
       needsRegistration: true,
+      error: `No registered account found with this ${label}. Please register first.`,
     };
   }
 

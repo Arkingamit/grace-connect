@@ -112,11 +112,17 @@ export async function POST(req: Request) {
 
     const existing = await User.findOne({ email }, { _id: 1 }).lean();
     if (!existing) {
-      const dest = new URL('/register', new URL(req.url).origin);
-      dest.searchParams.set('appleState', session.state);
-      if (session.firstName) dest.searchParams.set('firstName', session.firstName);
-      if (session.lastName) dest.searchParams.set('lastName', session.lastName);
-      return NextResponse.redirect(dest, 303);
+      if (session.intent === 'register') {
+        const dest = new URL(redirectTo, new URL(req.url).origin);
+        dest.searchParams.set('appleState', session.state);
+        if (session.firstName) dest.searchParams.set('firstName', session.firstName);
+        if (session.lastName) dest.searchParams.set('lastName', session.lastName);
+        return NextResponse.redirect(dest, 303);
+      }
+      return backToLogin(
+        req,
+        'No registered account found with this Apple ID. Please register first.',
+      );
     }
 
     const result = await signInVerifiedEmail(email, 'Apple', {

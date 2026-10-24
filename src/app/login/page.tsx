@@ -125,24 +125,13 @@ export default function LoginPage() {
           break;
 
         case "new":
-          // New user — store credential, then continue at the campus form if known
-          setPendingCredential({ credential, provider, picture });
-          try {
-            sessionStorage.setItem(
-              "grace-verified-credential",
-              JSON.stringify({ credential, provider, picture, email: result.email })
-            );
-          } catch {
-            // private mode
-          }
-          {
-            const campusId = campusIdFromSearch(searchParams) || readCampusInvite();
-            if (campusId) {
-              router.push(campusRegisterPath(campusId));
-              break;
-            }
-          }
-          setShowScanner(true);
+          // Unregistered user — cannot log in without prior registration
+          setError(
+            result.error ||
+              (provider === "apple"
+                ? "No registered account found with this Apple ID. Please register first."
+                : "No registered account found with this Google account. Please register first.")
+          );
           break;
 
         case "pending":

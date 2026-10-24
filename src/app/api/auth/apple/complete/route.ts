@@ -39,13 +39,11 @@ export async function POST(req: Request) {
       lastName: session.lastName,
     });
     if (result.needsRegistration) {
-      return NextResponse.json({
-        needsRegistration: true,
-        appleState: session.state,
-        firstName: session.firstName || '',
-        lastName: session.lastName || '',
-        email: session.email,
-      });
+      await session.deleteOne();
+      return NextResponse.json(
+        { error: 'No registered account found with this Apple ID. Please register first.' },
+        { status: 404 },
+      );
     }
 
     await session.deleteOne();

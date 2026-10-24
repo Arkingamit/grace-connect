@@ -262,7 +262,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ credential, provider, picture }),
       });
       const result = await res.json();
-      if (!res.ok) return { success: false, error: result.error || 'Login failed' };
+      if (!res.ok || !result.success) return { success: false, error: result.error || 'Login failed' };
 
       await fetchSession();
       return { success: true };
