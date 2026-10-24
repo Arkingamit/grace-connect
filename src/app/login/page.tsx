@@ -110,7 +110,16 @@ export default function LoginPage() {
       setNotice("");
       setError(appleError);
     }
-  }, [searchParams]);
+    // Web Apple callback redirects here with showScanner=1 for unregistered users
+    if (searchParams.get("showScanner") === "1") {
+      const campusId = readCampusInvite() || campusIdFromSearch(searchParams);
+      if (campusId) {
+        router.push(campusRegisterPath(campusId));
+      } else {
+        setShowScanner(true);
+      }
+    }
+  }, [searchParams, router]);
 
   /** Handle the result from verify-or-login */
   const handleVerifyResult = useCallback(
@@ -124,15 +133,17 @@ export default function LoginPage() {
           router.push("/");
           break;
 
-        case "new":
-          // Unregistered user — cannot log in without prior registration
-          setError(
-            result.error ||
-              (provider === "apple"
-                ? "No registered account found with this Apple ID. Please register first."
-                : "No registered account found with this Google account. Please register first.")
-          );
+        case "new": {
+          // Unregistered user — store credential and show QR scanner / campus registration
+          setPendingCredential({ credential, provider, picture });
+          const campusId = readCampusInvite() || campusIdFromSearch(searchParams);
+          if (campusId) {
+            router.push(campusRegisterPath(campusId));
+          } else {
+            setShowScanner(true);
+          }
           break;
+        }
 
         case "pending":
           router.push("/");
@@ -265,6 +276,16 @@ export default function LoginPage() {
         });
         const data = await res.json().catch(() => ({}));
         setNotice("");
+        if (data?.needsRegistration) {
+          // Unregistered user — show QR scanner / campus registration
+          const campusId = readCampusInvite() || campusIdFromSearch(searchParams);
+          if (campusId) {
+            router.push(campusRegisterPath(campusId));
+          } else {
+            setShowScanner(true);
+          }
+          return;
+        }
         if (!res.ok || !data?.success) {
           setError(data?.error || "Apple sign-in failed. Please try again.");
           return;

@@ -119,10 +119,10 @@ export async function POST(req: Request) {
         if (session.lastName) dest.searchParams.set('lastName', session.lastName);
         return NextResponse.redirect(dest, 303);
       }
-      return backToLogin(
-        req,
-        'No registered account found with this Apple ID. Please register first.',
-      );
+      // Login intent but no account — redirect to QR scanner for registration
+      const loginUrl = new URL('/login', new URL(req.url).origin);
+      loginUrl.searchParams.set('showScanner', '1');
+      return NextResponse.redirect(loginUrl, 303);
     }
 
     const result = await signInVerifiedEmail(email, 'Apple', {

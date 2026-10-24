@@ -41,8 +41,8 @@ export async function POST(req: Request) {
     if (result.needsRegistration) {
       await session.deleteOne();
       return NextResponse.json(
-        { error: 'No registered account found with this Apple ID. Please register first.' },
-        { status: 404 },
+        { needsRegistration: true },
+        { status: 200 },
       );
     }
 
