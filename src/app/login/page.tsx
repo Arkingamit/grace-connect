@@ -136,6 +136,14 @@ export default function LoginPage() {
         case "new": {
           // Unregistered user — store credential and show QR scanner / campus registration
           setPendingCredential({ credential, provider, picture });
+          try {
+            sessionStorage.setItem(
+              "grace-verified-credential",
+              JSON.stringify({ credential, provider, picture, email: result.email })
+            );
+          } catch {
+            // private mode
+          }
           const campusId = readCampusInvite() || campusIdFromSearch(searchParams);
           if (campusId) {
             router.push(campusRegisterPath(campusId));
