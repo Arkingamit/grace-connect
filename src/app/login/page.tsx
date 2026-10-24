@@ -112,12 +112,7 @@ export default function LoginPage() {
     }
     // Web Apple callback redirects here with showScanner=1 for unregistered users
     if (searchParams.get("showScanner") === "1") {
-      const campusId = readCampusInvite() || campusIdFromSearch(searchParams);
-      if (campusId) {
-        router.push(campusRegisterPath(campusId));
-      } else {
-        setShowScanner(true);
-      }
+      setShowScanner(true);
     }
   }, [searchParams, router]);
 
@@ -144,12 +139,7 @@ export default function LoginPage() {
           } catch {
             // private mode
           }
-          const campusId = readCampusInvite() || campusIdFromSearch(searchParams);
-          if (campusId) {
-            router.push(campusRegisterPath(campusId));
-          } else {
-            setShowScanner(true);
-          }
+          setShowScanner(true);
           break;
         }
 
@@ -285,13 +275,8 @@ export default function LoginPage() {
         const data = await res.json().catch(() => ({}));
         setNotice("");
         if (data?.needsRegistration) {
-          // Unregistered user — show QR scanner / campus registration
-          const campusId = readCampusInvite() || campusIdFromSearch(searchParams);
-          if (campusId) {
-            router.push(campusRegisterPath(campusId));
-          } else {
-            setShowScanner(true);
-          }
+          // Unregistered user — always show QR scanner
+          setShowScanner(true);
           return;
         }
         if (!res.ok || !data?.success) {
